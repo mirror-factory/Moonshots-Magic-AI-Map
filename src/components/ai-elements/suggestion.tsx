@@ -8,8 +8,10 @@ import {
 import { cn } from "@/lib/utils";
 import type { ComponentProps } from "react";
 
+/** Props for the Suggestions horizontal scroll container. */
 export type SuggestionsProps = ComponentProps<typeof ScrollArea>;
 
+/** Horizontally scrollable container for suggestion chips. */
 export const Suggestions = ({
   className,
   children,
@@ -23,11 +25,13 @@ export const Suggestions = ({
   </ScrollArea>
 );
 
+/** Props for an individual Suggestion chip button. */
 export type SuggestionProps = Omit<ComponentProps<typeof Button>, "onClick"> & {
   suggestion: string;
   onClick?: (suggestion: string) => void;
 };
 
+/** Clickable suggestion chip that sends a predefined message. */
 export const Suggestion = ({
   suggestion,
   onClick,

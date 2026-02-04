@@ -9,8 +9,10 @@ import { cn } from "@/lib/utils";
 import { BookIcon, ChevronDownIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 
+/** Props for the Sources collapsible container. */
 export type SourcesProps = ComponentProps<"div">;
 
+/** Collapsible container listing referenced sources. */
 export const Sources = ({ className, ...props }: SourcesProps) => (
   <Collapsible
     className={cn("not-prose mb-4 text-primary text-xs", className)}
@@ -18,10 +20,12 @@ export const Sources = ({ className, ...props }: SourcesProps) => (
   />
 );
 
+/** Props for the SourcesTrigger component. */
 export type SourcesTriggerProps = ComponentProps<typeof CollapsibleTrigger> & {
   count: number;
 };
 
+/** Trigger that toggles the sources list with a count label. */
 export const SourcesTrigger = ({
   className,
   count,
@@ -41,8 +45,10 @@ export const SourcesTrigger = ({
   </CollapsibleTrigger>
 );
 
+/** Props for the SourcesContent component. */
 export type SourcesContentProps = ComponentProps<typeof CollapsibleContent>;
 
+/** Animated content panel listing source links. */
 export const SourcesContent = ({
   className,
   ...props
@@ -57,8 +63,10 @@ export const SourcesContent = ({
   />
 );
 
+/** Props for an individual Source link. */
 export type SourceProps = ComponentProps<"a">;
 
+/** External link to a referenced source with icon and title. */
 export const Source = ({ href, title, children, ...props }: SourceProps) => (
   <a
     className="flex items-center gap-2"

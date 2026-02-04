@@ -17,6 +17,7 @@ interface MapMarkersProps {
   visibleCategories: Set<EventCategory>;
 }
 
+/** Renders events as a GeoJSON circle layer with category-based colors. */
 export function MapMarkers({ events, visibleCategories }: MapMarkersProps) {
   const map = useMap();
   const [loaded, setLoaded] = useState(false);
@@ -75,7 +76,6 @@ export function MapMarkers({ events, visibleCategories }: MapMarkersProps) {
     return () => {
       map.off("load", addLayer);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, events]);
 
   // Filter by visible categories

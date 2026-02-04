@@ -28,6 +28,7 @@ const toggleVariants = cva(
   }
 )
 
+/** Two-state toggle button with variant and size options. */
 function Toggle({
   className,
   variant,

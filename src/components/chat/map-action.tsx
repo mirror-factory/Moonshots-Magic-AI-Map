@@ -21,6 +21,7 @@ interface MapActionProps {
   input: MapActionInput;
 }
 
+/** Executes a map navigation tool call and renders a status pill. */
 export function MapAction({ input }: MapActionProps) {
   const map = useMap();
   const executedRef = useRef(false);

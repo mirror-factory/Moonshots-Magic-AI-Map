@@ -6,28 +6,33 @@ import { Dialog as SheetPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
+/** Root sheet component managing open/close state. */
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
 }
 
+/** Element that opens the sheet when clicked. */
 function SheetTrigger({
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Trigger>) {
   return <SheetPrimitive.Trigger data-slot="sheet-trigger" {...props} />
 }
 
+/** Element that closes the sheet when clicked. */
 function SheetClose({
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Close>) {
   return <SheetPrimitive.Close data-slot="sheet-close" {...props} />
 }
 
+/** Portal for rendering sheet content outside the DOM hierarchy. */
 function SheetPortal({
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Portal>) {
   return <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />
 }
 
+/** Semi-transparent backdrop behind the sheet. */
 function SheetOverlay({
   className,
   ...props
@@ -44,6 +49,7 @@ function SheetOverlay({
   )
 }
 
+/** Slide-in panel anchored to a screen edge with optional close button. */
 function SheetContent({
   className,
   children,
@@ -85,6 +91,7 @@ function SheetContent({
   )
 }
 
+/** Header area of a sheet containing title and description. */
 function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -95,6 +102,7 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/** Footer area of a sheet with action buttons. */
 function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -105,6 +113,7 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/** Accessible title heading for the sheet. */
 function SheetTitle({
   className,
   ...props
@@ -118,6 +127,7 @@ function SheetTitle({
   )
 }
 
+/** Accessible description text for the sheet. */
 function SheetDescription({
   className,
   ...props

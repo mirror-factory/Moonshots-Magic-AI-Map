@@ -1,3 +1,8 @@
+/**
+ * @module app/layout
+ * Root layout for the application. Configures fonts and global styles.
+ */
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -17,6 +22,7 @@ export const metadata: Metadata = {
   description: "Events discovery platform for Orlando & Central Florida",
 };
 
+/** Root layout wrapping all pages with fonts and global styles. */
 export default function RootLayout({
   children,
 }: Readonly<{

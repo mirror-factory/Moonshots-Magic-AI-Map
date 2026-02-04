@@ -12,6 +12,7 @@ interface ChatTriggerProps {
   onClick: () => void;
 }
 
+/** Floating action button that opens the chat panel. */
 export function ChatTrigger({ onClick }: ChatTriggerProps) {
   return (
     <Button

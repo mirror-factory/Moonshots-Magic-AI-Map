@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 
+/** Container that groups an input with addons and buttons. */
 function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -57,6 +58,7 @@ const inputGroupAddonVariants = cva(
   }
 )
 
+/** Addon element (icon, text, button) attached to an input group. */
 function InputGroupAddon({
   className,
   align = "inline-start",
@@ -97,6 +99,7 @@ const inputGroupButtonVariants = cva(
   }
 )
 
+/** Compact button sized to fit within an input group addon. */
 function InputGroupButton({
   className,
   type = "button",
@@ -116,6 +119,7 @@ function InputGroupButton({
   )
 }
 
+/** Static text or icon displayed inside an input group addon. */
 function InputGroupText({ className, ...props }: React.ComponentProps<"span">) {
   return (
     <span
@@ -128,6 +132,7 @@ function InputGroupText({ className, ...props }: React.ComponentProps<"span">) {
   )
 }
 
+/** Text input styled to sit within an input group. */
 function InputGroupInput({
   className,
   ...props
@@ -144,6 +149,7 @@ function InputGroupInput({
   )
 }
 
+/** Multi-line textarea styled to sit within an input group. */
 function InputGroupTextarea({
   className,
   ...props

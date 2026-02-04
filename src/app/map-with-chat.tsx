@@ -16,6 +16,7 @@ interface MapWithChatProps {
   events: EventEntry[];
 }
 
+/** Composes the full-screen map with the floating chat panel. */
 export function MapWithChat({ events }: MapWithChatProps) {
   const [chatInput, setChatInput] = useState<string | undefined>();
 

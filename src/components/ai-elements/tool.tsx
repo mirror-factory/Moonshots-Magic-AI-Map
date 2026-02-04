@@ -20,8 +20,10 @@ import type { ComponentProps, ReactNode } from "react";
 import { isValidElement } from "react";
 import { CodeBlock } from "./code-block";
 
+/** Props for the Tool collapsible container. */
 export type ToolProps = ComponentProps<typeof Collapsible>;
 
+/** Collapsible container for displaying tool call details. */
 export const Tool = ({ className, ...props }: ToolProps) => (
   <Collapsible
     className={cn("group not-prose mb-4 w-full rounded-md border", className)}
@@ -29,8 +31,10 @@ export const Tool = ({ className, ...props }: ToolProps) => (
   />
 );
 
+/** Union type for standard and dynamic tool UI parts. */
 export type ToolPart = ToolUIPart | DynamicToolUIPart;
 
+/** Props for the ToolHeader trigger component. */
 export type ToolHeaderProps = {
   title?: string;
   className?: string;
@@ -43,6 +47,7 @@ export type ToolHeaderProps = {
     }
 );
 
+/** Returns a status badge with icon for the given tool execution state. */
 export const getStatusBadge = (status: ToolPart["state"]) => {
   const labels: Record<ToolPart["state"], string> = {
     "input-streaming": "Pending",
@@ -72,6 +77,7 @@ export const getStatusBadge = (status: ToolPart["state"]) => {
   );
 };
 
+/** Clickable header that shows tool name, status badge, and chevron. */
 export const ToolHeader = ({
   className,
   title,
@@ -101,8 +107,10 @@ export const ToolHeader = ({
   );
 };
 
+/** Props for the ToolContent collapsible panel. */
 export type ToolContentProps = ComponentProps<typeof CollapsibleContent>;
 
+/** Animated content panel for tool input/output details. */
 export const ToolContent = ({ className, ...props }: ToolContentProps) => (
   <CollapsibleContent
     className={cn(
@@ -113,10 +121,12 @@ export const ToolContent = ({ className, ...props }: ToolContentProps) => (
   />
 );
 
+/** Props for the ToolInput parameters display. */
 export type ToolInputProps = ComponentProps<"div"> & {
   input: ToolPart["input"];
 };
 
+/** Renders tool call parameters as a formatted JSON code block. */
 export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
   <div className={cn("space-y-2 overflow-hidden", className)} {...props}>
     <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
@@ -128,11 +138,13 @@ export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
   </div>
 );
 
+/** Props for the ToolOutput result display. */
 export type ToolOutputProps = ComponentProps<"div"> & {
   output: ToolPart["output"];
   errorText: ToolPart["errorText"];
 };
 
+/** Renders tool execution output or error as a formatted block. */
 export const ToolOutput = ({
   className,
   output,

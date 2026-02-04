@@ -17,6 +17,7 @@ interface MapPopupsProps {
   onAskAbout?: (eventTitle: string) => void;
 }
 
+/** Handles click-to-popup interactions on the events map layer. */
 export function MapPopups({ onAskAbout }: MapPopupsProps) {
   const map = useMap();
   const popupRef = useRef<maplibregl.Popup | null>(null);

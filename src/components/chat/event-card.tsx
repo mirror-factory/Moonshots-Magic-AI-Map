@@ -27,6 +27,7 @@ interface EventCardProps {
   event: EventCardEvent;
 }
 
+/** Compact card displaying a single event's details in the chat. */
 export function EventCard({ event }: EventCardProps) {
   const date = new Date(event.startDate);
   const dateStr = date.toLocaleDateString("en-US", {

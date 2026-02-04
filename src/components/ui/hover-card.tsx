@@ -5,12 +5,14 @@ import { HoverCard as HoverCardPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
+/** Card that appears on hover over a trigger element. */
 function HoverCard({
   ...props
 }: React.ComponentProps<typeof HoverCardPrimitive.Root>) {
   return <HoverCardPrimitive.Root data-slot="hover-card" {...props} />
 }
 
+/** Element that shows the hover card when hovered. */
 function HoverCardTrigger({
   ...props
 }: React.ComponentProps<typeof HoverCardPrimitive.Trigger>) {
@@ -19,6 +21,7 @@ function HoverCardTrigger({
   )
 }
 
+/** Popover content displayed when hovering over the trigger. */
 function HoverCardContent({
   className,
   align = "center",

@@ -26,6 +26,7 @@ interface ReasoningContextValue {
 
 const ReasoningContext = createContext<ReasoningContextValue | null>(null);
 
+/** Returns the current reasoning context (streaming state, duration). */
 export const useReasoning = () => {
   const context = useContext(ReasoningContext);
   if (!context) {
@@ -34,6 +35,7 @@ export const useReasoning = () => {
   return context;
 };
 
+/** Props for the Reasoning collapsible component. */
 export type ReasoningProps = ComponentProps<typeof Collapsible> & {
   isStreaming?: boolean;
   open?: boolean;
@@ -70,6 +72,7 @@ export const Reasoning = memo(
     const [startTime, setStartTime] = useState<number | null>(null);
 
     // Track duration when streaming starts and ends
+    /* eslint-disable react-hooks/set-state-in-effect -- tracks streaming timing; single state transition per effect run */
     useEffect(() => {
       if (isStreaming) {
         if (startTime === null) {
@@ -80,6 +83,7 @@ export const Reasoning = memo(
         setStartTime(null);
       }
     }, [isStreaming, startTime, setDuration]);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     // Auto-open when streaming starts, auto-close when streaming ends (once only)
     useEffect(() => {
@@ -115,6 +119,7 @@ export const Reasoning = memo(
   }
 );
 
+/** Props for the ReasoningTrigger component. */
 export type ReasoningTriggerProps = ComponentProps<
   typeof CollapsibleTrigger
 > & {
@@ -165,6 +170,7 @@ export const ReasoningTrigger = memo(
   }
 );
 
+/** Props for the ReasoningContent rendered markdown panel. */
 export type ReasoningContentProps = ComponentProps<
   typeof CollapsibleContent
 > & {

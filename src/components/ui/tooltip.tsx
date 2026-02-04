@@ -5,6 +5,7 @@ import { Tooltip as TooltipPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
+/** Context provider that configures tooltip delay and behavior. */
 function TooltipProvider({
   delayDuration = 0,
   ...props
@@ -18,18 +19,21 @@ function TooltipProvider({
   )
 }
 
+/** Root tooltip component managing visibility state. */
 function Tooltip({
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
   return <TooltipPrimitive.Root data-slot="tooltip" {...props} />
 }
 
+/** Element that shows the tooltip on hover or focus. */
 function TooltipTrigger({
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
   return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />
 }
 
+/** Popover content displayed when the tooltip is visible. */
 function TooltipContent({
   className,
   sideOffset = 0,

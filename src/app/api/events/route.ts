@@ -10,6 +10,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getEvents } from "@/lib/registries/events";
 import type { EventCategory, EventFilters } from "@/lib/registries/types";
 
+/**
+ * Handles GET requests for querying events with optional filters.
+ *
+ * @param req - The incoming request with search params.
+ * @returns JSON response with event count and matching events.
+ */
 export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
 

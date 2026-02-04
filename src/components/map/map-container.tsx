@@ -29,6 +29,7 @@ interface MapContainerProps {
   children?: ReactNode;
 }
 
+/** Renders the root map with MapLibre GL and composes child layers. */
 export function MapContainer({ events, onAskAbout, children }: MapContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<maplibregl.Map | null>(null);

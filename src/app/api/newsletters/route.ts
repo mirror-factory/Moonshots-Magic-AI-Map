@@ -9,6 +9,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getNewsletters } from "@/lib/registries/newsletters";
 import type { NewsletterCategory, NewsletterFilters } from "@/lib/registries/types";
 
+/**
+ * Handles GET requests for querying newsletters with optional filters.
+ *
+ * @param req - The incoming request with search params.
+ * @returns JSON response with newsletter count and matching entries.
+ */
 export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
 

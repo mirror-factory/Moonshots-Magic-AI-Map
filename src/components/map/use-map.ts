@@ -11,6 +11,11 @@ import type maplibregl from "maplibre-gl";
 
 export const MapContext = createContext<maplibregl.Map | null>(null);
 
+/**
+ * Returns the current MapLibre GL map instance from context.
+ *
+ * @returns The map instance, or null if not yet initialized.
+ */
 export function useMap() {
   return useContext(MapContext);
 }

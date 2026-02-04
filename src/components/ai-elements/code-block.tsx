@@ -167,7 +167,7 @@ const createRawTokens = (code: string): TokenizedCode => ({
   bg: "transparent",
 });
 
-// Synchronous highlight with callback for async results
+/** Synchronously returns cached highlighted tokens or null, optionally subscribing to async results via callback. */
 export function highlightCode(
   code: string,
   language: BundledLanguage,
@@ -297,6 +297,9 @@ const CodeBlockBody = memo(
     prevProps.className === nextProps.className
 );
 
+CodeBlockBody.displayName = "CodeBlockBody";
+
+/** Outer wrapper for a code block with border, rounded corners, and content-visibility optimization. */
 export const CodeBlockContainer = ({
   className,
   language,
@@ -318,6 +321,7 @@ export const CodeBlockContainer = ({
   />
 );
 
+/** Header bar for a code block, typically containing title and action buttons. */
 export const CodeBlockHeader = ({
   children,
   className,
@@ -334,6 +338,7 @@ export const CodeBlockHeader = ({
   </div>
 );
 
+/** Title area within the code block header. */
 export const CodeBlockTitle = ({
   children,
   className,
@@ -344,6 +349,7 @@ export const CodeBlockTitle = ({
   </div>
 );
 
+/** Monospaced filename label for the code block header. */
 export const CodeBlockFilename = ({
   children,
   className,
@@ -354,6 +360,7 @@ export const CodeBlockFilename = ({
   </span>
 );
 
+/** Action button container within the code block header. */
 export const CodeBlockActions = ({
   children,
   className,
@@ -367,6 +374,7 @@ export const CodeBlockActions = ({
   </div>
 );
 
+/** Syntax-highlighted code content with async Shiki tokenization and optional line numbers. */
 export const CodeBlockContent = ({
   code,
   language,
@@ -385,7 +393,8 @@ export const CodeBlockContent = ({
   );
 
   useEffect(() => {
-    // Reset to raw tokens when code changes (shows current code, not stale tokens)
+    // Reset to cached tokens synchronously, then subscribe for async result
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronous cache read followed by async subscription; no cascading risk
     setTokenized(highlightCode(code, language) ?? rawTokens);
 
     // Subscribe to async highlighting result
@@ -399,6 +408,7 @@ export const CodeBlockContent = ({
   );
 };
 
+/** Syntax-highlighted code block with copy support, language badge, and optional line numbers. */
 export const CodeBlock = ({
   code,
   language,
@@ -419,12 +429,14 @@ export const CodeBlock = ({
   </CodeBlockContext.Provider>
 );
 
+/** Props for the CodeBlockCopyButton component. */
 export type CodeBlockCopyButtonProps = ComponentProps<typeof Button> & {
   onCopy?: () => void;
   onError?: (error: Error) => void;
   timeout?: number;
 };
 
+/** Button that copies the code block content to the clipboard with a check icon confirmation. */
 export const CodeBlockCopyButton = ({
   onCopy,
   onError,
@@ -480,16 +492,20 @@ export const CodeBlockCopyButton = ({
   );
 };
 
+/** Props for the CodeBlockLanguageSelector component. */
 export type CodeBlockLanguageSelectorProps = ComponentProps<typeof Select>;
 
+/** Dropdown selector for switching the code block language. */
 export const CodeBlockLanguageSelector = (
   props: CodeBlockLanguageSelectorProps
 ) => <Select {...props} />;
 
+/** Props for the CodeBlockLanguageSelectorTrigger component. */
 export type CodeBlockLanguageSelectorTriggerProps = ComponentProps<
   typeof SelectTrigger
 >;
 
+/** Trigger button for the language selector dropdown. */
 export const CodeBlockLanguageSelectorTrigger = ({
   className,
   ...props
@@ -504,18 +520,22 @@ export const CodeBlockLanguageSelectorTrigger = ({
   />
 );
 
+/** Props for the CodeBlockLanguageSelectorValue component. */
 export type CodeBlockLanguageSelectorValueProps = ComponentProps<
   typeof SelectValue
 >;
 
+/** Displays the currently selected language in the selector trigger. */
 export const CodeBlockLanguageSelectorValue = (
   props: CodeBlockLanguageSelectorValueProps
 ) => <SelectValue {...props} />;
 
+/** Props for the CodeBlockLanguageSelectorContent component. */
 export type CodeBlockLanguageSelectorContentProps = ComponentProps<
   typeof SelectContent
 >;
 
+/** Dropdown content panel for the language selector. */
 export const CodeBlockLanguageSelectorContent = ({
   align = "end",
   ...props
@@ -523,10 +543,12 @@ export const CodeBlockLanguageSelectorContent = ({
   <SelectContent align={align} {...props} />
 );
 
+/** Props for the CodeBlockLanguageSelectorItem component. */
 export type CodeBlockLanguageSelectorItemProps = ComponentProps<
   typeof SelectItem
 >;
 
+/** Individual language option within the language selector dropdown. */
 export const CodeBlockLanguageSelectorItem = (
   props: CodeBlockLanguageSelectorItemProps
 ) => <SelectItem {...props} />;

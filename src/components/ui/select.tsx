@@ -6,24 +6,28 @@ import { Select as SelectPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
+/** Root select component managing value and open/close state. */
 function Select({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
   return <SelectPrimitive.Root data-slot="select" {...props} />
 }
 
+/** Logical group of related select items. */
 function SelectGroup({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Group>) {
   return <SelectPrimitive.Group data-slot="select-group" {...props} />
 }
 
+/** Displays the currently selected value or placeholder text. */
 function SelectValue({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Value>) {
   return <SelectPrimitive.Value data-slot="select-value" {...props} />
 }
 
+/** Button that opens the select dropdown with a chevron icon. */
 function SelectTrigger({
   className,
   size = "default",
@@ -50,6 +54,7 @@ function SelectTrigger({
   )
 }
 
+/** Popover panel listing all select options. */
 function SelectContent({
   className,
   children,
@@ -87,6 +92,7 @@ function SelectContent({
   )
 }
 
+/** Non-interactive label for a group of select items. */
 function SelectLabel({
   className,
   ...props
@@ -100,6 +106,7 @@ function SelectLabel({
   )
 }
 
+/** Selectable option within a select dropdown. */
 function SelectItem({
   className,
   children,
@@ -127,6 +134,7 @@ function SelectItem({
   )
 }
 
+/** Horizontal divider between groups of select items. */
 function SelectSeparator({
   className,
   ...props
@@ -140,6 +148,7 @@ function SelectSeparator({
   )
 }
 
+/** Button at the top of the select list for scrolling up. */
 function SelectScrollUpButton({
   className,
   ...props
@@ -158,6 +167,7 @@ function SelectScrollUpButton({
   )
 }
 
+/** Button at the bottom of the select list for scrolling down. */
 function SelectScrollDownButton({
   className,
   ...props

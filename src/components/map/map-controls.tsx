@@ -21,6 +21,7 @@ interface MapControlsProps {
   eventCount: number;
 }
 
+/** Slide-out panel with category filters, quick-navigate buttons, and legend. */
 export function MapControls({
   open,
   onToggle,

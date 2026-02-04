@@ -5,6 +5,7 @@ import { Separator as SeparatorPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
+/** Visual divider supporting horizontal and vertical orientations. */
 function Separator({
   className,
   orientation = "horizontal",

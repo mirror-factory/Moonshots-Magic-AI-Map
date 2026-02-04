@@ -23,6 +23,7 @@ interface NewsletterCardProps {
   items: NewsletterItem[];
 }
 
+/** Renders a list of newsletter search results in the chat. */
 export function NewsletterCard({ items }: NewsletterCardProps) {
   if (!items.length) {
     return (

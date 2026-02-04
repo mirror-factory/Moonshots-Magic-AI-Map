@@ -27,6 +27,7 @@ interface EventListProps {
   ranked?: boolean;
 }
 
+/** Vertical list of event cards, optionally numbered for ranked results. */
 export function EventList({ events, ranked }: EventListProps) {
   if (!events.length) {
     return (

@@ -69,6 +69,7 @@ import {
 // Provider Context & Types
 // ============================================================================
 
+/** Context for managing file attachments in the prompt input. */
 export interface AttachmentsContext {
   files: (FileUIPart & { id: string })[];
   add: (files: File[] | FileList) => void;
@@ -78,12 +79,14 @@ export interface AttachmentsContext {
   fileInputRef: RefObject<HTMLInputElement | null>;
 }
 
+/** Context for managing text input state in the prompt input. */
 export interface TextInputContext {
   value: string;
   setInput: (v: string) => void;
   clear: () => void;
 }
 
+/** Props exposed by the PromptInputController context. */
 export interface PromptInputControllerProps {
   textInput: TextInputContext;
   attachments: AttachmentsContext;
@@ -101,6 +104,7 @@ const ProviderAttachmentsContext = createContext<AttachmentsContext | null>(
   null
 );
 
+/** Hook that returns the prompt input controller context. */
 export const usePromptInputController = () => {
   const ctx = useContext(PromptInputController);
   if (!ctx) {
@@ -115,6 +119,7 @@ export const usePromptInputController = () => {
 const useOptionalPromptInputController = () =>
   useContext(PromptInputController);
 
+/** Hook that returns the provider-level attachments context. */
 export const useProviderAttachments = () => {
   const ctx = useContext(ProviderAttachmentsContext);
   if (!ctx) {
@@ -128,6 +133,7 @@ export const useProviderAttachments = () => {
 const useOptionalProviderAttachments = () =>
   useContext(ProviderAttachmentsContext);
 
+/** Props for the PromptInputProvider component. */
 export type PromptInputProviderProps = PropsWithChildren<{
   initialInput?: string;
 }>;
@@ -193,7 +199,9 @@ export function PromptInputProvider({
 
   // Keep a ref to attachments for cleanup on unmount (avoids stale closure)
   const attachmentsRef = useRef(attachmentFiles);
-  attachmentsRef.current = attachmentFiles;
+  useEffect(() => {
+    attachmentsRef.current = attachmentFiles;
+  }, [attachmentFiles]);
 
   // Cleanup blob URLs on unmount to prevent memory leaks
   useEffect(
@@ -259,6 +267,7 @@ export function PromptInputProvider({
 
 const LocalAttachmentsContext = createContext<AttachmentsContext | null>(null);
 
+/** Hook that returns the attachments context from the nearest PromptInput or provider. */
 export const usePromptInputAttachments = () => {
   // Prefer local context (inside PromptInput) as it has validation, fall back to provider
   const provider = useOptionalProviderAttachments();
@@ -276,6 +285,7 @@ export const usePromptInputAttachments = () => {
 // Referenced Sources (Local to PromptInput)
 // ============================================================================
 
+/** Context for managing referenced source documents in the prompt input. */
 export interface ReferencedSourcesContext {
   sources: (SourceDocumentUIPart & { id: string })[];
   add: (sources: SourceDocumentUIPart[] | SourceDocumentUIPart) => void;
@@ -283,9 +293,11 @@ export interface ReferencedSourcesContext {
   clear: () => void;
 }
 
+/** React context for referenced sources scoped to a PromptInput instance. */
 export const LocalReferencedSourcesContext =
   createContext<ReferencedSourcesContext | null>(null);
 
+/** Hook that returns the referenced sources context. */
 export const usePromptInputReferencedSources = () => {
   const ctx = useContext(LocalReferencedSourcesContext);
   if (!ctx) {
@@ -296,12 +308,14 @@ export const usePromptInputReferencedSources = () => {
   return ctx;
 };
 
+/** Props for the PromptInputActionAddAttachments component. */
 export type PromptInputActionAddAttachmentsProps = ComponentProps<
   typeof DropdownMenuItem
 > & {
   label?: string;
 };
 
+/** Dropdown menu item that opens the file dialog to add attachments. */
 export const PromptInputActionAddAttachments = ({
   label = "Add photos or files",
   ...props
@@ -321,11 +335,13 @@ export const PromptInputActionAddAttachments = ({
   );
 };
 
+/** Shape of the message payload emitted on prompt submission. */
 export interface PromptInputMessage {
   text: string;
   files: FileUIPart[];
 }
 
+/** Props for the PromptInput component. */
 export type PromptInputProps = Omit<
   HTMLAttributes<HTMLFormElement>,
   "onSubmit" | "onError"
@@ -349,6 +365,7 @@ export type PromptInputProps = Omit<
   ) => void | Promise<void>;
 };
 
+/** Composable prompt input with textarea, attachments, and submit button. */
 export const PromptInput = ({
   className,
   accept,
@@ -381,7 +398,9 @@ export const PromptInput = ({
 
   // Keep a ref to files for cleanup on unmount (avoids stale closure)
   const filesRef = useRef(files);
-  filesRef.current = files;
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
 
   const openFileDialogLocal = useCallback(() => {
     inputRef.current?.click();
@@ -630,7 +649,6 @@ export const PromptInput = ({
         }
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup only on unmount; filesRef always current
     [usingProvider]
   );
 
@@ -707,6 +725,7 @@ export const PromptInput = ({
 
     // Convert blob URLs to data URLs asynchronously
     Promise.all(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- id intentionally excluded from submitted payload
       files.map(async ({ id, ...item }) => {
         if (item.url?.startsWith("blob:")) {
           const dataUrl = await convertBlobUrlToDataUrl(item.url);
@@ -789,8 +808,10 @@ export const PromptInput = ({
   );
 };
 
+/** Props for the PromptInputBody component. */
 export type PromptInputBodyProps = HTMLAttributes<HTMLDivElement>;
 
+/** Container for the main body area of the prompt input. */
 export const PromptInputBody = ({
   className,
   ...props
@@ -798,10 +819,12 @@ export const PromptInputBody = ({
   <div className={cn("contents", className)} {...props} />
 );
 
+/** Props for the PromptInputTextarea component. */
 export type PromptInputTextareaProps = ComponentProps<
   typeof InputGroupTextarea
 >;
 
+/** Auto-growing textarea with Enter-to-submit, paste-to-attach, and IME support. */
 export const PromptInputTextarea = ({
   onChange,
   onKeyDown,
@@ -908,11 +931,13 @@ export const PromptInputTextarea = ({
   );
 };
 
+/** Props for the PromptInputHeader component. */
 export type PromptInputHeaderProps = Omit<
   ComponentProps<typeof InputGroupAddon>,
   "align"
 >;
 
+/** Header addon area displayed above the textarea. */
 export const PromptInputHeader = ({
   className,
   ...props
@@ -924,11 +949,13 @@ export const PromptInputHeader = ({
   />
 );
 
+/** Props for the PromptInputFooter component. */
 export type PromptInputFooterProps = Omit<
   ComponentProps<typeof InputGroupAddon>,
   "align"
 >;
 
+/** Footer addon area displayed below the textarea. */
 export const PromptInputFooter = ({
   className,
   ...props
@@ -940,8 +967,10 @@ export const PromptInputFooter = ({
   />
 );
 
+/** Props for the PromptInputTools component. */
 export type PromptInputToolsProps = HTMLAttributes<HTMLDivElement>;
 
+/** Inline container for tool buttons in the prompt input. */
 export const PromptInputTools = ({
   className,
   ...props
@@ -949,8 +978,10 @@ export const PromptInputTools = ({
   <div className={cn("flex items-center gap-1", className)} {...props} />
 );
 
+/** Props for the PromptInputButton component. */
 export type PromptInputButtonProps = ComponentProps<typeof InputGroupButton>;
 
+/** Ghost button sized for icon or label use within the prompt input. */
 export const PromptInputButton = ({
   variant = "ghost",
   className,
@@ -971,13 +1002,17 @@ export const PromptInputButton = ({
   );
 };
 
+/** Props for the PromptInputActionMenu component. */
 export type PromptInputActionMenuProps = ComponentProps<typeof DropdownMenu>;
+/** Dropdown menu for prompt input actions like adding attachments. */
 export const PromptInputActionMenu = (props: PromptInputActionMenuProps) => (
   <DropdownMenu {...props} />
 );
 
+/** Props for the PromptInputActionMenuTrigger component. */
 export type PromptInputActionMenuTriggerProps = PromptInputButtonProps;
 
+/** Trigger button that opens the prompt input action menu. */
 export const PromptInputActionMenuTrigger = ({
   className,
   children,
@@ -990,9 +1025,11 @@ export const PromptInputActionMenuTrigger = ({
   </DropdownMenuTrigger>
 );
 
+/** Props for the PromptInputActionMenuContent component. */
 export type PromptInputActionMenuContentProps = ComponentProps<
   typeof DropdownMenuContent
 >;
+/** Content panel for the prompt input action menu. */
 export const PromptInputActionMenuContent = ({
   className,
   ...props
@@ -1000,9 +1037,11 @@ export const PromptInputActionMenuContent = ({
   <DropdownMenuContent align="start" className={cn(className)} {...props} />
 );
 
+/** Props for the PromptInputActionMenuItem component. */
 export type PromptInputActionMenuItemProps = ComponentProps<
   typeof DropdownMenuItem
 >;
+/** Single item within the prompt input action menu. */
 export const PromptInputActionMenuItem = ({
   className,
   ...props
@@ -1013,11 +1052,13 @@ export const PromptInputActionMenuItem = ({
 // Note: Actions that perform side-effects (like opening a file dialog)
 // are provided in opt-in modules (e.g., prompt-input-attachments).
 
+/** Props for the PromptInputSubmit component. */
 export type PromptInputSubmitProps = ComponentProps<typeof InputGroupButton> & {
   status?: ChatStatus;
   onStop?: () => void;
 };
 
+/** Submit button with status-aware icon (send, loading, stop, error). */
 export const PromptInputSubmit = ({
   className,
   variant = "default",
@@ -1064,16 +1105,20 @@ export const PromptInputSubmit = ({
   );
 };
 
+/** Props for the PromptInputSelect component. */
 export type PromptInputSelectProps = ComponentProps<typeof Select>;
 
+/** Select dropdown styled for the prompt input. */
 export const PromptInputSelect = (props: PromptInputSelectProps) => (
   <Select {...props} />
 );
 
+/** Props for the PromptInputSelectTrigger component. */
 export type PromptInputSelectTriggerProps = ComponentProps<
   typeof SelectTrigger
 >;
 
+/** Trigger button for the prompt input select dropdown. */
 export const PromptInputSelectTrigger = ({
   className,
   ...props
@@ -1088,10 +1133,12 @@ export const PromptInputSelectTrigger = ({
   />
 );
 
+/** Props for the PromptInputSelectContent component. */
 export type PromptInputSelectContentProps = ComponentProps<
   typeof SelectContent
 >;
 
+/** Content panel for the prompt input select dropdown. */
 export const PromptInputSelectContent = ({
   className,
   ...props
@@ -1099,8 +1146,10 @@ export const PromptInputSelectContent = ({
   <SelectContent className={cn(className)} {...props} />
 );
 
+/** Props for the PromptInputSelectItem component. */
 export type PromptInputSelectItemProps = ComponentProps<typeof SelectItem>;
 
+/** Single option within the prompt input select dropdown. */
 export const PromptInputSelectItem = ({
   className,
   ...props
@@ -1108,8 +1157,10 @@ export const PromptInputSelectItem = ({
   <SelectItem className={cn(className)} {...props} />
 );
 
+/** Props for the PromptInputSelectValue component. */
 export type PromptInputSelectValueProps = ComponentProps<typeof SelectValue>;
 
+/** Displays the currently selected value in the prompt input select. */
 export const PromptInputSelectValue = ({
   className,
   ...props
@@ -1117,8 +1168,10 @@ export const PromptInputSelectValue = ({
   <SelectValue className={cn(className)} {...props} />
 );
 
+/** Props for the PromptInputHoverCard component. */
 export type PromptInputHoverCardProps = ComponentProps<typeof HoverCard>;
 
+/** Hover card with instant open/close delays for the prompt input. */
 export const PromptInputHoverCard = ({
   openDelay = 0,
   closeDelay = 0,
@@ -1127,18 +1180,22 @@ export const PromptInputHoverCard = ({
   <HoverCard closeDelay={closeDelay} openDelay={openDelay} {...props} />
 );
 
+/** Props for the PromptInputHoverCardTrigger component. */
 export type PromptInputHoverCardTriggerProps = ComponentProps<
   typeof HoverCardTrigger
 >;
 
+/** Trigger element that activates the prompt input hover card. */
 export const PromptInputHoverCardTrigger = (
   props: PromptInputHoverCardTriggerProps
 ) => <HoverCardTrigger {...props} />;
 
+/** Props for the PromptInputHoverCardContent component. */
 export type PromptInputHoverCardContentProps = ComponentProps<
   typeof HoverCardContent
 >;
 
+/** Content panel for the prompt input hover card. */
 export const PromptInputHoverCardContent = ({
   align = "start",
   ...props
@@ -1146,22 +1203,28 @@ export const PromptInputHoverCardContent = ({
   <HoverCardContent align={align} {...props} />
 );
 
+/** Props for the PromptInputTabsList component. */
 export type PromptInputTabsListProps = HTMLAttributes<HTMLDivElement>;
 
+/** Container for a list of prompt input tabs. */
 export const PromptInputTabsList = ({
   className,
   ...props
 }: PromptInputTabsListProps) => <div className={cn(className)} {...props} />;
 
+/** Props for the PromptInputTab component. */
 export type PromptInputTabProps = HTMLAttributes<HTMLDivElement>;
 
+/** Single tab panel within the prompt input tabs. */
 export const PromptInputTab = ({
   className,
   ...props
 }: PromptInputTabProps) => <div className={cn(className)} {...props} />;
 
+/** Props for the PromptInputTabLabel component. */
 export type PromptInputTabLabelProps = HTMLAttributes<HTMLHeadingElement>;
 
+/** Heading label for a prompt input tab section. */
 export const PromptInputTabLabel = ({
   className,
   ...props
@@ -1175,8 +1238,10 @@ export const PromptInputTabLabel = ({
   />
 );
 
+/** Props for the PromptInputTabBody component. */
 export type PromptInputTabBodyProps = HTMLAttributes<HTMLDivElement>;
 
+/** Body content area within a prompt input tab. */
 export const PromptInputTabBody = ({
   className,
   ...props
@@ -1184,8 +1249,10 @@ export const PromptInputTabBody = ({
   <div className={cn("space-y-1", className)} {...props} />
 );
 
+/** Props for the PromptInputTabItem component. */
 export type PromptInputTabItemProps = HTMLAttributes<HTMLDivElement>;
 
+/** Single selectable item within a prompt input tab body. */
 export const PromptInputTabItem = ({
   className,
   ...props
@@ -1199,15 +1266,19 @@ export const PromptInputTabItem = ({
   />
 );
 
+/** Props for the PromptInputCommand component. */
 export type PromptInputCommandProps = ComponentProps<typeof Command>;
 
+/** Command palette wrapper styled for the prompt input. */
 export const PromptInputCommand = ({
   className,
   ...props
 }: PromptInputCommandProps) => <Command className={cn(className)} {...props} />;
 
+/** Props for the PromptInputCommandInput component. */
 export type PromptInputCommandInputProps = ComponentProps<typeof CommandInput>;
 
+/** Search input for the prompt input command palette. */
 export const PromptInputCommandInput = ({
   className,
   ...props
@@ -1215,8 +1286,10 @@ export const PromptInputCommandInput = ({
   <CommandInput className={cn(className)} {...props} />
 );
 
+/** Props for the PromptInputCommandList component. */
 export type PromptInputCommandListProps = ComponentProps<typeof CommandList>;
 
+/** Scrollable list of command items in the prompt input. */
 export const PromptInputCommandList = ({
   className,
   ...props
@@ -1224,8 +1297,10 @@ export const PromptInputCommandList = ({
   <CommandList className={cn(className)} {...props} />
 );
 
+/** Props for the PromptInputCommandEmpty component. */
 export type PromptInputCommandEmptyProps = ComponentProps<typeof CommandEmpty>;
 
+/** Empty state shown when no command items match the search. */
 export const PromptInputCommandEmpty = ({
   className,
   ...props
@@ -1233,8 +1308,10 @@ export const PromptInputCommandEmpty = ({
   <CommandEmpty className={cn(className)} {...props} />
 );
 
+/** Props for the PromptInputCommandGroup component. */
 export type PromptInputCommandGroupProps = ComponentProps<typeof CommandGroup>;
 
+/** Labelled group of command items in the prompt input. */
 export const PromptInputCommandGroup = ({
   className,
   ...props
@@ -1242,8 +1319,10 @@ export const PromptInputCommandGroup = ({
   <CommandGroup className={cn(className)} {...props} />
 );
 
+/** Props for the PromptInputCommandItem component. */
 export type PromptInputCommandItemProps = ComponentProps<typeof CommandItem>;
 
+/** Single selectable item within a prompt input command group. */
 export const PromptInputCommandItem = ({
   className,
   ...props
@@ -1251,10 +1330,12 @@ export const PromptInputCommandItem = ({
   <CommandItem className={cn(className)} {...props} />
 );
 
+/** Props for the PromptInputCommandSeparator component. */
 export type PromptInputCommandSeparatorProps = ComponentProps<
   typeof CommandSeparator
 >;
 
+/** Visual separator between command groups in the prompt input. */
 export const PromptInputCommandSeparator = ({
   className,
   ...props

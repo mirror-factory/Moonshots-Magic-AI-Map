@@ -26,6 +26,7 @@ const badgeVariants = cva(
   }
 )
 
+/** Inline badge with variant-based styling. */
 function Badge({
   className,
   variant = "default",

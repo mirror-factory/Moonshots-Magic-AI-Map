@@ -7,6 +7,7 @@
 import { getAllEvents } from "@/lib/registries/events";
 import { MapWithChat } from "./map-with-chat";
 
+/** Home page that loads all events and renders the map-with-chat shell. */
 export default function Home() {
   const events = getAllEvents();
 

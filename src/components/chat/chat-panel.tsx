@@ -59,6 +59,7 @@ const SUGGESTIONS = [
   "Any food festivals coming up?",
 ];
 
+/** Floating chat panel with AI-powered event discovery conversation. */
 export function ChatPanel({ initialInput, onClearInitialInput }: ChatPanelProps) {
   const [open, setOpen] = useState(false);
   const { messages, sendMessage, status, stop } = useChat();

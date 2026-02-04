@@ -10,6 +10,12 @@ import { eventAgent } from "@/lib/agents/event-agent";
 
 export const maxDuration = 30;
 
+/**
+ * Handles POST requests by streaming an agent UI response.
+ *
+ * @param req - The incoming request containing chat messages.
+ * @returns A streaming agent UI response.
+ */
 export async function POST(req: Request) {
   const { messages } = await req.json();
 

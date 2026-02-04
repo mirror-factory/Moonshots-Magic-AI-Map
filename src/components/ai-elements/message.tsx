@@ -19,13 +19,22 @@ import { mermaid } from "@streamdown/mermaid";
 import type { UIMessage } from "ai";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
-import { createContext, memo, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  memo,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Streamdown } from "streamdown";
 
+/** Props for the Message component. */
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
 };
 
+/** Container for a single chat message from user or assistant. */
 export const Message = ({ className, from, ...props }: MessageProps) => (
   <div
     className={cn(
@@ -37,8 +46,10 @@ export const Message = ({ className, from, ...props }: MessageProps) => (
   />
 );
 
+/** Props for the MessageContent component. */
 export type MessageContentProps = HTMLAttributes<HTMLDivElement>;
 
+/** Styled wrapper for message body content. */
 export const MessageContent = ({
   children,
   className,
@@ -57,8 +68,10 @@ export const MessageContent = ({
   </div>
 );
 
+/** Props for the MessageActions component. */
 export type MessageActionsProps = ComponentProps<"div">;
 
+/** Row of action buttons displayed alongside a message. */
 export const MessageActions = ({
   className,
   children,
@@ -69,11 +82,13 @@ export const MessageActions = ({
   </div>
 );
 
+/** Props for the MessageAction component. */
 export type MessageActionProps = ComponentProps<typeof Button> & {
   tooltip?: string;
   label?: string;
 };
 
+/** Individual action button with optional tooltip for a message. */
 export const MessageAction = ({
   tooltip,
   children,
@@ -130,11 +145,13 @@ const useMessageBranch = () => {
   return context;
 };
 
+/** Props for the MessageBranch component. */
 export type MessageBranchProps = HTMLAttributes<HTMLDivElement> & {
   defaultBranch?: number;
   onBranchChange?: (branchIndex: number) => void;
 };
 
+/** Provider for branching message variants with navigation state. */
 export const MessageBranch = ({
   defaultBranch = 0,
   onBranchChange,
@@ -180,14 +197,19 @@ export const MessageBranch = ({
   );
 };
 
+/** Props for the MessageBranchContent component. */
 export type MessageBranchContentProps = HTMLAttributes<HTMLDivElement>;
 
+/** Renders the currently active branch and hides the rest. */
 export const MessageBranchContent = ({
   children,
   ...props
 }: MessageBranchContentProps) => {
   const { currentBranch, setBranches, branches } = useMessageBranch();
-  const childrenArray = Array.isArray(children) ? children : [children];
+  const childrenArray = useMemo(
+    () => (Array.isArray(children) ? children : [children]),
+    [children]
+  );
 
   // Use useEffect to update branches when they change
   useEffect(() => {
@@ -210,13 +232,16 @@ export const MessageBranchContent = ({
   ));
 };
 
+/** Props for the MessageBranchSelector component. */
 export type MessageBranchSelectorProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
 };
 
+/** Button group for navigating between message branches. */
 export const MessageBranchSelector = ({
-  className,
-  from,
+  // Destructured to exclude from ...props; not used directly
+  className: _className, // eslint-disable-line @typescript-eslint/no-unused-vars
+  from: _from, // eslint-disable-line @typescript-eslint/no-unused-vars
   ...props
 }: MessageBranchSelectorProps) => {
   const { totalBranches } = useMessageBranch();
@@ -235,8 +260,10 @@ export const MessageBranchSelector = ({
   );
 };
 
+/** Props for the MessageBranchPrevious component. */
 export type MessageBranchPreviousProps = ComponentProps<typeof Button>;
 
+/** Button to navigate to the previous message branch. */
 export const MessageBranchPrevious = ({
   children,
   ...props
@@ -258,8 +285,10 @@ export const MessageBranchPrevious = ({
   );
 };
 
+/** Props for the MessageBranchNext component. */
 export type MessageBranchNextProps = ComponentProps<typeof Button>;
 
+/** Button to navigate to the next message branch. */
 export const MessageBranchNext = ({
   children,
   ...props
@@ -281,8 +310,10 @@ export const MessageBranchNext = ({
   );
 };
 
+/** Props for the MessageBranchPage component. */
 export type MessageBranchPageProps = HTMLAttributes<HTMLSpanElement>;
 
+/** Displays the current branch index out of total branches. */
 export const MessageBranchPage = ({
   className,
   ...props
@@ -302,8 +333,10 @@ export const MessageBranchPage = ({
   );
 };
 
+/** Props for the MessageResponse component. */
 export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 
+/** Renders streamed markdown response with code, math, and mermaid plugins. */
 export const MessageResponse = memo(
   ({ className, ...props }: MessageResponseProps) => (
     <Streamdown
@@ -320,8 +353,10 @@ export const MessageResponse = memo(
 
 MessageResponse.displayName = "MessageResponse";
 
+/** Props for the MessageToolbar component. */
 export type MessageToolbarProps = ComponentProps<"div">;
 
+/** Toolbar row for message-level controls like copy and regenerate. */
 export const MessageToolbar = ({
   className,
   children,

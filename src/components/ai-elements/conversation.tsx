@@ -7,8 +7,10 @@ import type { ComponentProps } from "react";
 import { useCallback } from "react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 
+/** Props for the Conversation container. */
 export type ConversationProps = ComponentProps<typeof StickToBottom>;
 
+/** Scrollable conversation container that sticks to the bottom. */
 export const Conversation = ({ className, ...props }: ConversationProps) => (
   <StickToBottom
     className={cn("relative flex-1 overflow-y-hidden", className)}
@@ -19,10 +21,12 @@ export const Conversation = ({ className, ...props }: ConversationProps) => (
   />
 );
 
+/** Props for the ConversationContent area. */
 export type ConversationContentProps = ComponentProps<
   typeof StickToBottom.Content
 >;
 
+/** Content area within a conversation that holds messages. */
 export const ConversationContent = ({
   className,
   ...props
@@ -33,12 +37,14 @@ export const ConversationContent = ({
   />
 );
 
+/** Props for the ConversationEmptyState placeholder. */
 export type ConversationEmptyStateProps = ComponentProps<"div"> & {
   title?: string;
   description?: string;
   icon?: React.ReactNode;
 };
 
+/** Centered placeholder shown when the conversation has no messages. */
 export const ConversationEmptyState = ({
   className,
   title = "No messages yet",
@@ -68,8 +74,10 @@ export const ConversationEmptyState = ({
   </div>
 );
 
+/** Props for the ConversationScrollButton component. */
 export type ConversationScrollButtonProps = ComponentProps<typeof Button>;
 
+/** Floating button that scrolls the conversation to the latest message. */
 export const ConversationScrollButton = ({
   className,
   ...props

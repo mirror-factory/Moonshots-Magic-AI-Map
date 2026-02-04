@@ -16,6 +16,7 @@ interface MapStatus {
   pitch: number;
 }
 
+/** Displays real-time map viewport coordinates in a bottom bar. */
 export function MapStatusBar() {
   const map = useMap();
   const [status, setStatus] = useState<MapStatus>({

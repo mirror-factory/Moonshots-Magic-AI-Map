@@ -5,6 +5,7 @@ import { Slider as SliderPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
+/** Range slider with track, range fill, and draggable thumbs. */
 function Slider({
   className,
   defaultValue,

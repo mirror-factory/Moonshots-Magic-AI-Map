@@ -10,12 +10,26 @@ import {
   useMemo,
 } from "react";
 
+/** Props for the Shimmer text animation component. */
 export interface TextShimmerProps {
   children: string;
   as?: ElementType;
   className?: string;
   duration?: number;
   spread?: number;
+}
+
+const motionCache = new Map<ElementType, ReturnType<typeof motion.create>>();
+
+/** Returns a cached motion component for the given element type. */
+function getMotionComponent(component: ElementType) {
+  const cached = motionCache.get(component);
+  if (cached) return cached;
+  const created = motion.create(
+    component as keyof JSX.IntrinsicElements
+  );
+  motionCache.set(component, created);
+  return created;
 }
 
 const ShimmerComponent = ({
@@ -25,9 +39,8 @@ const ShimmerComponent = ({
   duration = 2,
   spread = 2,
 }: TextShimmerProps) => {
-  const MotionComponent = motion.create(
-    Component as keyof JSX.IntrinsicElements
-  );
+  /* eslint-disable react-hooks/static-components -- module-level cache guarantees stable reference per element type */
+  const MotionComponent = getMotionComponent(Component);
 
   const dynamicSpread = useMemo(
     () => (children?.length ?? 0) * spread,
@@ -59,6 +72,7 @@ const ShimmerComponent = ({
       {children}
     </MotionComponent>
   );
+  /* eslint-enable react-hooks/static-components */
 };
 
 export const Shimmer = memo(ShimmerComponent);

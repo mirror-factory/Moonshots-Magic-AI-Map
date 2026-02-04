@@ -21,6 +21,7 @@ const buttonGroupVariants = cva(
   }
 )
 
+/** Groups related buttons with shared border styling. */
 function ButtonGroup({
   className,
   orientation,
@@ -37,6 +38,7 @@ function ButtonGroup({
   )
 }
 
+/** Text element styled to sit within a button group. */
 function ButtonGroupText({
   className,
   asChild = false,
@@ -57,6 +59,7 @@ function ButtonGroupText({
   )
 }
 
+/** Visual separator between items in a button group. */
 function ButtonGroupSeparator({
   className,
   orientation = "vertical",
