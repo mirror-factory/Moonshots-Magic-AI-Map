@@ -6,7 +6,10 @@
 
 import type { EventCategory } from "@/lib/registries/types";
 
-/** Available CARTO basemap style URLs for MapLibre GL. */
+/** MapTiler API key from environment. */
+export const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY || "";
+
+/** Available CARTO basemap style URLs for MapLibre GL (fallback without 3D). */
 export const MAP_STYLES = {
   darkMatter:
     "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
@@ -14,14 +17,29 @@ export const MAP_STYLES = {
   voyager: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
 } as const;
 
+/** MapTiler style URLs by theme — supports 3D terrain and buildings. */
+export const MAP_STYLES_BY_THEME = {
+  light: MAPTILER_KEY
+    ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
+    : MAP_STYLES.positron,
+  dark: MAPTILER_KEY
+    ? `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${MAPTILER_KEY}`
+    : MAP_STYLES.darkMatter,
+} as const;
+
+/** MapTiler terrain source URL for 3D terrain. */
+export const TERRAIN_SOURCE = MAPTILER_KEY
+  ? `https://api.maptiler.com/tiles/terrain-rgb-v2/tiles.json?key=${MAPTILER_KEY}`
+  : "";
+
 /** Default map center as `[longitude, latitude]` (Orlando, FL). */
 export const DEFAULT_CENTER: [number, number] = [-81.3792, 28.5383];
 /** Default zoom level on initial load. */
 export const DEFAULT_ZOOM = 10;
-/** Default camera pitch in degrees. */
-export const DEFAULT_PITCH = 0;
+/** Default camera pitch in degrees (tilted for 3D view). */
+export const DEFAULT_PITCH = 50;
 /** Default camera bearing in degrees. */
-export const DEFAULT_BEARING = 0;
+export const DEFAULT_BEARING = -15;
 
 /** Named locations for the "Quick Navigate" UI. Each has a center and zoom. */
 export const PRESET_LOCATIONS: Record<string, { center: [number, number]; zoom: number }> = {
