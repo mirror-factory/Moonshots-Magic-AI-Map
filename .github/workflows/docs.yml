@@ -1,0 +1,36 @@
+name: Generate Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'docs/ai-capabilities/**'
+
+jobs:
+  generate-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate TypeDoc API reference
+        run: pnpm docs
+
+      - name: Upload TypeDoc output
+        uses: actions/upload-artifact@v4
+        with:
+          name: typedoc-output
+          path: docs/generated/
+          retention-days: 30

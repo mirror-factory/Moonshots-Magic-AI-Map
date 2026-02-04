@@ -63,9 +63,13 @@ src/
 │   │   ├── chat/route.ts          # POST — AI chat streaming endpoint
 │   │   ├── events/route.ts        # GET  — Event query REST API
 │   │   └── newsletters/route.ts   # GET  — Newsletter query REST API
-│   ├── globals.css                # CSS variables, category colors, theme
-│   ├── layout.tsx                 # Root layout with fonts
-│   ├── map-with-chat.tsx          # Client shell: map + chat composition
+│   ├── docs/ai/                   # AI capabilities documentation
+│   │   ├── layout.tsx             # Docs layout with sidebar
+│   │   ├── page.tsx               # Docs index page
+│   │   └── [slug]/page.tsx        # Dynamic capability detail pages
+│   ├── globals.css                # CSS variables, light/dark theme
+│   ├── layout.tsx                 # Root layout with ThemeProvider
+│   ├── map-with-chat.tsx          # Client shell: map + chat + theme toggle
 │   └── page.tsx                   # Home page (RSC, loads events)
 │
 ├── components/
@@ -77,13 +81,18 @@ src/
 │   │   ├── event-list.tsx         # Vertical event list (optional ranking)
 │   │   ├── map-action.tsx         # Client-side map tool executor
 │   │   └── newsletter-card.tsx    # Newsletter search result card
+│   ├── effects/                   # Dark mode visual effects (brand aesthetic)
+│   │   ├── film-grain.tsx         # Canvas-based animated grain
+│   │   ├── static-stars.tsx       # Star field overlay
+│   │   └── vignette.tsx           # Radial edge darkening
 │   ├── map/
-│   │   ├── map-container.tsx      # MapLibre GL initialization + context
+│   │   ├── map-container.tsx      # MapLibre GL + 3D terrain/buildings
 │   │   ├── map-controls.tsx       # Category filters + quick nav
 │   │   ├── map-markers.tsx        # GeoJSON circle layer management
 │   │   ├── map-popups.tsx         # Click-to-popup with "Ask about this"
 │   │   ├── map-status-bar.tsx     # Viewport coordinate display
-│   │   └── use-map.ts            # MapContext + useMap hook
+│   │   └── use-map.ts             # MapContext + useMap hook
+│   ├── theme-toggle.tsx           # Light/dark theme switcher
 │   └── ui/                        # shadcn/ui primitives
 │
 ├── data/
@@ -101,13 +110,28 @@ src/
     │       ├── rank-events.ts
     │       ├── search-events.ts
     │       └── search-newsletters.ts
+    ├── docs/
+    │   └── ai-capabilities.ts     # Docs registry utility
     ├── map/
-    │   ├── config.ts              # Styles, defaults, colors, labels
+    │   ├── config.ts              # Styles, 3D terrain, colors, labels
     │   └── geojson.ts             # EventEntry → GeoJSON conversion
     └── registries/
         ├── events.ts              # Event query functions
         ├── newsletters.ts         # Newsletter query functions
         └── types.ts               # Shared type definitions
+
+docs/
+└── ai-capabilities/               # AI tool documentation (markdown)
+    ├── index.md
+    ├── search-events.md
+    ├── get-event-details.md
+    ├── rank-events.md
+    ├── map-navigate.md
+    └── search-newsletters.md
+
+.github/
+└── workflows/
+    └── docs.yml                   # CI for doc generation on push to main
 ```
 
 ## Key Conventions
@@ -169,3 +193,39 @@ All data queries go through the registry functions in `src/lib/registries/`. The
 
 Run `pnpm docs` to generate TypeDoc API reference to `docs/generated/`.
 The generated docs are git-ignored and should be rebuilt locally as needed.
+
+## Current Issues
+
+- **Static data**: Event data is loaded from static JSON; no database persistence or admin interface
+- **Color duplication**: Category colors are duplicated in CSS variables (`globals.css`) and JavaScript (`config.ts`) — MapLibre requires hex literals
+- **No agent tool tests**: Agent tools lack automated test coverage
+- **No marker clustering**: Map markers overlap at low zoom levels without clustering
+
+## Next Steps
+
+1. ~~Theme system with light/dark toggle~~ ✅ Implemented
+2. ~~3D map with terrain and buildings via MapTiler~~ ✅ Implemented
+3. ~~AI capabilities documentation page at `/docs/ai`~~ ✅ Implemented
+4. ~~GitHub Action for automated doc generation~~ ✅ Implemented
+
+## Opportunities for Improvement
+
+### Performance
+- **Marker clustering**: Use Supercluster or MapLibre's built-in clustering for better performance at low zoom
+- **Suspense boundaries**: Add React Suspense around map components for better loading states
+- **ISR for events**: Move from static JSON to database with ISR (Incremental Static Regeneration)
+
+### Features
+- **Event favoriting**: Allow users to save favorite events (localStorage or Supabase)
+- **URL sharing**: Deep links to specific events or map views (e.g., `/event/:id`, `/?view=downtown`)
+- **Voice input**: Add voice-to-text for chat queries
+
+### Developer Experience
+- **Storybook**: Add Storybook for component development and documentation
+- **Playwright E2E**: Add end-to-end tests for critical user flows
+- **Component docs**: Auto-generate component documentation from TSDoc
+
+### Architecture
+- **Custom hooks**: Extract map logic into `useMapControls`, `useMapMarkers`, `useMapTerrain`
+- **State management**: Consider Zustand for cross-component state (selected event, filters)
+- **OpenTelemetry**: Add tracing for AI agent tool calls and map interactions
