@@ -19,6 +19,11 @@ IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning. Consu
 
 ### Tier 1 — Core
 
+|brand-guide|.claude/skills/brand-guide
+|  desc: Moonshots & Magic brand identity — colors, typography, animations, textures, logo specs, image generation prompts.
+|  contains: SKILL.md,references/
+|  size: ~12KB (3 files)
+
 |ai-sdk|.claude/skills/ai-sdk
 |  desc: AI SDK functions (generateText, streamText, ToolLoopAgent, embed, useChat). Build agents, chatbots, RAG, structured output.
 |  contains: SKILL.md,references/
