@@ -17,6 +17,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-oswald);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -54,6 +55,17 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
 
+  /* Surface and text colors for theme-aware components */
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-text: var(--text);
+  --color-text-dim: var(--text-dim);
+  --color-text-muted: var(--text-muted);
+  --color-border-color: var(--border-color);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-dim: var(--brand-primary-dim);
+
   /* Category colors as Tailwind utilities */
   --color-category-music: var(--category-music);
   --color-category-arts: var(--category-arts);
@@ -72,25 +84,27 @@
 
 /* ============================================
    MOONSHOTS & MAGIC - BRAND TOKENS
-   Change these to rebrand the entire app
+   Light mode (default) + Dark mode (brand guide compliant)
    ============================================ */
+
+/* LIGHT MODE (default) */
 :root {
-  /* Brand Colors */
-  --brand-primary: #00ffcc;
-  --brand-primary-dim: rgba(0, 255, 204, 0.2);
-  --brand-primary-foreground: #000000;
+  /* Brand Colors - Electric Blue from brand guide */
+  --brand-primary: #3560ff;
+  --brand-primary-dim: rgba(53, 96, 255, 0.2);
+  --brand-primary-foreground: #ffffff;
 
-  /* Surfaces */
-  --bg: #0a0a0f;
-  --surface: #12121a;
-  --surface-2: #1a1a24;
-  --surface-3: #22222e;
-  --border-color: rgba(255, 255, 255, 0.08);
+  /* Surfaces - Light */
+  --bg: #ffffff;
+  --surface: #f8f9fa;
+  --surface-2: #f1f3f4;
+  --surface-3: #e8eaed;
+  --border-color: rgba(0, 0, 0, 0.08);
 
-  /* Text */
-  --text: #ffffff;
-  --text-dim: #888888;
-  --text-muted: #666666;
+  /* Text - Light */
+  --text: #0a0a0f;
+  --text-dim: #5f6368;
+  --text-muted: #80868b;
 
   /* Category Colors (map markers + UI badges) */
   --category-music: #ff6b6b;
@@ -121,10 +135,10 @@
   /* Map */
   --map-popup-bg: var(--surface);
   --map-popup-border: var(--border-color);
-  --map-marker-shadow: rgba(0, 255, 204, 0.4);
+  --map-marker-shadow: rgba(53, 96, 255, 0.4);
 
   /* Chat */
-  --chat-bg: rgba(18, 18, 26, 0.85);
+  --chat-bg: rgba(248, 249, 250, 0.85);
   --chat-backdrop-blur: 16px;
 
   /* shadcn/ui integration */
@@ -166,6 +180,65 @@
   --sidebar-ring: var(--brand-primary);
 }
 
+/* DARK MODE (brand guide compliant) */
+.dark {
+  /* Brand Colors - Electric Blue from brand guide */
+  --brand-primary: #3560ff;
+  --brand-primary-dim: rgba(53, 96, 255, 0.2);
+  --brand-primary-foreground: #ffffff;
+
+  /* Surfaces - Dark (brand guide: pure black background) */
+  --bg: #000000;
+  --surface: #0a0a0f;
+  --surface-2: #12121a;
+  --surface-3: #1a1a24;
+  --border-color: rgba(255, 255, 255, 0.08);
+
+  /* Text - Dark */
+  --text: #ffffff;
+  --text-dim: #888888;
+  --text-muted: #666666;
+
+  /* Map */
+  --map-popup-bg: var(--surface);
+  --map-popup-border: var(--border-color);
+  --map-marker-shadow: rgba(53, 96, 255, 0.4);
+
+  /* Chat */
+  --chat-bg: rgba(10, 10, 15, 0.85);
+  --chat-backdrop-blur: 16px;
+
+  /* shadcn/ui integration */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --popover: var(--surface);
+  --popover-foreground: var(--text);
+  --primary: var(--brand-primary);
+  --primary-foreground: var(--brand-primary-foreground);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--text);
+  --muted: var(--surface-3);
+  --muted-foreground: var(--text-dim);
+  --accent: var(--brand-primary-dim);
+  --accent-foreground: var(--brand-primary);
+  --destructive: var(--error);
+  --border: var(--border-color);
+  --input: var(--surface-3);
+  --ring: var(--brand-primary);
+
+  /* Sidebar */
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--text);
+  --sidebar-primary: var(--brand-primary);
+  --sidebar-primary-foreground: var(--brand-primary-foreground);
+  --sidebar-accent: var(--brand-primary-dim);
+  --sidebar-accent-foreground: var(--brand-primary);
+  --sidebar-border: var(--border-color);
+  --sidebar-ring: var(--brand-primary);
+}
+
 /* ============================================
    BASE STYLES
    ============================================ */
@@ -180,7 +253,7 @@
 }
 
 /* ============================================
-   MAPLIBRE DARK THEME OVERRIDES
+   MAPLIBRE THEME OVERRIDES
    ============================================ */
 .maplibregl-ctrl-group {
   background: var(--surface) !important;
@@ -204,7 +277,13 @@
   background: var(--surface-2) !important;
 }
 
+/* Light mode: keep icons dark */
 .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: none;
+}
+
+/* Dark mode: invert icons to light */
+.dark .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
   filter: invert(1) brightness(0.8);
 }
 
@@ -224,9 +303,13 @@
   border-radius: 12px !important;
   color: var(--text) !important;
   padding: 16px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15) !important;
   min-width: 240px;
   max-width: 320px;
+}
+
+.dark .maplibregl-popup-content {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
 }
 
 .maplibregl-popup-tip {
