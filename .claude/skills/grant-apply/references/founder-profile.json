@@ -1,0 +1,64 @@
+{
+  "founders": [
+    {
+      "role": "CEO / Lead Founder",
+      "first_name": "",
+      "last_name": "",
+      "email": "",
+      "phone": "",
+      "address": {
+        "street": "",
+        "city": "",
+        "state": "",
+        "zip": "",
+        "country": ""
+      },
+      "date_of_birth": "",
+      "nationality": "",
+      "linkedin_url": "",
+      "twitter_url": "",
+      "bio": "",
+      "education": [
+        {
+          "institution": "",
+          "degree": "",
+          "field": "",
+          "year": ""
+        }
+      ],
+      "work_experience": [
+        {
+          "company": "",
+          "title": "",
+          "years": ""
+        }
+      ]
+    }
+  ],
+  "company": {
+    "name": "",
+    "legal_name": "",
+    "website": "",
+    "incorporation_date": "",
+    "incorporation_state": "",
+    "ein": "",
+    "industry": "",
+    "stage": "",
+    "team_size": "",
+    "revenue": "",
+    "funding_raised": "",
+    "funding_history": []
+  },
+  "pitch": {
+    "one_liner": "",
+    "elevator_pitch": "",
+    "problem": "",
+    "solution": "",
+    "target_market": "",
+    "traction": "",
+    "business_model": "",
+    "competitive_advantage": "",
+    "use_of_funds": "",
+    "milestones": []
+  }
+}

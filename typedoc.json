@@ -1,0 +1,13 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/lib/**/*.ts", "src/components/**/*.tsx", "src/components/**/*.ts"],
+  "out": "docs/generated",
+  "name": "Moonshots & Magic",
+  "readme": "ARCHITECTURE.md",
+  "tsconfig": "tsconfig.json",
+  "exclude": ["**/*.test.ts", "**/*.spec.ts", "node_modules"],
+  "excludeExternals": true,
+  "excludePrivate": true,
+  "skipErrorChecking": true,
+  "theme": "default"
+}

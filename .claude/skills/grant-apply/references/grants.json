@@ -1,0 +1,123 @@
+[
+  {
+    "id": "activate-fellowship",
+    "name": "Activate Fellowship",
+    "amount": "$100K stipend + $100K R&D budget",
+    "stage": "General / Science & Engineering",
+    "equity": "0%",
+    "url": "https://www.activate.org/fellowship",
+    "deadline": null,
+    "status": "open",
+    "notes": "For scientists and engineers bringing inventions to market. 2-year fellowship."
+  },
+  {
+    "id": "776-foundation-fellowship",
+    "name": "776 Foundation Fellowship",
+    "amount": "$100K",
+    "stage": "Young climate founders",
+    "equity": "0%",
+    "url": "https://www.776.org/",
+    "deadline": null,
+    "status": "open",
+    "notes": "Focus on climate tech. For young founders."
+  },
+  {
+    "id": "edge-city-grants",
+    "name": "Edge City Grants",
+    "amount": "$5K-$40K",
+    "stage": "Early-stage projects",
+    "equity": "0%",
+    "url": "https://www.edgecity.live/grants",
+    "deadline": null,
+    "status": "open",
+    "notes": "For early-stage projects in technology and community building."
+  },
+  {
+    "id": "thiel-fellowship",
+    "name": "Thiel Fellowship",
+    "amount": "$200K over 2 years",
+    "stage": "Founders 22 and under",
+    "equity": "0%",
+    "url": "https://thielfellowship.org/",
+    "deadline": null,
+    "status": "open",
+    "notes": "Must be 22 or younger. Drop out of school to build."
+  },
+  {
+    "id": "vercel-open-source",
+    "name": "Vercel Open Source Program",
+    "amount": "$3.6K in credits",
+    "stage": "Open source builders",
+    "equity": "0%",
+    "url": "https://vercel.com/open-source",
+    "deadline": null,
+    "status": "open",
+    "notes": "Vercel hosting credits for open source projects."
+  },
+  {
+    "id": "oshaughnessy-ventures-fellowship",
+    "name": "O'Shaughnessy Ventures Fellowship",
+    "amount": "$100K",
+    "stage": "General",
+    "equity": "0%",
+    "url": "https://www.osv.llc/fellowship",
+    "deadline": null,
+    "status": "open",
+    "notes": "Equity-free grant for ambitious builders."
+  },
+  {
+    "id": "afore-capital-grants",
+    "name": "Afore Capital Grants",
+    "amount": "$1K + mentorship",
+    "stage": "General / Pre-seed",
+    "equity": "0%",
+    "url": "https://afore.vc/grants",
+    "deadline": null,
+    "status": "open",
+    "notes": "Small grant with mentorship. Good for very early stage."
+  },
+  {
+    "id": "google-startups-cloud",
+    "name": "Google for Startups Cloud Program",
+    "amount": "Up to $200K in credits over 2 years",
+    "stage": "Startups (Seed to Series A)",
+    "equity": "0%",
+    "url": "https://cloud.google.com/startup",
+    "deadline": null,
+    "status": "open",
+    "notes": "Google Cloud credits. Must be backed by an approved VC/accelerator or meet revenue criteria."
+  },
+  {
+    "id": "astera-residency",
+    "name": "Astera Residency",
+    "amount": "$125K-$250K salary + research budget",
+    "stage": "Researchers / Scientists",
+    "equity": "0%",
+    "url": "https://astera.org/residency",
+    "deadline": null,
+    "status": "open",
+    "notes": "For researchers working on high-impact scientific problems."
+  },
+  {
+    "id": "1517-medici-grant",
+    "name": "1517 Fund Medici Grant",
+    "amount": "$1K",
+    "stage": "General",
+    "equity": "0%",
+    "url": "https://www.1517fund.com/medici-project",
+    "deadline": null,
+    "status": "open",
+    "notes": "Zero equity, small grant to get started."
+  },
+  {
+    "id": "startup-chile",
+    "name": "Start-Up Chile",
+    "amount": "$17K-$87K",
+    "stage": "Early to growth stage",
+    "equity": "0%",
+    "url": "https://startupchile.org/",
+    "deadline": null,
+    "status": "open",
+    "notes": "Government-backed accelerator in Chile. Equity-free grant + acceleration program."
+  }
+]

@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MapLibre Feature Playground</title>
+  <link href="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.css" rel="stylesheet">
+  <script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --surface-2: #1a1a24;
+      --surface-3: #22222e;
+      --border: rgba(255,255,255,0.08);
+      --text: #ffffff;
+      --text-dim: #888;
+      --accent: #00ffcc;
+      --accent-dim: rgba(0,255,204,0.2);
+      --red: #ff6b6b;
+      --orange: #ffa94d;
+      --yellow: #ffd43b;
+      --green: #69db7c;
+      --blue: #74c0fc;
+      --purple: #b197fc;
+      --pink: #f783ac;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    #map {
+      position: absolute;
+      top: 0;
+      left: 340px;
+      right: 0;
+      bottom: 0;
+    }
+
+    /* Control Panel */
+    .control-panel {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 340px;
+      height: 100vh;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      z-index: 100;
+    }
+
+    .control-panel::-webkit-scrollbar { width: 6px; }
+    .control-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .panel-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      z-index: 10;
+    }
+
+    .panel-title {
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .panel-title span { color: var(--accent); }
+
+    .panel-subtitle {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    /* Sections */
+    .section { border-bottom: 1px solid var(--border); }
+
+    .section-header {
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .section-header:hover { background: var(--surface-2); }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title .icon {
+      width: 16px;
+      height: 16px;
+      color: var(--accent);
+    }
+
+    .section-arrow {
+      width: 16px;
+      height: 16px;
+      color: var(--text-dim);
+      transition: transform 0.2s;
+    }
+
+    .section.collapsed .section-arrow { transform: rotate(-90deg); }
+    .section.collapsed .section-content { display: none; }
+    .section-content { padding: 0 20px 16px; }
+
+    /* Controls */
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .control-row:last-child { border-bottom: none; }
+
+    .control-label {
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .control-label .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    /* Toggle Switch */
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      background: var(--surface-3);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle.active { background: var(--accent); }
+
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    .toggle.active::after { transform: translateX(20px); }
+
+    /* Slider */
+    .slider-row { padding: 10px 0; }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .slider-label { font-size: 13px; }
+
+    .slider-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--accent);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 6px;
+      background: var(--surface-3);
+      border-radius: 3px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      background: var(--accent);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    /* Button Group */
+    .btn-group {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 10px 0;
+    }
+
+    .btn {
+      padding: 8px 14px;
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn:hover { border-color: var(--accent); }
+    .btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: black; }
+
+    /* Select */
+    select {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    select:focus { border-color: var(--accent); }
+
+    /* Info Box */
+    .info-box {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 10px;
+    }
+
+    .info-box-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+
+    .info-box-text {
+      font-size: 12px;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    /* Status Bar */
+    .status-bar {
+      position: absolute;
+      bottom: 20px;
+      left: 360px;
+      right: 20px;
+      display: flex;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .status-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .status-label { color: var(--text-dim); }
+    .status-value { color: var(--accent); }
+
+    /* Feature Toast */
+    .feature-toast {
+      position: absolute;
+      top: 20px;
+      left: 360px;
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      border-radius: 12px;
+      padding: 12px 20px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: all 0.3s;
+      z-index: 50;
+    }
+
+    .feature-toast.visible { opacity: 1; transform: translateY(0); }
+    .feature-toast .icon { color: var(--accent); }
+
+    /* Legend */
+    .legend {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      min-width: 180px;
+      display: none;
+    }
+
+    .legend.visible { display: block; }
+    .legend-title { font-size: 12px; font-weight: 600; margin-bottom: 12px; }
+    .legend-item { display: flex; align-items: center; gap: 10px; font-size: 12px; margin-bottom: 8px; }
+    .legend-color { width: 16px; height: 16px; border-radius: 4px; }
+
+    /* MapLibre overrides */
+    .maplibregl-ctrl-group {
+      background: var(--surface) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 10px !important;
+      overflow: hidden;
+    }
+
+    .maplibregl-ctrl-group button {
+      background: transparent !important;
+      border-bottom: 1px solid var(--border) !important;
+    }
+
+    .maplibregl-ctrl-group button:last-child { border-bottom: none !important; }
+    .maplibregl-ctrl-group button span { filter: invert(1); }
+
+    .maplibregl-popup-content {
+      background: var(--surface) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 12px !important;
+      padding: 16px !important;
+      color: var(--text) !important;
+      font-family: 'Inter', sans-serif !important;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5) !important;
+    }
+
+    .maplibregl-popup-close-button { color: var(--text-dim) !important; font-size: 20px !important; padding: 4px 10px !important; }
+    .maplibregl-popup-tip { border-top-color: var(--surface) !important; }
+    .popup-title { font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+    .popup-type { font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; }
+    .popup-address { font-size: 12px; color: var(--text-dim); margin-top: 8px; }
+
+    /* Custom Markers */
+    .custom-marker {
+      width: 32px;
+      height: 32px;
+      background: var(--accent);
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,255,204,0.4);
+    }
+
+    .custom-marker svg {
+      transform: rotate(45deg);
+      width: 16px;
+      height: 16px;
+      color: black;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.5); opacity: 0; }
+    }
+
+    .pulse-marker { position: relative; }
+    .pulse-marker::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border: 3px solid var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    /* Loading */
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      transition: opacity 0.5s;
+    }
+
+    .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+
+    .loader {
+      width: 48px;
+      height: 48px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text { margin-top: 16px; font-size: 14px; color: var(--text-dim); }
+
+    /* Mobile */
+    @media (max-width: 900px) {
+      .control-panel {
+        width: 100%;
+        height: auto;
+        max-height: 50vh;
+        bottom: 0;
+        top: auto;
+        border-right: none;
+        border-top: 1px solid var(--border);
+        border-radius: 20px 20px 0 0;
+      }
+
+      #map { left: 0; bottom: 50vh; }
+      .status-bar { left: 20px; bottom: calc(50vh + 20px); }
+      .feature-toast { left: 20px; right: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="loading-overlay" id="loader">
+    <div class="loader"></div>
+    <div class="loading-text">Loading MapLibre Playground...</div>
+  </div>
+
+  <div class="control-panel">
+    <div class="panel-header">
+      <div class="panel-title">🗺️ MapLibre <span>Playground</span></div>
+      <div class="panel-subtitle">Toggle features to explore capabilities</div>
+    </div>
+
+    <!-- BASE MAP -->
+    <div class="section" id="section-base">
+      <div class="section-header" onclick="toggleSection('base')">
+        <div class="section-title">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          Base Map
+        </div>
+        <svg class="section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="section-content">
+        <div class="slider-row">
+          <div class="slider-header"><span class="slider-label">Map Style</span></div>
+          <select id="style-select" onchange="changeStyle(this.value)">
+            <option value="liberty">🌿 Liberty (OpenFreeMap)</option>
+            <option value="bright">☀️ Bright (OpenFreeMap)</option>
+            <option value="positron">⚪ Positron (CARTO)</option>
+            <option value="dark" selected>🌙 Dark Matter (CARTO)</option>
+            <option value="voyager">🧭 Voyager (CARTO)</option>
+          </select>
+        </div>
+        <div class="info-box">
+          <div class="info-box-title">💡 Tip</div>
+          <div class="info-box-text">Liberty style has the best 3D building support. Dark Matter is best for data visualization.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3D FEATURES -->
+    <div class="section" id="section-3d">
+      <div class="section-header" onclick="toggleSection('3d')">
+        <div class="section-title">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>
+          3D Features
+        </div>
+        <svg class="section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="section-content">
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--blue)"></span>3D Buildings</span>
+          <div class="toggle" id="toggle-buildings" onclick="toggle3DBuildings()"></div>
+        </div>
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--green)"></span>3D Terrain</span>
+          <div class="toggle" id="toggle-terrain" onclick="toggle3DTerrain()"></div>
+        </div>
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--orange)"></span>Hillshade</span>
+          <div class="toggle" id="toggle-hillshade" onclick="toggleHillshade()"></div>
+        </div>
+        <div class="slider-row">
+          <div class="slider-header">
+            <span class="slider-label">Terrain Exaggeration</span>
+            <span class="slider-value" id="exag-value">1.5x</span>
+          </div>
+          <input type="range" min="0.5" max="3" step="0.1" value="1.5" id="exag-slider" onchange="updateExaggeration(this.value)">
+        </div>
+        <div class="slider-row">
+          <div class="slider-header">
+            <span class="slider-label">Building Height Multiplier</span>
+            <span class="slider-value" id="height-value">1.0x</span>
+          </div>
+          <input type="range" min="0.5" max="5" step="0.5" value="1" id="height-slider" onchange="updateBuildingHeight(this.value)">
+        </div>
+      </div>
+    </div>
+
+    <!-- CAMERA -->
+    <div class="section" id="section-camera">
+      <div class="section-header" onclick="toggleSection('camera')">
+        <div class="section-title">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Camera Controls
+        </div>
+        <svg class="section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="section-content">
+        <div class="slider-row">
+          <div class="slider-header">
+            <span class="slider-label">Pitch (Tilt)</span>
+            <span class="slider-value" id="pitch-value">0°</span>
+          </div>
+          <input type="range" min="0" max="85" step="1" value="0" id="pitch-slider" oninput="updatePitch(this.value)">
+        </div>
+        <div class="slider-row">
+          <div class="slider-header">
+            <span class="slider-label">Bearing (Rotation)</span>
+            <span class="slider-value" id="bearing-value">0°</span>
+          </div>
+          <input type="range" min="-180" max="180" step="1" value="0" id="bearing-slider" oninput="updateBearing(this.value)">
+        </div>
+        <div class="btn-group">
+          <button class="btn" onclick="resetCamera()">Reset</button>
+          <button class="btn" onclick="cinematic3D()">Cinematic 3D</button>
+          <button class="btn" id="btn-orbit" onclick="toggleOrbit()">Start Orbit</button>
+        </div>
+        <div class="btn-group">
+          <button class="btn" onclick="flyTo('orlando')">Orlando</button>
+          <button class="btn" onclick="flyTo('tampa')">Tampa</button>
+          <button class="btn" onclick="flyTo('miami')">Miami</button>
+          <button class="btn" onclick="flyTo('nyc')">NYC</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- OSM DATA -->
+    <div class="section" id="section-osm">
+      <div class="section-header" onclick="toggleSection('osm')">
+        <div class="section-title">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+          OpenStreetMap POIs
+        </div>
+        <svg class="section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="section-content">
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--red)"></span>Restaurants</span>
+          <div class="toggle" id="toggle-restaurants" onclick="togglePOI('restaurants')"></div>
+        </div>
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--blue)"></span>Hotels</span>
+          <div class="toggle" id="toggle-hotels" onclick="togglePOI('hotels')"></div>
+        </div>
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--green)"></span>Parks & Nature</span>
+          <div class="toggle" id="toggle-parks" onclick="togglePOI('parks')"></div>
+        </div>
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--yellow)"></span>Transit Stops</span>
+          <div class="toggle" id="toggle-transit" onclick="togglePOI('transit')"></div>
+        </div>
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--purple)"></span>Museums & Culture</span>
+          <div class="toggle" id="toggle-museums" onclick="togglePOI('museums')"></div>
+        </div>
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--pink)"></span>Shopping</span>
+          <div class="toggle" id="toggle-shops" onclick="togglePOI('shops')"></div>
+        </div>
+        <div class="info-box">
+          <div class="info-box-title">📍 Live Data</div>
+          <div class="info-box-text">POIs loaded via Overpass API from OpenStreetMap. Click markers for details.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DATA VIZ -->
+    <div class="section" id="section-viz">
+      <div class="section-header" onclick="toggleSection('viz')">
+        <div class="section-title">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 118 2.83"/><path d="M22 12A10 10 0 0012 2v10z"/></svg>
+          Data Visualization
+        </div>
+        <svg class="section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="section-content">
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--orange)"></span>Heatmap Layer</span>
+          <div class="toggle" id="toggle-heatmap" onclick="toggleHeatmap()"></div>
+        </div>
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--purple)"></span>Point Clustering</span>
+          <div class="toggle" id="toggle-clustering" onclick="toggleClustering()"></div>
+        </div>
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--accent)"></span>Animated Route</span>
+          <div class="toggle" id="toggle-route" onclick="toggleRoute()"></div>
+        </div>
+        <div class="slider-row">
+          <div class="slider-header">
+            <span class="slider-label">Heatmap Radius</span>
+            <span class="slider-value" id="heatmap-value">30px</span>
+          </div>
+          <input type="range" min="10" max="60" step="5" value="30" id="heatmap-slider" oninput="updateHeatmapRadius(this.value)">
+        </div>
+      </div>
+    </div>
+
+    <!-- INTERACTIVE -->
+    <div class="section" id="section-interactive">
+      <div class="section-header" onclick="toggleSection('interactive')">
+        <div class="section-title">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/></svg>
+          Interactive Tools
+        </div>
+        <svg class="section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="section-content">
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--accent)"></span>My Location</span>
+          <div class="toggle" id="toggle-geo" onclick="toggleGeolocation()"></div>
+        </div>
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--pink)"></span>Click to Add Marker</span>
+          <div class="toggle" id="toggle-addmarker" onclick="toggleAddMarker()"></div>
+        </div>
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--yellow)"></span>Measure Distance</span>
+          <div class="toggle" id="toggle-measure" onclick="toggleMeasure()"></div>
+        </div>
+        <div class="btn-group">
+          <button class="btn" onclick="addRandomMarkers(10)">Add 10 Random</button>
+          <button class="btn" onclick="clearMarkers()">Clear All</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GEOJSON -->
+    <div class="section" id="section-geojson">
+      <div class="section-header" onclick="toggleSection('geojson')">
+        <div class="section-title">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+          GeoJSON Layers
+        </div>
+        <svg class="section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="section-content">
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--green)"></span>Downtown Polygon</span>
+          <div class="toggle" id="toggle-polygon" onclick="togglePolygon()"></div>
+        </div>
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--blue)"></span>Route Line</span>
+          <div class="toggle" id="toggle-line" onclick="toggleLine()"></div>
+        </div>
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--accent)"></span>Radius Circle</span>
+          <div class="toggle" id="toggle-circle" onclick="toggleCircle()"></div>
+        </div>
+        <div class="slider-row">
+          <div class="slider-header">
+            <span class="slider-label">Circle Radius</span>
+            <span class="slider-value" id="radius-value">5 km</span>
+          </div>
+          <input type="range" min="1" max="30" step="1" value="5" id="radius-slider" oninput="updateRadius(this.value)">
+        </div>
+      </div>
+    </div>
+
+    <!-- EFFECTS -->
+    <div class="section" id="section-effects">
+      <div class="section-header" onclick="toggleSection('effects')">
+        <div class="section-title">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Visual Effects
+        </div>
+        <svg class="section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="section-content">
+        <div class="control-row">
+          <span class="control-label"><span class="dot" style="background: var(--blue)"></span>Fog Effect</span>
+          <div class="toggle" id="toggle-fog" onclick="toggleFog()"></div>
+        </div>
+        <div class="btn-group">
+          <button class="btn" onclick="setTime('dawn')">🌅 Dawn</button>
+          <button class="btn" onclick="setTime('day')">☀️ Day</button>
+          <button class="btn" onclick="setTime('dusk')">🌆 Dusk</button>
+          <button class="btn" onclick="setTime('night')">🌙 Night</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="status-bar">
+    <div class="status-item">
+      <span class="status-label">LAT</span>
+      <span class="status-value" id="stat-lat">28.5383</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">LNG</span>
+      <span class="status-value" id="stat-lng">-81.3792</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">ZOOM</span>
+      <span class="status-value" id="stat-zoom">10.0</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">PITCH</span>
+      <span class="status-value" id="stat-pitch">0°</span>
+    </div>
+  </div>
+
+  <div class="feature-toast" id="toast">
+    <span class="icon">✓</span>
+    <span id="toast-text">Feature enabled</span>
+  </div>
+
+  <div class="legend" id="legend">
+    <div class="legend-title">POI Legend</div>
+    <div class="legend-item"><div class="legend-color" style="background: var(--red)"></div>Restaurants</div>
+    <div class="legend-item"><div class="legend-color" style="background: var(--blue)"></div>Hotels</div>
+    <div class="legend-item"><div class="legend-color" style="background: var(--green)"></div>Parks</div>
+    <div class="legend-item"><div class="legend-color" style="background: var(--yellow)"></div>Transit</div>
+    <div class="legend-item"><div class="legend-color" style="background: var(--purple)"></div>Museums</div>
+    <div class="legend-item"><div class="legend-color" style="background: var(--pink)"></div>Shops</div>
+  </div>
+
+  <script>
+    // =====================================================
+    // CONFIGURATION
+    // =====================================================
+    
+    const STYLES = {
+      dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+      positron: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+      voyager: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+      liberty: 'https://tiles.openfreemap.org/styles/liberty',
+      bright: 'https://tiles.openfreemap.org/styles/bright'
+    };
+
+    const LOCATIONS = {
+      orlando: { center: [-81.3792, 28.5383], zoom: 12 },
+      tampa: { center: [-82.4572, 27.9506], zoom: 12 },
+      miami: { center: [-80.1918, 25.7617], zoom: 12 },
+      nyc: { center: [-74.006, 40.7128], zoom: 14 }
+    };
+
+    const POI_CONFIG = {
+      restaurants: { query: 'node["amenity"="restaurant"]', color: '#ff6b6b' },
+      hotels: { query: 'node["tourism"="hotel"]', color: '#74c0fc' },
+      parks: { query: 'way["leisure"="park"]', color: '#69db7c' },
+      transit: { query: 'node["public_transport"="stop_position"]', color: '#ffd43b' },
+      museums: { query: 'node["tourism"="museum"]', color: '#b197fc' },
+      shops: { query: 'node["shop"]', color: '#f783ac' }
+    };
+
+    // State
+    let map, orbitAnim, routeAnim, geoControl;
+    let markers = [], measurePts = [];
+    let addMarkerMode = false, measureMode = false;
+    const state = {
+      buildings: false, terrain: false, hillshade: false,
+      heatmap: false, clustering: false, route: false,
+      polygon: false, line: false, circle: false, fog: false,
+      poi: { restaurants: false, hotels: false, parks: false, transit: false, museums: false, shops: false }
+    };
+
+    // =====================================================
+    // INITIALIZE MAP
+    // =====================================================
+
+    map = new maplibregl.Map({
+      container: 'map',
+      style: STYLES.dark,
+      center: [-81.3792, 28.5383],
+      zoom: 10,
+      pitch: 0,
+      bearing: 0,
+      maxPitch: 85
+    });
+
+    map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+    map.addControl(new maplibregl.ScaleControl(), 'bottom-right');
+
+    map.on('move', updateStatus);
+
+    map.on('click', (e) => {
+      if (addMarkerMode) addMarker(e.lngLat);
+      if (measureMode) addMeasurePoint(e.lngLat);
+    });
+
+    map.on('load', () => {
+      document.getElementById('loader').classList.add('hidden');
+      setupSources();
+      toast('Map loaded! Toggle features to explore.');
+    });
+
+    setTimeout(() => document.getElementById('loader').classList.add('hidden'), 5000);
+
+    // =====================================================
+    // UTILITIES
+    // =====================================================
+
+    function toast(text) {
+      const t = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = text;
+      t.classList.add('visible');
+      setTimeout(() => t.classList.remove('visible'), 3000);
+    }
+
+    function toggleSection(name) {
+      document.getElementById('section-' + name).classList.toggle('collapsed');
+    }
+
+    function setToggle(id, active) {
+      document.getElementById(id).classList.toggle('active', active);
+    }
+
+    function updateStatus() {
+      const c = map.getCenter();
+      document.getElementById('stat-lat').textContent = c.lat.toFixed(4);
+      document.getElementById('stat-lng').textContent = c.lng.toFixed(4);
+      document.getElementById('stat-zoom').textContent = map.getZoom().toFixed(1);
+      document.getElementById('stat-pitch').textContent = Math.round(map.getPitch()) + '°';
+      
+      document.getElementById('pitch-slider').value = map.getPitch();
+      document.getElementById('pitch-value').textContent = Math.round(map.getPitch()) + '°';
+      document.getElementById('bearing-slider').value = map.getBearing();
+      document.getElementById('bearing-value').textContent = Math.round(map.getBearing()) + '°';
+    }
+
+    // =====================================================
+    // STYLE & SOURCES
+    // =====================================================
+
+    function changeStyle(name) {
+      map.setStyle(STYLES[name]);
+      map.once('style.load', () => {
+        setupSources();
+        reapplyFeatures();
+        toast(`Style: ${name}`);
+      });
+    }
+
+    function setupSources() {
+      // Terrain
+      if (!map.getSource('terrain-dem')) {
+        map.addSource('terrain-dem', {
+          type: 'raster-dem',
+          url: 'https://demotiles.maplibre.org/terrain-tiles/tiles.json',
+          tileSize: 256
+        });
+      }
+
+      // Sample data points
+      const pts = [];
+      for (let i = 0; i < 500; i++) {
+        pts.push({
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [-81.3792 + (Math.random() - 0.5) * 0.5, 28.5383 + (Math.random() - 0.5) * 0.3]
+          },
+          properties: { mag: Math.random() * 5 }
+        });
+      }
+
+      if (!map.getSource('sample-points')) {
+        map.addSource('sample-points', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: pts },
+          cluster: true,
+          clusterMaxZoom: 14,
+          clusterRadius: 50
+        });
+      }
+    }
+
+    function reapplyFeatures() {
+      if (state.buildings) addBuildingsLayer();
+      if (state.terrain) enableTerrain();
+      if (state.hillshade) addHillshade();
+      if (state.heatmap) addHeatmap();
+      if (state.clustering) addClustering();
+    }
+
+    // =====================================================
+    // 3D FEATURES
+    // =====================================================
+
+    function toggle3DBuildings() {
+      state.buildings = !state.buildings;
+      setToggle('toggle-buildings', state.buildings);
+      
+      if (state.buildings) {
+        addBuildingsLayer();
+        toast('3D Buildings enabled');
+      } else {
+        if (map.getLayer('3d-buildings')) map.removeLayer('3d-buildings');
+        toast('3D Buildings disabled');
+      }
+    }
+
+    function addBuildingsLayer() {
+      if (map.getLayer('3d-buildings')) return;
+      
+      const sources = ['openmaptiles', 'carto', 'composite'];
+      for (const src of sources) {
+        if (map.getSource(src)) {
+          try {
+            map.addLayer({
+              id: '3d-buildings',
+              source: src,
+              'source-layer': 'building',
+              type: 'fill-extrusion',
+              minzoom: 14,
+              paint: {
+                'fill-extrusion-color': ['interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 10], 0, '#1a1a2e', 100, '#0f3460'],
+                'fill-extrusion-height': ['*', ['coalesce', ['get', 'render_height'], ['get', 'height'], 10], parseFloat(document.getElementById('height-slider').value)],
+                'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+                'fill-extrusion-opacity': 0.85
+              }
+            });
+            return;
+          } catch (e) { console.log(e); }
+        }
+      }
+    }
+
+    function toggle3DTerrain() {
+      state.terrain = !state.terrain;
+      setToggle('toggle-terrain', state.terrain);
+      
+      if (state.terrain) {
+        enableTerrain();
+        toast('3D Terrain enabled');
+      } else {
+        map.setTerrain(null);
+        toast('3D Terrain disabled');
+      }
+    }
+
+    function enableTerrain() {
+      map.setTerrain({ source: 'terrain-dem', exaggeration: parseFloat(document.getElementById('exag-slider').value) });
+    }
+
+    function toggleHillshade() {
+      state.hillshade = !state.hillshade;
+      setToggle('toggle-hillshade', state.hillshade);
+      
+      if (state.hillshade) {
+        addHillshade();
+        toast('Hillshade enabled');
+      } else {
+        if (map.getLayer('hillshade')) map.removeLayer('hillshade');
+        toast('Hillshade disabled');
+      }
+    }
+
+    function addHillshade() {
+      if (map.getLayer('hillshade')) return;
+      map.addLayer({
+        id: 'hillshade',
+        type: 'hillshade',
+        source: 'terrain-dem',
+        paint: { 'hillshade-shadow-color': '#473B24' }
+      }, 'building');
+    }
+
+    function updateExaggeration(val) {
+      document.getElementById('exag-value').textContent = val + 'x';
+      if (state.terrain) map.setTerrain({ source: 'terrain-dem', exaggeration: parseFloat(val) });
+    }
+
+    function updateBuildingHeight(val) {
+      document.getElementById('height-value').textContent = val + 'x';
+      if (map.getLayer('3d-buildings')) {
+        map.setPaintProperty('3d-buildings', 'fill-extrusion-height', ['*', ['coalesce', ['get', 'render_height'], ['get', 'height'], 10], parseFloat(val)]);
+      }
+    }
+
+    // =====================================================
+    // CAMERA
+    // =====================================================
+
+    function updatePitch(val) {
+      map.setPitch(parseFloat(val));
+      document.getElementById('pitch-value').textContent = val + '°';
+    }
+
+    function updateBearing(val) {
+      map.setBearing(parseFloat(val));
+      document.getElementById('bearing-value').textContent = val + '°';
+    }
+
+    function resetCamera() {
+      map.easeTo({ pitch: 0, bearing: 0, duration: 1000 });
+      toast('Camera reset');
+    }
+
+    function cinematic3D() {
+      map.easeTo({ pitch: 60, bearing: -20, zoom: 15, duration: 2000 });
+      toast('Cinematic view');
+    }
+
+    function toggleOrbit() {
+      if (orbitAnim) {
+        cancelAnimationFrame(orbitAnim);
+        orbitAnim = null;
+        document.getElementById('btn-orbit').textContent = 'Start Orbit';
+        toast('Orbit stopped');
+      } else {
+        function orbit() {
+          map.setBearing(map.getBearing() + 0.3);
+          orbitAnim = requestAnimationFrame(orbit);
+        }
+        orbit();
+        document.getElementById('btn-orbit').textContent = 'Stop Orbit';
+        toast('Orbit started');
+      }
+    }
+
+    function flyTo(loc) {
+      const l = LOCATIONS[loc];
+      map.flyTo({ center: l.center, zoom: l.zoom, pitch: 50, duration: 2000 });
+      toast(`Flying to ${loc}`);
+    }
+
+    // =====================================================
+    // OSM POIs
+    // =====================================================
+
+    async function togglePOI(type) {
+      state.poi[type] = !state.poi[type];
+      setToggle(`toggle-${type}`, state.poi[type]);
+      
+      const anyActive = Object.values(state.poi).some(v => v);
+      document.getElementById('legend').classList.toggle('visible', anyActive);
+      
+      if (state.poi[type]) {
+        toast(`Loading ${type}...`);
+        await loadPOI(type);
+      } else {
+        removePOI(type);
+        toast(`${type} hidden`);
+      }
+    }
+
+    async function loadPOI(type) {
+      const bounds = map.getBounds();
+      const bbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
+      const query = `[out:json][timeout:25];(${POI_CONFIG[type].query}(${bbox}););out center 100;`;
+      
+      try {
+        const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: query });
+        const data = await res.json();
+        
+        if (data.elements?.length) {
+          const geojson = {
+            type: 'FeatureCollection',
+            features: data.elements.map(el => ({
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: [el.lon || el.center?.lon, el.lat || el.center?.lat] },
+              properties: { name: el.tags?.name || 'Unknown', type, ...el.tags }
+            })).filter(f => f.geometry.coordinates[0])
+          };
+
+          if (map.getSource(`poi-${type}`)) {
+            map.getSource(`poi-${type}`).setData(geojson);
+          } else {
+            map.addSource(`poi-${type}`, { type: 'geojson', data: geojson });
+            map.addLayer({
+              id: `poi-${type}-layer`,
+              type: 'circle',
+              source: `poi-${type}`,
+              paint: {
+                'circle-radius': 8,
+                'circle-color': POI_CONFIG[type].color,
+                'circle-stroke-color': '#fff',
+                'circle-stroke-width': 2
+              }
+            });
+
+            map.on('click', `poi-${type}-layer`, (e) => {
+              const p = e.features[0].properties;
+              new maplibregl.Popup()
+                .setLngLat(e.lngLat)
+                .setHTML(`<div class="popup-type">${type}</div><div class="popup-title">${p.name}</div>`)
+                .addTo(map);
+            });
+
+            map.on('mouseenter', `poi-${type}-layer`, () => map.getCanvas().style.cursor = 'pointer');
+            map.on('mouseleave', `poi-${type}-layer`, () => map.getCanvas().style.cursor = '');
+          }
+          toast(`${data.elements.length} ${type} loaded`);
+        } else {
+          toast(`No ${type} found`);
+        }
+      } catch (e) {
+        toast(`Error loading ${type}`);
+      }
+    }
+
+    function removePOI(type) {
+      if (map.getLayer(`poi-${type}-layer`)) map.removeLayer(`poi-${type}-layer`);
+      if (map.getSource(`poi-${type}`)) map.removeSource(`poi-${type}`);
+    }
+
+    // =====================================================
+    // DATA VIZ
+    // =====================================================
+
+    function toggleHeatmap() {
+      state.heatmap = !state.heatmap;
+      setToggle('toggle-heatmap', state.heatmap);
+      
+      if (state.heatmap) {
+        addHeatmap();
+        toast('Heatmap enabled');
+      } else {
+        if (map.getLayer('heatmap-layer')) map.setLayoutProperty('heatmap-layer', 'visibility', 'none');
+        toast('Heatmap disabled');
+      }
+    }
+
+    function addHeatmap() {
+      if (!map.getLayer('heatmap-layer')) {
+        map.addLayer({
+          id: 'heatmap-layer',
+          type: 'heatmap',
+          source: 'sample-points',
+          paint: {
+            'heatmap-weight': ['get', 'mag'],
+            'heatmap-intensity': 0.5,
+            'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(0,0,0,0)', 0.2, '#00ffcc', 0.4, '#74c0fc', 0.6, '#b197fc', 0.8, '#f783ac', 1, '#ff6b6b'],
+            'heatmap-radius': parseFloat(document.getElementById('heatmap-slider').value),
+            'heatmap-opacity': 0.8
+          }
+        });
+      } else {
+        map.setLayoutProperty('heatmap-layer', 'visibility', 'visible');
+      }
+    }
+
+    function updateHeatmapRadius(val) {
+      document.getElementById('heatmap-value').textContent = val + 'px';
+      if (map.getLayer('heatmap-layer')) map.setPaintProperty('heatmap-layer', 'heatmap-radius', parseFloat(val));
+    }
+
+    function toggleClustering() {
+      state.clustering = !state.clustering;
+      setToggle('toggle-clustering', state.clustering);
+      
+      if (state.clustering) {
+        addClustering();
+        toast('Clustering enabled');
+      } else {
+        ['clusters', 'cluster-count', 'unclustered-point'].forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
+        toast('Clustering disabled');
+      }
+    }
+
+    function addClustering() {
+      if (map.getLayer('clusters')) return;
+      
+      map.addLayer({
+        id: 'clusters',
+        type: 'circle',
+        source: 'sample-points',
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-color': ['step', ['get', 'point_count'], '#69db7c', 10, '#74c0fc', 30, '#b197fc', 50, '#f783ac'],
+          'circle-radius': ['step', ['get', 'point_count'], 20, 10, 30, 30, 40, 50, 50]
+        }
+      });
+      
+      map.addLayer({
+        id: 'cluster-count',
+        type: 'symbol',
+        source: 'sample-points',
+        filter: ['has', 'point_count'],
+        layout: { 'text-field': '{point_count_abbreviated}', 'text-size': 12 },
+        paint: { 'text-color': '#fff' }
+      });
+      
+      map.addLayer({
+        id: 'unclustered-point',
+        type: 'circle',
+        source: 'sample-points',
+        filter: ['!', ['has', 'point_count']],
+        paint: { 'circle-color': '#00ffcc', 'circle-radius': 6, 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }
+      });
+    }
+
+    function toggleRoute() {
+      state.route = !state.route;
+      setToggle('toggle-route', state.route);
+      
+      if (state.route) {
+        startRouteAnimation();
+        toast('Route animation started');
+      } else {
+        stopRouteAnimation();
+        toast('Route animation stopped');
+      }
+    }
+
+    function startRouteAnimation() {
+      const route = turf.lineString([[-81.3792, 28.5383], [-81.6, 28.4], [-81.9, 28.2], [-82.2, 27.95], [-82.4572, 27.9506]]);
+
+      if (!map.getSource('route')) {
+        map.addSource('route', { type: 'geojson', data: route });
+        map.addLayer({ id: 'route-line', type: 'line', source: 'route', paint: { 'line-color': '#00ffcc', 'line-width': 4 } });
+      }
+
+      const pt = turf.point(route.geometry.coordinates[0]);
+      if (!map.getSource('route-pt')) {
+        map.addSource('route-pt', { type: 'geojson', data: pt });
+        map.addLayer({ id: 'route-pt-layer', type: 'circle', source: 'route-pt', paint: { 'circle-radius': 10, 'circle-color': '#ff6b6b', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } });
+      }
+
+      let step = 0;
+      const len = turf.length(route);
+      
+      function animate() {
+        step = (step + 1) % 200;
+        const along = turf.along(route, len * step / 200);
+        map.getSource('route-pt').setData(along);
+        routeAnim = requestAnimationFrame(animate);
+      }
+      animate();
+    }
+
+    function stopRouteAnimation() {
+      if (routeAnim) { cancelAnimationFrame(routeAnim); routeAnim = null; }
+      ['route-line', 'route-pt-layer'].forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
+      ['route', 'route-pt'].forEach(id => { if (map.getSource(id)) map.removeSource(id); });
+    }
+
+    // =====================================================
+    // INTERACTIVE
+    // =====================================================
+
+    function toggleGeolocation() {
+      const active = !document.getElementById('toggle-geo').classList.contains('active');
+      setToggle('toggle-geo', active);
+      
+      if (active) {
+        if (!geoControl) {
+          geoControl = new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true });
+          map.addControl(geoControl, 'bottom-right');
+        }
+        geoControl.trigger();
+        toast('Finding your location...');
+      } else {
+        if (geoControl) { map.removeControl(geoControl); geoControl = null; }
+      }
+    }
+
+    function toggleAddMarker() {
+      addMarkerMode = !addMarkerMode;
+      setToggle('toggle-addmarker', addMarkerMode);
+      map.getCanvas().style.cursor = addMarkerMode ? 'crosshair' : '';
+      toast(addMarkerMode ? 'Click map to add markers' : 'Add marker mode off');
+    }
+
+    function addMarker(lngLat) {
+      const el = document.createElement('div');
+      el.className = 'custom-marker pulse-marker';
+      el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 10-16 0c0 3 2.7 7 8 11.7z"/></svg>`;
+      
+      const m = new maplibregl.Marker({ element: el })
+        .setLngLat(lngLat)
+        .setPopup(new maplibregl.Popup().setHTML(`<div class="popup-title">Custom Marker</div><div class="popup-type">${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}</div>`))
+        .addTo(map);
+      markers.push(m);
+      toast('Marker added');
+    }
+
+    function addRandomMarkers(n) {
+      const b = map.getBounds();
+      for (let i = 0; i < n; i++) {
+        const lng = b.getWest() + Math.random() * (b.getEast() - b.getWest());
+        const lat = b.getSouth() + Math.random() * (b.getNorth() - b.getSouth());
+        addMarker({ lng, lat });
+      }
+    }
+
+    function clearMarkers() {
+      markers.forEach(m => m.remove());
+      markers = [];
+      toast('Markers cleared');
+    }
+
+    function toggleMeasure() {
+      measureMode = !measureMode;
+      setToggle('toggle-measure', measureMode);
+      map.getCanvas().style.cursor = measureMode ? 'crosshair' : '';
+      
+      if (!measureMode) {
+        measurePts = [];
+        if (map.getLayer('measure-line')) map.removeLayer('measure-line');
+        if (map.getSource('measure-line')) map.removeSource('measure-line');
+      }
+      toast(measureMode ? 'Click to measure distance' : 'Measure mode off');
+    }
+
+    function addMeasurePoint(lngLat) {
+      measurePts.push([lngLat.lng, lngLat.lat]);
+      
+      if (measurePts.length >= 2) {
+        const line = turf.lineString(measurePts);
+        const dist = turf.length(line, { units: 'kilometers' });
+        
+        if (map.getSource('measure-line')) {
+          map.getSource('measure-line').setData(line);
+        } else {
+          map.addSource('measure-line', { type: 'geojson', data: line });
+          map.addLayer({ id: 'measure-line', type: 'line', source: 'measure-line', paint: { 'line-color': '#ffd43b', 'line-width': 3, 'line-dasharray': [2, 1] } });
+        }
+        
+        toast(`Distance: ${dist.toFixed(2)} km`);
+      }
+    }
+
+    // =====================================================
+    // GEOJSON
+    // =====================================================
+
+    function togglePolygon() {
+      state.polygon = !state.polygon;
+      setToggle('toggle-polygon', state.polygon);
+      
+      if (state.polygon) {
+        const poly = turf.polygon([[[-81.4, 28.55], [-81.35, 28.55], [-81.35, 28.52], [-81.4, 28.52], [-81.4, 28.55]]]);
+        map.addSource('poly', { type: 'geojson', data: poly });
+        map.addLayer({ id: 'poly-fill', type: 'fill', source: 'poly', paint: { 'fill-color': '#69db7c', 'fill-opacity': 0.3 } });
+        map.addLayer({ id: 'poly-line', type: 'line', source: 'poly', paint: { 'line-color': '#69db7c', 'line-width': 2 } });
+        toast('Polygon added');
+      } else {
+        ['poly-fill', 'poly-line'].forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
+        if (map.getSource('poly')) map.removeSource('poly');
+        toast('Polygon removed');
+      }
+    }
+
+    function toggleLine() {
+      state.line = !state.line;
+      setToggle('toggle-line', state.line);
+      
+      if (state.line) {
+        const line = turf.lineString([[-81.45, 28.5], [-81.4, 28.53], [-81.35, 28.51], [-81.3, 28.55]]);
+        map.addSource('sample-line', { type: 'geojson', data: line });
+        map.addLayer({ id: 'sample-line-layer', type: 'line', source: 'sample-line', paint: { 'line-color': '#74c0fc', 'line-width': 4, 'line-dasharray': [2, 1] } });
+        toast('Line added');
+      } else {
+        if (map.getLayer('sample-line-layer')) map.removeLayer('sample-line-layer');
+        if (map.getSource('sample-line')) map.removeSource('sample-line');
+        toast('Line removed');
+      }
+    }
+
+    function toggleCircle() {
+      state.circle = !state.circle;
+      setToggle('toggle-circle', state.circle);
+      
+      if (state.circle) {
+        updateRadius(document.getElementById('radius-slider').value);
+        toast('Radius circle added');
+      } else {
+        ['circle-fill', 'circle-line'].forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
+        if (map.getSource('radius-circle')) map.removeSource('radius-circle');
+        toast('Radius circle removed');
+      }
+    }
+
+    function updateRadius(km) {
+      document.getElementById('radius-value').textContent = km + ' km';
+      if (!state.circle) return;
+      
+      const c = map.getCenter();
+      const circle = turf.circle([c.lng, c.lat], parseFloat(km), { units: 'kilometers' });
+      
+      if (map.getSource('radius-circle')) {
+        map.getSource('radius-circle').setData(circle);
+      } else {
+        map.addSource('radius-circle', { type: 'geojson', data: circle });
+        map.addLayer({ id: 'circle-fill', type: 'fill', source: 'radius-circle', paint: { 'fill-color': '#00ffcc', 'fill-opacity': 0.1 } });
+        map.addLayer({ id: 'circle-line', type: 'line', source: 'radius-circle', paint: { 'line-color': '#00ffcc', 'line-width': 2 } });
+      }
+    }
+
+    // =====================================================
+    // EFFECTS
+    // =====================================================
+
+    function toggleFog() {
+      state.fog = !state.fog;
+      setToggle('toggle-fog', state.fog);
+      
+      if (state.fog) {
+        map.setFog({ range: [0.5, 10], color: '#1a1a2e', 'horizon-blend': 0.1 });
+        toast('Fog enabled');
+      } else {
+        map.setFog(null);
+        toast('Fog disabled');
+      }
+    }
+
+    function setTime(time) {
+      const styles = { dawn: 'voyager', day: 'bright', dusk: 'positron', night: 'dark' };
+      const pitches = { dawn: 30, day: 0, dusk: 45, night: 60 };
+      
+      document.getElementById('style-select').value = styles[time];
+      changeStyle(styles[time]);
+      map.easeTo({ pitch: pitches[time], bearing: time === 'dusk' ? 45 : time === 'dawn' ? -45 : 0, duration: 1500 });
+      toast(`Time: ${time}`);
+    }
+  </script>
+</body>
+</html>
