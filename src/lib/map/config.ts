@@ -6,31 +6,22 @@
 
 import type { EventCategory } from "@/lib/registries/types";
 
-/** MapTiler API key from environment. */
-export const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY || "";
-
-/** Available CARTO basemap style URLs for MapLibre GL (fallback without 3D). */
-export const MAP_STYLES = {
-  darkMatter:
-    "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-  positron: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-  voyager: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
-} as const;
-
-/** MapTiler style URLs by theme — supports 3D terrain and buildings. */
+/**
+ * Map style URLs by theme.
+ * Uses OpenFreeMap (completely free, no API key required).
+ * Styles include 3D buildings at high zoom levels.
+ * @see https://openfreemap.org
+ */
 export const MAP_STYLES_BY_THEME = {
-  light: MAPTILER_KEY
-    ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
-    : MAP_STYLES.positron,
-  dark: MAPTILER_KEY
-    ? `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${MAPTILER_KEY}`
-    : MAP_STYLES.darkMatter,
+  light: "https://tiles.openfreemap.org/styles/liberty",
+  dark: "https://tiles.openfreemap.org/styles/dark",
 } as const;
 
-/** MapTiler terrain source URL for 3D terrain. */
-export const TERRAIN_SOURCE = MAPTILER_KEY
-  ? `https://api.maptiler.com/tiles/terrain-rgb-v2/tiles.json?key=${MAPTILER_KEY}`
-  : "";
+/**
+ * Terrain source for 3D elevation.
+ * Uses OpenFreeMap terrain tiles (free, no API key).
+ */
+export const TERRAIN_SOURCE = "https://tiles.openfreemap.org/terrain";
 
 /** Default map center as `[longitude, latitude]` (Orlando, FL). */
 export const DEFAULT_CENTER: [number, number] = [-81.3792, 28.5383];

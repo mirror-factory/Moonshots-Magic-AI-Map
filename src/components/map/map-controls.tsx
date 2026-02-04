@@ -42,15 +42,15 @@ export function MapControls({
     return (
       <button
         onClick={onToggle}
-        className="absolute left-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-lg"
+        className="absolute left-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-xl shadow-lg backdrop-blur-md transition-transform hover:scale-105"
         style={{
-          background: "var(--surface)",
+          background: "var(--chat-bg)",
           border: "1px solid var(--border-color)",
           color: "var(--text)",
         }}
         title="Open controls"
       >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
           <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       </button>
@@ -59,11 +59,12 @@ export function MapControls({
 
   return (
     <div
-      className="absolute left-0 top-0 z-20 flex h-full flex-col overflow-y-auto"
+      className="absolute left-4 top-4 z-20 flex flex-col overflow-y-auto overflow-x-hidden rounded-2xl shadow-xl backdrop-blur-md"
       style={{
         width: "var(--panel-width)",
-        background: "var(--surface)",
-        borderRight: "1px solid var(--border-color)",
+        maxHeight: "calc(100% - 100px)",
+        background: "var(--chat-bg)",
+        border: "1px solid var(--border-color)",
       }}
     >
       {/* Header */}

@@ -35,8 +35,8 @@ export function MapWithChat({ events }: MapWithChatProps) {
 
   return (
     <MapContainer events={events} onAskAbout={handleAskAbout}>
-      {/* Theme toggle in top-left corner */}
-      <div className="absolute left-4 top-4 z-10">
+      {/* Theme toggle in top-right corner (below nav controls) */}
+      <div className="absolute right-4 top-28 z-10">
         <ThemeToggle />
       </div>
 

@@ -2,7 +2,7 @@
  * @module components/map/map-container
  * Root map component. Initializes a MapLibre GL instance, provides it via
  * {@link MapContext}, and composes child map layers (markers, popups, controls).
- * Supports 3D terrain and buildings via MapTiler when API key is configured.
+ * Supports 3D terrain and buildings via OpenFreeMap (free, no API key).
  */
 
 "use client";
@@ -15,7 +15,6 @@ import { MapContext } from "./use-map";
 import {
   MAP_STYLES_BY_THEME,
   TERRAIN_SOURCE,
-  MAPTILER_KEY,
   DEFAULT_CENTER,
   DEFAULT_ZOOM,
   DEFAULT_PITCH,
@@ -165,21 +164,17 @@ export function MapContainer({ events, onAskAbout, children }: MapContainerProps
 
 /**
  * Adds 3D building extrusions to the map.
- * Uses the composite source from MapTiler styles or falls back gracefully.
+ * Uses OpenFreeMap's OpenMapTiles-compatible source.
  */
 function add3DBuildings(map: maplibregl.Map, isDark: boolean) {
-  // Only add if MapTiler is configured and source exists
-  if (!MAPTILER_KEY) return;
-
   // Wait a tick for style to fully load sources
   setTimeout(() => {
-    // Check if building source exists (MapTiler styles include this)
     const style = map.getStyle();
     if (!style?.sources) return;
 
-    // MapTiler styles use different source names - try to find building data
+    // OpenFreeMap uses "openmaptiles" as the source name
     const buildingSource = Object.keys(style.sources).find(
-      (name) => name === "openmaptiles" || name === "maptiler_planet"
+      (name) => name === "openmaptiles" || name === "composite"
     );
 
     if (!buildingSource) return;
@@ -217,7 +212,6 @@ function add3DBuildings(map: maplibregl.Map, isDark: boolean) {
       });
     } catch {
       // Building layer may not be available in all styles
-      console.debug("3D buildings layer not available for this style");
     }
   }, 100);
 }

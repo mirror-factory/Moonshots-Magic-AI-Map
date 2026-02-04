@@ -47,28 +47,36 @@ export function MapStatusBar() {
   }, [map]);
 
   return (
-    <div
-      className="absolute bottom-0 left-0 right-0 z-10 flex items-center gap-6 px-4 font-mono text-xs"
-      style={{
-        height: "var(--status-bar-height)",
-        background: "var(--surface)",
-        borderTop: "1px solid var(--border-color)",
-        color: "var(--text-dim)",
-      }}
-    >
-      <StatusItem label="LAT" value={status.lat.toFixed(4)} />
-      <StatusItem label="LNG" value={status.lng.toFixed(4)} />
-      <StatusItem label="ZOOM" value={status.zoom.toFixed(1)} />
-      <StatusItem label="PITCH" value={`${status.pitch.toFixed(0)}°`} />
+    <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
+      <div
+        className="flex items-center gap-4 rounded-full px-4 py-2 font-mono text-xs shadow-lg backdrop-blur-md"
+        style={{
+          background: "var(--chat-bg)",
+          border: "1px solid var(--border-color)",
+          color: "var(--text-dim)",
+        }}
+      >
+        <StatusItem label="LAT" value={status.lat.toFixed(4)} />
+        <Separator />
+        <StatusItem label="LNG" value={status.lng.toFixed(4)} />
+        <Separator />
+        <StatusItem label="Z" value={status.zoom.toFixed(1)} />
+        <Separator />
+        <StatusItem label="P" value={`${status.pitch.toFixed(0)}°`} />
+      </div>
     </div>
   );
 }
 
 function StatusItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5">
       <span style={{ color: "var(--text-muted)" }}>{label}</span>
       <span style={{ color: "var(--brand-primary)" }}>{value}</span>
     </div>
   );
+}
+
+function Separator() {
+  return <div className="h-3 w-px" style={{ background: "var(--border-color)" }} />;
 }

@@ -15,9 +15,10 @@ import { mapNavigate } from "./tools/map-navigate";
 /**
  * Pre-configured agent instance used by the `/api/chat` route.
  * Runs up to 10 tool-call steps per conversation turn.
+ * Uses Claude Haiku for fast, cost-effective responses.
  */
 export const eventAgent = new ToolLoopAgent({
-  model: "anthropic/claude-sonnet-4.5",
+  model: "anthropic/claude-haiku",
 
   instructions: `You are the Moonshots & Magic AI assistant for Orlando & Central Florida events.
 You help users discover events, get personalized recommendations, explore the interactive map,
