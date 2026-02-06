@@ -1,169 +1,313 @@
 /**
  * @module components/map/map-controls
- * Slide-out panel with category filter toggles, quick-navigate buttons
- * for preset locations, and a color legend for visible categories.
+ * Slide-out sidebar with text-based logo, hamburger-to-X toggle animation,
+ * category filters, event list, and quick navigation dropdowns.
  */
 
 "use client";
 
-import { EVENT_CATEGORIES, type EventCategory } from "@/lib/registries/types";
-import { CATEGORY_COLORS, CATEGORY_LABELS, PRESET_LOCATIONS } from "@/lib/map/config";
+import { useState, useCallback } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { Filter, MapPin, ChevronDown } from "lucide-react";
+import { EVENT_CATEGORIES, type EventCategory, type EventEntry } from "@/lib/registries/types";
+import { CATEGORY_LABELS, PRESET_LOCATIONS } from "@/lib/map/config";
 import { useMap } from "./use-map";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+} from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
+import { EventSidebar } from "./event-sidebar";
+import { EventDetail } from "./event-detail";
 
 interface MapControlsProps {
   open: boolean;
   onToggle: () => void;
   visibleCategories: Set<EventCategory>;
   onToggleCategory: (category: EventCategory) => void;
+  events: EventEntry[];
   eventCount: number;
+  onAskAbout?: (eventTitle: string) => void;
 }
 
-/** Slide-out panel with category filters, quick-navigate buttons, and legend. */
+/** Fixed header with text logo and toggle button (always visible). */
+function MapControlsHeader({
+  open,
+  onToggle,
+}: {
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div
+      className="absolute left-4 top-6 z-20 flex items-center gap-3 rounded-2xl px-4 py-3 shadow-lg backdrop-blur-md"
+      style={{
+        background: "var(--chat-bg)",
+        border: "1px solid var(--border-color)",
+      }}
+    >
+      {/* Text Logo - always visible */}
+      <div className="flex flex-col" style={{ lineHeight: "0.9" }}>
+        <span className="text-base font-bold tracking-wide dark:text-white text-black">
+          MOONSHOTS
+        </span>
+        <span className="text-base font-bold tracking-wide dark:text-white text-black" style={{ marginTop: "-2px" }}>
+          & MAGIC
+        </span>
+      </div>
+
+      {/* Toggle Button with hamburger/X animation */}
+      <button
+        onClick={onToggle}
+        className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+        style={{ color: "var(--text)" }}
+        title={open ? "Close panel" : "Open panel"}
+      >
+        <div className="relative h-4 w-4">
+          {/* Hamburger lines / X animation */}
+          <motion.span
+            className="absolute left-0 h-0.5 w-4 rounded-full"
+            style={{ background: "currentColor", top: "2px" }}
+            animate={{
+              rotate: open ? 45 : 0,
+              y: open ? 5 : 0,
+            }}
+            transition={{ duration: 0.2 }}
+          />
+          <motion.span
+            className="absolute left-0 top-1/2 h-0.5 w-4 -translate-y-1/2 rounded-full"
+            style={{ background: "currentColor" }}
+            animate={{ opacity: open ? 0 : 1 }}
+            transition={{ duration: 0.2 }}
+          />
+          <motion.span
+            className="absolute left-0 h-0.5 w-4 rounded-full"
+            style={{ background: "currentColor", bottom: "2px" }}
+            animate={{
+              rotate: open ? -45 : 0,
+              y: open ? -5 : 0,
+            }}
+            transition={{ duration: 0.2 }}
+          />
+        </div>
+      </button>
+    </div>
+  );
+}
+
+/** Slide-out panel with category filters, event list, and navigation. */
 export function MapControls({
   open,
   onToggle,
   visibleCategories,
   onToggleCategory,
+  events,
   eventCount,
+  onAskAbout,
 }: MapControlsProps) {
   const map = useMap();
+  const [selectedEvent, setSelectedEvent] = useState<EventEntry | null>(null);
 
-  const handleFlyTo = (name: string) => {
+  const handleFlyTo = useCallback((name: string) => {
     const loc = PRESET_LOCATIONS[name];
     if (loc && map) {
       map.flyTo({ center: loc.center, zoom: loc.zoom, duration: 1500 });
     }
-  };
+  }, [map]);
 
-  if (!open) {
-    return (
-      <button
-        onClick={onToggle}
-        className="absolute left-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-xl shadow-lg backdrop-blur-md transition-transform hover:scale-105"
-        style={{
-          background: "var(--chat-bg)",
-          border: "1px solid var(--border-color)",
-          color: "var(--text)",
-        }}
-        title="Open controls"
-      >
-        <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
-          <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-      </button>
-    );
-  }
+  const handleEventClick = useCallback((event: EventEntry) => {
+    setSelectedEvent(event);
+  }, []);
+
+  const handleShowOnMap = useCallback((event: EventEntry) => {
+    if (map) {
+      map.flyTo({
+        center: event.coordinates,
+        zoom: 15,
+        duration: 1500,
+      });
+    }
+  }, [map]);
+
+  const handleBackToList = useCallback(() => {
+    setSelectedEvent(null);
+  }, []);
+
+  // Filter events by visible categories
+  const filteredEvents = events.filter((e) => visibleCategories.has(e.category));
 
   return (
-    <div
-      className="absolute left-4 top-4 z-20 flex flex-col overflow-y-auto overflow-x-hidden rounded-2xl shadow-xl backdrop-blur-md"
-      style={{
-        width: "var(--panel-width)",
-        maxHeight: "calc(100% - 100px)",
-        background: "var(--chat-bg)",
-        border: "1px solid var(--border-color)",
-      }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between p-4">
-        <div>
-          <h2 className="text-sm font-semibold" style={{ color: "var(--brand-primary)" }}>
-            Moonshots & Magic
-          </h2>
-          <p className="text-xs" style={{ color: "var(--text-dim)" }}>
-            {eventCount} events
-          </p>
-        </div>
-        <button
-          onClick={onToggle}
-          className="flex h-7 w-7 items-center justify-center rounded"
-          style={{ color: "var(--text-dim)" }}
-          title="Close controls"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M11 3L3 11M3 3l8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        </button>
-      </div>
+    <>
+      {/* Fixed Header (always visible) */}
+      <MapControlsHeader open={open} onToggle={onToggle} />
 
-      <Separator />
+      {/* Sliding Panel (below header) */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="absolute left-4 top-[5.5rem] z-10 flex flex-col overflow-hidden rounded-2xl shadow-xl backdrop-blur-md"
+            style={{
+              width: "var(--panel-width)",
+              maxHeight: "calc(100% - 140px)",
+              background: "var(--chat-bg)",
+              border: "1px solid var(--border-color)",
+            }}
+          >
+            {/* Event Detail View (slides over list) */}
+            <AnimatePresence>
+              {selectedEvent && (
+                <motion.div
+                  initial={{ x: "100%" }}
+                  animate={{ x: 0 }}
+                  exit={{ x: "100%" }}
+                  transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                  className="absolute inset-0 z-10 flex flex-col overflow-hidden"
+                  style={{ background: "var(--chat-bg)" }}
+                >
+                  <EventDetail
+                    event={selectedEvent}
+                    onBack={handleBackToList}
+                    onShowOnMap={handleShowOnMap}
+                    onAskAI={onAskAbout}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-      {/* Category Filters */}
-      <div className="p-4">
-        <h3 className="mb-3 text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-          Categories
-        </h3>
-        <div className="flex flex-wrap gap-2">
-          {EVENT_CATEGORIES.map((cat) => {
-            const isActive = visibleCategories.has(cat);
-            return (
-              <button
-                key={cat}
-                onClick={() => onToggleCategory(cat)}
-                className="transition-opacity"
-                style={{ opacity: isActive ? 1 : 0.35 }}
-              >
-                <Badge
-                  variant="secondary"
-                  className="cursor-pointer text-xs"
-                  style={{
-                    background: isActive ? CATEGORY_COLORS[cat] : "var(--surface-3)",
-                    color: isActive ? "#000" : "var(--text-dim)",
-                    borderColor: "transparent",
+            {/* Filters Header */}
+            <div className="p-4">
+              <div className="mb-3">
+                <h3
+                  className="text-xs font-medium uppercase tracking-wider"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  Filters
+                </h3>
+              </div>
+
+              {/* Category Dropdown */}
+              <div className="space-y-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors"
+                    style={{
+                      background: "var(--surface-2)",
+                      border: "1px solid var(--border-color)",
+                      color: "var(--text)",
+                    }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Filter className="h-4 w-4" style={{ color: "var(--text-dim)" }} />
+                      Categories
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <Badge
+                        variant="secondary"
+                        className="text-xs"
+                        style={{
+                          background: "var(--surface-3)",
+                          color: "var(--text-dim)",
+                        }}
+                      >
+                        {visibleCategories.size}/{EVENT_CATEGORIES.length}
+                      </Badge>
+                      <ChevronDown className="h-4 w-4" style={{ color: "var(--text-dim)" }} />
+                    </span>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    className="w-56"
+                    style={{
+                      background: "var(--chat-bg)",
+                      borderColor: "var(--border-color)",
+                    }}
+                  >
+                    {EVENT_CATEGORIES.map((cat) => (
+                      <DropdownMenuCheckboxItem
+                        key={cat}
+                        checked={visibleCategories.has(cat)}
+                        onCheckedChange={() => onToggleCategory(cat)}
+                        className="cursor-pointer"
+                      >
+                        {CATEGORY_LABELS[cat]}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Quick Navigate Dropdown */}
+                <Select
+                  value=""
+                  onValueChange={(value) => {
+                    if (value) handleFlyTo(value);
                   }}
                 >
-                  {CATEGORY_LABELS[cat]}
-                </Badge>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Quick Navigation */}
-      <div className="p-4">
-        <h3 className="mb-3 text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-          Quick Navigate
-        </h3>
-        <div className="grid grid-cols-2 gap-2">
-          {Object.entries(PRESET_LOCATIONS).map(([name]) => (
-            <Button
-              key={name}
-              variant="secondary"
-              size="sm"
-              className="justify-start text-xs capitalize"
-              onClick={() => handleFlyTo(name)}
-            >
-              {name.replace(/([A-Z])/g, " $1").trim()}
-            </Button>
-          ))}
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Legend */}
-      <div className="p-4">
-        <h3 className="mb-3 text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-          Legend
-        </h3>
-        <div className="space-y-1.5">
-          {EVENT_CATEGORIES.filter((c) => visibleCategories.has(c)).map((cat) => (
-            <div key={cat} className="flex items-center gap-2 text-xs">
-              <span
-                className="inline-block h-2.5 w-2.5 rounded-full"
-                style={{ background: CATEGORY_COLORS[cat] }}
-              />
-              <span style={{ color: "var(--text-dim)" }}>{CATEGORY_LABELS[cat]}</span>
+                  <SelectTrigger
+                    className="w-full"
+                    style={{
+                      background: "var(--surface-2)",
+                      border: "1px solid var(--border-color)",
+                      color: "var(--text)",
+                    }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4" style={{ color: "var(--text-dim)" }} />
+                      <SelectValue placeholder="Quick Navigate" />
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent
+                    style={{
+                      background: "var(--chat-bg)",
+                      borderColor: "var(--border-color)",
+                    }}
+                  >
+                    {Object.keys(PRESET_LOCATIONS).map((name) => (
+                      <SelectItem key={name} value={name} className="cursor-pointer capitalize">
+                        {name.replace(/([A-Z])/g, " $1").trim()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          ))}
-        </div>
-      </div>
-    </div>
+
+            <Separator />
+
+            {/* Event List */}
+            <EventSidebar
+              events={filteredEvents}
+              onEventClick={handleEventClick}
+              visibleCategories={visibleCategories}
+            />
+
+            <Separator />
+
+            {/* Event Count Footer */}
+            <div
+              className="px-4 py-3"
+              style={{ borderColor: "var(--border-color)" }}
+            >
+              <p className="text-xs" style={{ color: "var(--text-dim)" }}>
+                {filteredEvents.length} of {eventCount} events visible
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

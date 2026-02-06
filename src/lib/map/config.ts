@@ -8,29 +8,23 @@ import type { EventCategory } from "@/lib/registries/types";
 
 /**
  * Map style URLs by theme.
- * Uses OpenFreeMap (completely free, no API key required).
- * Styles include 3D buildings at high zoom levels.
+ * Uses OpenFreeMap Liberty style for both themes (has 3D building height data).
+ * Grayscale and dark effects are applied via CSS filters on the map canvas.
  * @see https://openfreemap.org
  */
 export const MAP_STYLES_BY_THEME = {
   light: "https://tiles.openfreemap.org/styles/liberty",
-  dark: "https://tiles.openfreemap.org/styles/dark",
+  dark: "https://tiles.openfreemap.org/styles/liberty",
 } as const;
-
-/**
- * Terrain source for 3D elevation.
- * Uses OpenFreeMap terrain tiles (free, no API key).
- */
-export const TERRAIN_SOURCE = "https://tiles.openfreemap.org/terrain";
 
 /** Default map center as `[longitude, latitude]` (Orlando, FL). */
 export const DEFAULT_CENTER: [number, number] = [-81.3792, 28.5383];
 /** Default zoom level on initial load. */
 export const DEFAULT_ZOOM = 10;
-/** Default camera pitch in degrees (tilted for 3D view). */
-export const DEFAULT_PITCH = 50;
+/** Default camera pitch in degrees (flat for performance). */
+export const DEFAULT_PITCH = 0;
 /** Default camera bearing in degrees. */
-export const DEFAULT_BEARING = -15;
+export const DEFAULT_BEARING = 0;
 
 /** Named locations for the "Quick Navigate" UI. Each has a center and zoom. */
 export const PRESET_LOCATIONS: Record<string, { center: [number, number]; zoom: number }> = {

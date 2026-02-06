@@ -27,7 +27,7 @@ export function MapAction({ input }: MapActionProps) {
   const executedRef = useRef(false);
 
   useEffect(() => {
-    if (!map || executedRef.current) return;
+    if (!map || executedRef.current || !input) return;
     executedRef.current = true;
 
     if (input.action === "flyTo" && input.coordinates) {
@@ -43,6 +43,9 @@ export function MapAction({ input }: MapActionProps) {
       // The map will highlight events instead
     }
   }, [map, input]);
+
+  // Guard against undefined input
+  if (!input) return null;
 
   const actionLabel = {
     flyTo: "Flying to location",

@@ -36,7 +36,11 @@ export function ThemeToggle() {
     // Return placeholder with same dimensions to avoid layout shift
     return (
       <button
-        className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface border border-border-color transition-colors"
+        className="flex h-10 w-10 items-center justify-center rounded-full shadow-lg backdrop-blur-md"
+        style={{
+          background: "var(--chat-bg)",
+          border: "1px solid var(--border-color)",
+        }}
         aria-label="Toggle theme"
       >
         <div className="h-4 w-4" />
@@ -49,13 +53,18 @@ export function ThemeToggle() {
   return (
     <button
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface border border-border-color transition-colors hover:bg-surface-2"
+      className="flex h-10 w-10 items-center justify-center rounded-full shadow-lg backdrop-blur-md transition-transform hover:scale-105"
+      style={{
+        background: "var(--chat-bg)",
+        border: "1px solid var(--border-color)",
+        color: "var(--text)",
+      }}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
     >
       {isDark ? (
-        <Sun className="h-4 w-4 text-text" />
+        <Sun className="h-4 w-4" />
       ) : (
-        <Moon className="h-4 w-4 text-text" />
+        <Moon className="h-4 w-4" />
       )}
     </button>
   );

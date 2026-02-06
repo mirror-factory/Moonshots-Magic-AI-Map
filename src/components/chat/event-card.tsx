@@ -7,8 +7,11 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { CATEGORY_COLORS, CATEGORY_LABELS } from "@/lib/map/config";
+import { CATEGORY_LABELS } from "@/lib/map/config";
 import type { EventCategory } from "@/lib/registries/types";
+
+/** Brand primary blue color. */
+const BRAND_BLUE = "#3560FF";
 
 interface EventCardEvent {
   id: string;
@@ -58,9 +61,9 @@ export function EventCard({ event }: EventCardProps) {
         <Badge
           className="text-xs"
           style={{
-            background: CATEGORY_COLORS[event.category],
-            color: "#000",
-            borderColor: "transparent",
+            background: `${BRAND_BLUE}20`,
+            color: BRAND_BLUE,
+            border: `1px solid ${BRAND_BLUE}40`,
           }}
         >
           {CATEGORY_LABELS[event.category]}
