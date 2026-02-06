@@ -1,1 +1,24 @@
+#!/usr/bin/env sh
+
+echo ""
+echo "[pre-commit] Running lint-staged (ESLint + related tests)..."
+echo ""
 npx lint-staged
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "========================================"
+  echo "  COMMIT BLOCKED: lint-staged failed"
+  echo "========================================"
+  echo ""
+  echo "  This usually means one of:"
+  echo "    - Missing TSDoc on exported functions/types/components"
+  echo "    - ESLint errors in staged files"
+  echo "    - Related tests are failing"
+  echo ""
+  echo "  How to fix:"
+  echo "    pnpm lint          (see ESLint errors)"
+  echo "    pnpm test          (see test failures)"
+  echo "    Add TSDoc to any new exports in src/"
+  echo ""
+  exit 1
+fi

@@ -32,7 +32,9 @@ The application is a single-page map interface with a floating AI chat panel. Us
 │  │  ┌─────────────┐ ┌─────────────────────────┐  │   │
 │  │  │ searchEvents │ │ getEventDetails         │  │   │
 │  │  │ rankEvents   │ │ searchNewsletters       │  │   │
-│  │  │ mapNavigate* │ │ (* = client-side only)  │  │   │
+│  │  │ mapNavigate* │ │ getUserProfile*         │  │   │
+│  │  │ startFlyover*│ │ updateUserProfile*      │  │   │
+│  │  │              │ │ (* = client-side only)  │  │   │
 │  │  └──────┬───────┘ └──────────┬──────────────┘  │   │
 │  └─────────┼────────────────────┼─────────────────┘   │
 │            ▼                    ▼                      │
@@ -67,71 +69,140 @@ src/
 │   │   ├── layout.tsx             # Docs layout with sidebar
 │   │   ├── page.tsx               # Docs index page
 │   │   └── [slug]/page.tsx        # Dynamic capability detail pages
+│   ├── roadmap/page.tsx           # Project roadmap page
 │   ├── globals.css                # CSS variables, light/dark theme
 │   ├── layout.tsx                 # Root layout with ThemeProvider
 │   ├── map-with-chat.tsx          # Client shell: map + chat + theme toggle
 │   └── page.tsx                   # Home page (RSC, loads events)
 │
 ├── components/
-│   ├── ai-elements/               # Vendored AI Elements UI primitives
+│   ├── ai-elements/               # Vendored AI Elements UI primitives (9 components)
+│   ├── calendar/
+│   │   └── add-to-calendar-button.tsx  # "Add to Calendar" (Google, Apple, ICS)
 │   ├── chat/
 │   │   ├── chat-panel.tsx         # Main chat interface
 │   │   ├── chat-trigger.tsx       # FAB to open chat
 │   │   ├── event-card.tsx         # Single event display card
 │   │   ├── event-list.tsx         # Vertical event list (optional ranking)
 │   │   ├── map-action.tsx         # Client-side map tool executor
-│   │   └── newsletter-card.tsx    # Newsletter search result card
+│   │   ├── newsletter-card.tsx    # Newsletter search result card
+│   │   └── voice-input-button.tsx # Voice input toggle for chat
 │   ├── effects/                   # Dark mode visual effects (brand aesthetic)
-│   │   ├── film-grain.tsx         # Canvas-based animated grain
-│   │   ├── static-stars.tsx       # Star field overlay
-│   │   └── vignette.tsx           # Radial edge darkening
+│   │   ├── blurred-stars.tsx      # Animated blurred stars (intro modal)
+│   │   ├── sparkle.tsx            # Animated sparkle effect (thinking indicator)
+│   │   └── static-stars.tsx       # Star field overlay
+│   ├── intro/
+│   │   └── intro-modal.tsx        # First-visit intro modal
 │   ├── map/
+│   │   ├── event-detail.tsx       # Event detail panel (sidebar)
+│   │   ├── event-list-item.tsx    # Event row in sidebar list
+│   │   ├── event-sidebar.tsx      # Collapsible event sidebar
+│   │   ├── flyover-overlay.tsx    # Flyover tour HUD overlay
 │   │   ├── map-container.tsx      # MapLibre GL + 3D terrain/buildings
 │   │   ├── map-controls.tsx       # Category filters + quick nav
 │   │   ├── map-markers.tsx        # GeoJSON circle layer management
 │   │   ├── map-popups.tsx         # Click-to-popup with "Ask about this"
 │   │   ├── map-status-bar.tsx     # Viewport coordinate display
 │   │   └── use-map.ts             # MapContext + useMap hook
+│   ├── settings/
+│   │   ├── model-selector.tsx     # AI model picker dropdown
+│   │   └── settings-modal.tsx     # User settings dialog
 │   ├── theme-toggle.tsx           # Light/dark theme switcher
 │   └── ui/                        # shadcn/ui primitives
 │
 ├── data/
-│   ├── events.json                # Static event registry data
+│   ├── events.json                # Static event registry data (50 events)
 │   └── newsletters.json           # Static newsletter registry data
 │
 ├── instrumentation.ts             # AI Gateway provider registration
 │
 └── lib/
     ├── agents/
-    │   ├── event-agent.ts         # ToolLoopAgent configuration
+    │   ├── event-agent.ts         # ToolLoopAgent configuration (8 tools)
     │   └── tools/
     │       ├── get-event-details.ts
-    │       ├── map-navigate.ts     # Client-side only (no execute)
+    │       ├── get-user-profile.ts   # Client-side (no execute)
+    │       ├── map-navigate.ts       # Client-side (no execute)
     │       ├── rank-events.ts
     │       ├── search-events.ts
-    │       └── search-newsletters.ts
+    │       ├── search-newsletters.ts
+    │       ├── start-flyover.ts      # Client-side (no execute)
+    │       └── update-user-profile.ts # Client-side (no execute)
+    ├── calendar/
+    │   ├── calendar-links.ts      # Google/Apple/Outlook calendar URL builders
+    │   └── ics-generator.ts       # ICS file generation
     ├── docs/
     │   └── ai-capabilities.ts     # Docs registry utility
+    ├── flyover/
+    │   ├── camera-animator.ts     # MapLibre camera animation curves
+    │   ├── flyover-audio.ts       # Ambient audio during flyover
+    │   └── flyover-engine.ts      # Flyover state machine (idle→preparing→flying→paused→complete)
     ├── map/
     │   ├── config.ts              # Styles, 3D terrain, colors, labels
     │   └── geojson.ts             # EventEntry → GeoJSON conversion
-    └── registries/
-        ├── events.ts              # Event query functions
-        ├── newsletters.ts         # Newsletter query functions
-        └── types.ts               # Shared type definitions
+    ├── profile.ts                 # User profile types and helpers
+    ├── profile-storage.ts         # localStorage profile persistence
+    ├── registries/
+    │   ├── events.ts              # Event query functions
+    │   ├── newsletters.ts         # Newsletter query functions
+    │   └── types.ts               # Shared type definitions
+    ├── settings.ts                # User settings (model selection, defaults)
+    ├── utils.ts                   # Shared utility functions (cn, etc.)
+    └── voice/
+        ├── cartesia-tts.ts        # Text-to-speech via Cartesia API
+        └── speech-to-text.ts      # Browser speech recognition
+
+tests/
+├── setup.ts                       # Test setup (mocks for motion, shadcn, useMap)
+├── fixtures/
+│   ├── events.ts                  # createTestEvent() factory
+│   ├── newsletters.ts            # createTestNewsletter() factory
+│   └── profiles.ts               # createTestProfile() factory
+├── unit/
+│   ├── agents/                    # Tool + agent unit tests (5 files)
+│   ├── calendar/                  # Calendar link + ICS tests (2 files)
+│   ├── flyover/                   # Flyover engine tests (1 file)
+│   ├── map/                       # Config + GeoJSON tests (2 files)
+│   ├── profile/                   # Profile + storage tests (2 files)
+│   ├── registries/                # Event + newsletter query tests (2 files)
+│   └── settings/                  # Settings tests (1 file)
+├── component/
+│   ├── chat/                      # EventCard, MapAction, ChatTrigger tests (3 files)
+│   └── effects/                   # Sparkle test (1 file)
+└── integration/
+    └── api/                       # Route handler tests (2 files)
+
+e2e/                               # Playwright end-to-end tests
+├── app-load.spec.ts
+├── chat-flow.spec.ts
+├── event-search.spec.ts
+├── map-navigate.spec.ts
+└── theme-toggle.spec.ts
 
 docs/
-└── ai-capabilities/               # AI tool documentation (markdown)
-    ├── index.md
-    ├── search-events.md
-    ├── get-event-details.md
-    ├── rank-events.md
-    ├── map-navigate.md
-    └── search-newsletters.md
+├── ai-capabilities/               # AI tool documentation (markdown)
+├── FEATURES.md                    # Complete feature registry (35 features)
+├── MAP-ARCHITECTURE.md            # Map system deep-dive
+├── PLAN.md                        # Project roadmap and planning
+└── TEAM-INFRASTRUCTURE.md         # Hooks, skills, Storybook, CI setup
+
+scripts/
+└── check-stories.sh               # Story coverage check (warning, not blocker)
+
+.storybook/
+├── main.ts                        # Stories glob, react-vite framework, addons
+└── preview.ts                     # Global CSS, theme decorator, toolbar switcher
+
+.husky/
+├── commit-msg                     # Conventional commit message enforcement
+├── pre-commit                     # ESLint + related tests on staged files
+├── pre-push                       # Typecheck + coverage + docs build
+└── post-merge                     # Auto-install deps on lock file change
 
 .github/
 └── workflows/
-    └── docs.yml                   # CI for doc generation on push to main
+    ├── docs.yml                   # CI for doc generation on push to main
+    └── test.yml                   # CI for unit tests + E2E tests
 ```
 
 ## Key Conventions
@@ -145,7 +216,13 @@ All theme colors are defined as CSS custom properties in `globals.css`:
 MapLibre GL cannot use CSS variables in expressions. The `CATEGORY_COLORS` map in `config.ts` contains literal hex values that **must** stay synchronized with the `--category-*` CSS variables. If you change a color in one place, update the other.
 
 ### Client-Side Tools
-The `mapNavigate` tool has no `execute` function. It's a schema-only tool whose invocation is streamed to the client and rendered by the `MapAction` component. This pattern allows the LLM to control the map without server-side map access.
+Four tools have no `execute` function — they are schema-only, streamed to the client:
+- `mapNavigate` → rendered by `MapAction` (map flyTo/highlight/fitBounds)
+- `getUserProfile` → reads user preferences from localStorage
+- `updateUserProfile` → saves user preferences to localStorage
+- `startFlyover` → launches a flyover tour via the flyover engine
+
+This pattern allows the LLM to control browser-side features without server access.
 
 ### Registry-First Data Access
 All data queries go through the registry functions in `src/lib/registries/`. The JSON files are loaded once at import time and queried in-memory. There is no database; data is static.
@@ -179,9 +256,11 @@ All data queries go through the registry functions in `src/lib/registries/`. The
 
 ### New Agent Tool
 1. Create a new file in `src/lib/agents/tools/`
-2. Define the tool with `tool()` from `ai` (include `inputSchema` and `execute`)
+2. Define the tool with `tool()` from `ai` (include `inputSchema` and `execute` for server tools; schema only for client tools)
 3. Register it in `eventAgent.tools` in `src/lib/agents/event-agent.ts`
 4. If it returns structured output, add a rendering branch in `ChatPanel`
+5. Write tests in `tests/unit/agents/tools/`
+6. Read `.claude/skills/ai-team/SKILL.md` for the full recipe
 
 ### New Map Layer
 1. Create a new component in `src/components/map/`
@@ -189,24 +268,61 @@ All data queries go through the registry functions in `src/lib/registries/`. The
 3. Add the layer in a `useEffect` keyed to `[map]`
 4. Render the component inside `MapContainer`
 
+### New Component (any)
+1. Create the component in the appropriate `src/components/` directory
+2. Add TSDoc comments on all exports
+3. Write a `.stories.tsx` file next to it with all prop variants
+4. Write tests in `tests/component/`
+5. The pre-push hook enforces typecheck, coverage, and docs build
+
 ## Generated Documentation
 
 Run `pnpm docs` to generate TypeDoc API reference to `docs/generated/`.
 The generated docs are git-ignored and should be rebuilt locally as needed.
 
+## Feature Registry
+
+See **[docs/FEATURES.md](docs/FEATURES.md)** for a complete registry of all 35 features including:
+- Map & Navigation (8 features)
+- Chat & AI (10 features)
+- User Experience (6 features)
+- Voice & Audio (3 features)
+- Personalization (4 features)
+- Visual Effects (4 features)
+
 ## Current Issues
 
 - **Static data**: Event data is loaded from static JSON; no database persistence or admin interface
 - **Color duplication**: Category colors are duplicated in CSS variables (`globals.css`) and JavaScript (`config.ts`) — MapLibre requires hex literals
-- **No agent tool tests**: Agent tools lack automated test coverage
 - **No marker clustering**: Map markers overlap at low zoom levels without clustering
+- **Story coverage**: 6/24 components have Storybook stories (run `pnpm check-stories` for details)
 
-## Next Steps
+## Completed Milestones
 
-1. ~~Theme system with light/dark toggle~~ ✅ Implemented
-2. ~~3D map with terrain and buildings via MapTiler~~ ✅ Implemented
-3. ~~AI capabilities documentation page at `/docs/ai`~~ ✅ Implemented
-4. ~~GitHub Action for automated doc generation~~ ✅ Implemented
+1. ~~Theme system with light/dark toggle~~ ✅
+2. ~~3D map with terrain and buildings~~ ✅
+3. ~~AI capabilities documentation page at `/docs/ai`~~ ✅
+4. ~~GitHub Action for automated doc generation~~ ✅
+5. ~~Test suite (286 tests, 87% coverage, Vitest + Playwright)~~ ✅
+6. ~~Storybook foundation (6 stories, 18 variants)~~ ✅
+7. ~~Git hooks (commitlint, pre-push typecheck + coverage + docs)~~ ✅
+8. ~~Claude skills (ai-team, feature-testing, commit-docs)~~ ✅
+9. ~~Voice input (speech-to-text + Cartesia TTS)~~ ✅
+10. ~~Flyover tours (camera animation state machine)~~ ✅
+11. ~~User personalization (profile storage + preferences)~~ ✅
+
+## Quality Infrastructure
+
+See **[docs/TEAM-INFRASTRUCTURE.md](docs/TEAM-INFRASTRUCTURE.md)** for full details.
+
+| Gate | Hook | What it enforces |
+|------|------|-----------------|
+| TSDoc on exports | pre-commit | ESLint `jsdoc/require-jsdoc` |
+| Conventional commits | commit-msg | commitlint |
+| TypeScript correctness | pre-push | `tsc --noEmit` (source + tests) |
+| Test coverage ≥60% | pre-push | `vitest --coverage` |
+| TypeDoc builds | pre-push | `pnpm docs` |
+| Dependency sync | post-merge | Auto `pnpm install` on lock change |
 
 ## Opportunities for Improvement
 
@@ -218,11 +334,9 @@ The generated docs are git-ignored and should be rebuilt locally as needed.
 ### Features
 - **Event favoriting**: Allow users to save favorite events (localStorage or Supabase)
 - **URL sharing**: Deep links to specific events or map views (e.g., `/event/:id`, `/?view=downtown`)
-- **Voice input**: Add voice-to-text for chat queries
 
 ### Developer Experience
-- **Storybook**: Add Storybook for component development and documentation
-- **Playwright E2E**: Add end-to-end tests for critical user flows
+- **Story coverage**: Expand from 6/24 to full component coverage (run `pnpm check-stories`)
 - **Component docs**: Auto-generate component documentation from TSDoc
 
 ### Architecture

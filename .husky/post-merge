@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+
+# Auto-install deps when pnpm-lock.yaml changes after merge/pull
+CHANGED_FILES="$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD)"
+
+if echo "$CHANGED_FILES" | grep -q "pnpm-lock.yaml"; then
+  echo "pnpm-lock.yaml changed — running pnpm install --frozen-lockfile"
+  pnpm install --frozen-lockfile
+fi

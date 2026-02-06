@@ -2,6 +2,8 @@
 
 IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning. Consult local docs and skill references before relying on training data.
 
+> REMINDER: Push early, push often. Commit after each completed unit of work — every new function, test, or component. The pre-push hook runs typecheck + full test suite. Small pushes catch issues early and keep the CI pipeline validating every iteration.
+
 ## Project Instructions
 
 - **Stack**: Next.js (App Router), React, TypeScript, Tailwind CSS, Supabase, Vercel AI SDK
@@ -34,6 +36,11 @@ IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning. Consu
 |  contains: SKILL.md,references/,scripts/
 |  size: 1.1MB (130 files)
 
+|ai-team|.claude/skills/ai-team
+|  desc: Composite AI feature development — orchestrates AI SDK + AI Elements + AI Gateway. Agent team spawn patterns for parallel AI feature work.
+|  contains: SKILL.md
+|  size: ~8KB (1 file)
+
 |next-best-practices|.claude/skills/next-best-practices
 |  desc: Next.js file conventions, RSC boundaries, data patterns, async APIs, metadata, error handling, route handlers, image/font optimization, bundling.
 |  contains: SKILL.md,async-patterns.md,bundling.md,data-patterns.md,debug-tricks.md,directives.md,error-handling.md,file-conventions.md,font.md,functions.md,hydration-error.md,image.md,metadata.md,parallel-routes.md,route-handlers.md,rsc-boundaries.md,runtime-selection.md,scripts.md,self-hosting.md,suspense-boundaries.md
@@ -55,6 +62,16 @@ IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning. Consu
 |  desc: Next.js 16 Cache Components — PPR, use cache directive, cacheLife, cacheTag, updateTag.
 |  contains: SKILL.md
 |  size: 8KB (1 file)
+
+|test-suite|.claude/skills/test-suite
+|  desc: Vitest + Playwright testing — commands, file placement, fixtures, AI SDK mock patterns, coverage gates.
+|  contains: SKILL.md
+|  size: 4KB (1 file)
+
+|feature-testing|.claude/skills/feature-testing
+|  desc: Feature development with parallel agent teams — implementation, unit tests, visual tests, documentation. Ensures every feature gets test coverage.
+|  contains: SKILL.md
+|  size: ~4KB (1 file)
 
 ### Tier 3 — Tooling
 
@@ -96,6 +113,13 @@ IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning. Consu
 |  desc: Documentation maintenance — TSDoc enforcement, ARCHITECTURE.md sync, TypeDoc verification. Triggered on any src/ file changes.
 |  contains: SKILL.md
 |  size: ~4KB (1 file)
+
+|commit-docs|.claude/skills/commit-docs
+|  desc: Commit documentation standards — TSDoc checklist, conventional commit messages, pre-commit verification.
+|  contains: SKILL.md
+|  size: ~4KB (1 file)
+
+> REMINDER: Have you pushed recently? If you've completed a feature, test, or meaningful change — commit and push now. Don't batch work. The hooks will catch problems. Small, frequent pushes > large, infrequent ones.
 
 ## Architecture
 
@@ -148,3 +172,5 @@ IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning. Consu
 |components/voice:{audio-player.mdx,mic-selector.mdx,persona.mdx,speech-input.mdx,transcription.mdx,voice-selector.mdx}
 |components/workflow:{canvas.mdx,connection.mdx,controls.mdx,edge.mdx,node.mdx,panel.mdx,toolbar.mdx}
 |examples:{index.mdx,chatbot.mdx,v0.mdx,workflow.mdx}
+
+> REMINDER: Before ending a session — commit and push all completed work. Every push triggers CI (tests + coverage + typecheck). Unpushed work is unvalidated work.

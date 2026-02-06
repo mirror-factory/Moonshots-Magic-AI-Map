@@ -1,0 +1,76 @@
+#!/usr/bin/env sh
+
+echo ""
+echo "========================================"
+echo "  PRE-PUSH CHECKS"
+echo "========================================"
+echo ""
+
+# Step 1: TypeScript typecheck
+echo "[1/3] Running TypeScript typecheck..."
+echo ""
+pnpm run typecheck
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "========================================"
+  echo "  PUSH BLOCKED: TypeScript errors"
+  echo "========================================"
+  echo ""
+  echo "  TypeScript found type errors in your code."
+  echo ""
+  echo "  How to fix:"
+  echo "    pnpm run typecheck"
+  echo "    Fix all reported errors, then try pushing again."
+  echo ""
+  exit 1
+fi
+echo ""
+
+# Step 2: Tests with coverage
+echo "[2/3] Running tests with coverage check..."
+echo ""
+pnpm test:coverage
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "========================================"
+  echo "  PUSH BLOCKED: Tests failed or coverage too low"
+  echo "========================================"
+  echo ""
+  echo "  Either tests are failing or code coverage dropped"
+  echo "  below the 60% line threshold."
+  echo ""
+  echo "  How to fix:"
+  echo "    pnpm test:coverage"
+  echo "    - If tests fail: fix the failing tests"
+  echo "    - If coverage is low: add tests for new code"
+  echo ""
+  exit 1
+fi
+echo ""
+
+# Step 3: Documentation build
+echo "[3/3] Building documentation..."
+echo ""
+pnpm docs
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "========================================"
+  echo "  PUSH BLOCKED: TypeDoc build failed"
+  echo "========================================"
+  echo ""
+  echo "  TypeDoc could not build the API documentation."
+  echo "  This usually means new exports are missing TSDoc comments."
+  echo ""
+  echo "  How to fix:"
+  echo "    pnpm docs"
+  echo "    Add TSDoc comments to any new exported functions,"
+  echo "    types, or components, then try pushing again."
+  echo ""
+  exit 1
+fi
+
+echo ""
+echo "========================================"
+echo "  ALL CHECKS PASSED"
+echo "========================================"
+echo ""

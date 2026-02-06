@@ -1,0 +1,24 @@
+#!/usr/bin/env sh
+
+npx --no -- commitlint --edit $1
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "========================================"
+  echo "  COMMIT BLOCKED: Bad commit message"
+  echo "========================================"
+  echo ""
+  echo "  Commit messages must follow conventional format:"
+  echo ""
+  echo "    type(scope): description"
+  echo ""
+  echo "  Valid types:"
+  echo "    feat fix docs style refactor perf"
+  echo "    test build ci chore revert"
+  echo ""
+  echo "  Examples:"
+  echo "    feat(chat): add tappable option buttons"
+  echo "    fix(agents): handle empty search results"
+  echo "    test(flyover): add camera animation tests"
+  echo ""
+  exit 1
+fi
