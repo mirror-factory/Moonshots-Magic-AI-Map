@@ -1,0 +1,83 @@
+[
+  {
+    "id": "enhanced-ai-recommendations",
+    "icon": "Brain",
+    "title": "Enhanced AI Recommendations",
+    "description": "Smarter event suggestions based on your preferences and history",
+    "status": "in-progress",
+    "priority": "high",
+    "addedDate": "2026-01-15"
+  },
+  {
+    "id": "dynamic-chat-movement",
+    "icon": "Move",
+    "title": "Dynamic Chat Movement",
+    "description": "When you ask about an event, the chat slides from center to sidebar, slims its width, and the map flies to the event with highlights and details",
+    "status": "planned",
+    "priority": "high",
+    "addedDate": "2026-02-07"
+  },
+  {
+    "id": "social-features",
+    "icon": "Users",
+    "title": "Social Features",
+    "description": "Connect with friends, share events, and plan together",
+    "status": "planned",
+    "priority": "medium",
+    "addedDate": "2026-01-15"
+  },
+  {
+    "id": "expanded-regions",
+    "icon": "Globe",
+    "title": "Expanded Regions",
+    "description": "Discover events beyond Orlando - coming to more cities",
+    "status": "planned",
+    "priority": "medium",
+    "addedDate": "2026-01-15"
+  },
+  {
+    "id": "realtime-updates",
+    "icon": "Zap",
+    "title": "Real-time Updates",
+    "description": "Live notifications for event changes and recommendations",
+    "status": "planned",
+    "priority": "medium",
+    "addedDate": "2026-01-15"
+  },
+  {
+    "id": "smart-calendar-sync",
+    "icon": "Calendar",
+    "title": "Smart Calendar Sync",
+    "description": "Automatic conflict detection and schedule optimization",
+    "status": "planned",
+    "priority": "medium",
+    "addedDate": "2026-01-15"
+  },
+  {
+    "id": "ar-venue-previews",
+    "icon": "MapPin",
+    "title": "AR Venue Previews",
+    "description": "Augmented reality tours of event venues",
+    "status": "planned",
+    "priority": "medium",
+    "addedDate": "2026-01-15"
+  },
+  {
+    "id": "event-creation",
+    "icon": "Share2",
+    "title": "Event Creation",
+    "description": "Host and promote your own community events",
+    "status": "planned",
+    "priority": "medium",
+    "addedDate": "2026-01-15"
+  },
+  {
+    "id": "personalized-experiences",
+    "icon": "Sparkles",
+    "title": "Personalized Experiences",
+    "description": "Custom event categories and curated collections",
+    "status": "planned",
+    "priority": "medium",
+    "addedDate": "2026-01-15"
+  }
+]

@@ -1,0 +1,45 @@
+[
+  {
+    "version": "0.2.0",
+    "date": "2026-02-07",
+    "title": "UX Overhaul v2",
+    "items": [
+      { "type": "feat", "text": "Ambient context system with intelligent map awareness" },
+      { "type": "feat", "text": "Supabase integration for live event data" },
+      { "type": "feat", "text": "Ditto personality and avatar for AI assistant" },
+      { "type": "feat", "text": "Interactive hotspot markers on the map" },
+      { "type": "feat", "text": "SVG logo with events dropdown and grain-texture styling" },
+      { "type": "feat", "text": "Onboarding quiz flow with personalized setup" },
+      { "type": "fix", "text": "Chat scroll behavior and glass opacity refinements" },
+      { "type": "fix", "text": "Dark map theme and glow visibility improvements" },
+      { "type": "chore", "text": "Coverage exclusions updated for new UI components" }
+    ]
+  },
+  {
+    "version": "0.1.1",
+    "date": "2026-02-01",
+    "title": "UX Polish",
+    "items": [
+      { "type": "fix", "text": "Ditto avatar sizing and dark glow adjustments" },
+      { "type": "fix", "text": "Onboarding feedback and transition smoothness" },
+      { "type": "feat", "text": "Eventbrite route scaffold for external event imports" },
+      { "type": "fix", "text": "Chat scroll, glass opacity, and glow visibility fixes" }
+    ]
+  },
+  {
+    "version": "0.1.0",
+    "date": "2026-01-15",
+    "title": "Foundation",
+    "items": [
+      { "type": "feat", "text": "Interactive MapLibre map with 3D terrain and buildings" },
+      { "type": "feat", "text": "AI chat agent with tool calling and event search" },
+      { "type": "feat", "text": "Voice input/output with speech recognition" },
+      { "type": "feat", "text": "Flyover tour engine with state machine" },
+      { "type": "feat", "text": "Calendar integration and event sidebar" },
+      { "type": "feat", "text": "Light/dark theme with brand colors" },
+      { "type": "feat", "text": "Comprehensive test suite with 286 tests and CI pipeline" },
+      { "type": "chore", "text": "Git hooks, skills, Storybook, and team infrastructure" },
+      { "type": "chore", "text": "TypeDoc API documentation with auto-generation" }
+    ]
+  }
+]
