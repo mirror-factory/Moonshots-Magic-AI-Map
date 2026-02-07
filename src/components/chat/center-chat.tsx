@@ -270,7 +270,7 @@ export function CenterChat({ initialInput, onClearInitialInput, onStartFlyover }
 
       {/* Unified chat panel — single container for header + messages + input */}
       <div
-        className="flex flex-col rounded-2xl shadow-2xl"
+        className="grain-texture flex flex-col rounded-2xl shadow-2xl"
         style={{
           background: "var(--glass-bg)",
           border: "1px solid var(--glass-border)",

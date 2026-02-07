@@ -1,14 +1,14 @@
 /**
  * @module components/map/map-controls
- * Slide-out sidebar with text-based logo, hamburger-to-X toggle animation,
- * category filters, event list, and quick navigation dropdowns.
+ * Top-left map overlay with brand logo events dropdown, filter toggle,
+ * and a slide-out sidebar for category filtering, event list, and navigation.
  */
 
 "use client";
 
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Filter, MapPin, ChevronDown } from "lucide-react";
+import { Filter, MapPin, ChevronDown, SlidersHorizontal } from "lucide-react";
 import { EVENT_CATEGORIES, type EventCategory, type EventEntry } from "@/lib/registries/types";
 import { CATEGORY_LABELS, PRESET_LOCATIONS } from "@/lib/map/config";
 import { useMap } from "./use-map";
@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { EventSidebar } from "./event-sidebar";
 import { EventDetail } from "./event-detail";
+import { EventsDropdown } from "./events-dropdown";
 
 interface MapControlsProps {
   open: boolean;
@@ -38,71 +39,6 @@ interface MapControlsProps {
   events: EventEntry[];
   eventCount: number;
   onAskAbout?: (eventTitle: string) => void;
-}
-
-/** Fixed header with text logo and toggle button (always visible). */
-function MapControlsHeader({
-  open,
-  onToggle,
-}: {
-  open: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div
-      className="absolute left-4 top-6 z-20 flex items-center gap-3 rounded-2xl px-4 py-3 shadow-lg backdrop-blur-md"
-      style={{
-        background: "var(--chat-bg)",
-        border: "1px solid var(--border-color)",
-      }}
-    >
-      {/* Text Logo - always visible */}
-      <div className="flex flex-col" style={{ lineHeight: "0.9", fontFamily: "var(--font-bebas-neue)" }}>
-        <span className="text-lg tracking-wide dark:text-white text-black">
-          MOONSHOTS
-        </span>
-        <span className="text-lg tracking-wide dark:text-white text-black" style={{ marginTop: "-2px" }}>
-          & MAGIC
-        </span>
-      </div>
-
-      {/* Toggle Button with hamburger/X animation */}
-      <button
-        onClick={onToggle}
-        className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-        style={{ color: "var(--text)" }}
-        title={open ? "Close panel" : "Open panel"}
-      >
-        <div className="relative h-4 w-4">
-          {/* Hamburger lines / X animation */}
-          <motion.span
-            className="absolute left-0 h-0.5 w-4 rounded-full"
-            style={{ background: "currentColor", top: "2px" }}
-            animate={{
-              rotate: open ? 45 : 0,
-              y: open ? 5 : 0,
-            }}
-            transition={{ duration: 0.2 }}
-          />
-          <motion.span
-            className="absolute left-0 top-1/2 h-0.5 w-4 -translate-y-1/2 rounded-full"
-            style={{ background: "currentColor" }}
-            animate={{ opacity: open ? 0 : 1 }}
-            transition={{ duration: 0.2 }}
-          />
-          <motion.span
-            className="absolute left-0 h-0.5 w-4 rounded-full"
-            style={{ background: "currentColor", bottom: "2px" }}
-            animate={{
-              rotate: open ? -45 : 0,
-              y: open ? -5 : 0,
-            }}
-            transition={{ duration: 0.2 }}
-          />
-        </div>
-      </button>
-    </div>
-  );
 }
 
 /** Slide-out panel with category filters, event list, and navigation. */
@@ -146,10 +82,42 @@ export function MapControls({
   // Filter events by visible categories
   const filteredEvents = events.filter((e) => visibleCategories.has(e.category));
 
+  // Count of active filters (categories deselected from the full set)
+  const activeFilterCount = EVENT_CATEGORIES.length - visibleCategories.size;
+
   return (
     <>
-      {/* Fixed Header (always visible) */}
-      <MapControlsHeader open={open} onToggle={onToggle} />
+      {/* Top-left header: Logo dropdown + filter toggle */}
+      <div className="absolute left-4 top-6 z-20 flex items-center gap-2">
+        {/* Brand logo events dropdown */}
+        <EventsDropdown
+          events={events}
+          onAskAbout={onAskAbout}
+          onShowOnMap={handleShowOnMap}
+        />
+
+        {/* Map filter toggle button */}
+        <button
+          onClick={onToggle}
+          className="relative flex h-10 w-10 items-center justify-center rounded-xl shadow-lg backdrop-blur-md transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+          style={{
+            background: "var(--glass-bg)",
+            border: "1px solid var(--glass-border)",
+            color: "var(--text)",
+          }}
+          title={open ? "Close filters" : "Map filters"}
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+          {activeFilterCount > 0 && (
+            <span
+              className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-white"
+              style={{ background: "var(--brand-primary)" }}
+            >
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
+      </div>
 
       {/* Sliding Panel (below header) */}
       <AnimatePresence>
@@ -163,8 +131,10 @@ export function MapControls({
             style={{
               width: "var(--panel-width)",
               maxHeight: "calc(100% - 140px)",
-              background: "var(--chat-bg)",
-              border: "1px solid var(--border-color)",
+              background: "var(--glass-bg)",
+              border: "1px solid var(--glass-border)",
+              backdropFilter: "blur(var(--glass-blur))",
+              WebkitBackdropFilter: "blur(var(--glass-blur))",
             }}
           >
             {/* Event Detail View (slides over list) */}
@@ -176,7 +146,7 @@ export function MapControls({
                   exit={{ x: "100%" }}
                   transition={{ type: "spring", damping: 25, stiffness: 300 }}
                   className="absolute inset-0 z-10 flex flex-col overflow-hidden"
-                  style={{ background: "var(--chat-bg)" }}
+                  style={{ background: "var(--glass-bg)" }}
                 >
                   <EventDetail
                     event={selectedEvent}
@@ -195,7 +165,7 @@ export function MapControls({
                   className="text-xs font-medium uppercase tracking-wider"
                   style={{ color: "var(--text-muted)" }}
                 >
-                  Filters
+                  Map Filters
                 </h3>
               </div>
 
@@ -232,7 +202,7 @@ export function MapControls({
                     align="start"
                     className="w-56"
                     style={{
-                      background: "var(--chat-bg)",
+                      background: "var(--glass-bg)",
                       borderColor: "var(--border-color)",
                     }}
                   >
@@ -271,7 +241,7 @@ export function MapControls({
                   </SelectTrigger>
                   <SelectContent
                     style={{
-                      background: "var(--chat-bg)",
+                      background: "var(--glass-bg)",
                       borderColor: "var(--border-color)",
                     }}
                   >
