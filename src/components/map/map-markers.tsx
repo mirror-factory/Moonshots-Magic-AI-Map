@@ -29,6 +29,9 @@ export function MapMarkers({ events, visibleCategories, styleLoaded, isDark = fa
 
     // Theme-aware stroke color: white in dark mode, dark gray in light mode
     const strokeColor = isDark ? "rgba(255, 255, 255, 0.9)" : "rgba(50, 50, 50, 0.8)";
+    // Glow is more visible in dark mode since the map is darker
+    const glowOpacity = isDark ? 0.45 : 0.3;
+    const featuredGlowOpacity = isDark ? 0.3 : 0.2;
 
     const addLayer = () => {
       const geojson = eventsToGeoJSON(events);
@@ -67,7 +70,7 @@ export function MapMarkers({ events, visibleCategories, styleLoaded, isDark = fa
                 16, 36,
               ],
               "circle-color": colorExpr,
-              "circle-opacity": 0.3,
+              "circle-opacity": glowOpacity,
               "circle-blur": 0.8,
             },
           });
@@ -90,7 +93,7 @@ export function MapMarkers({ events, visibleCategories, styleLoaded, isDark = fa
                 16, 60,
               ],
               "circle-color": colorExpr,
-              "circle-opacity": 0.2,
+              "circle-opacity": featuredGlowOpacity,
               "circle-blur": 0.8,
             },
           });
@@ -116,8 +119,14 @@ export function MapMarkers({ events, visibleCategories, styleLoaded, isDark = fa
           },
         });
       } else {
-        // Update stroke color if layer exists (theme changed)
+        // Update paint properties when theme changes
         map.setPaintProperty("events-layer", "circle-stroke-color", strokeColor);
+        if (map.getLayer("events-glow-layer")) {
+          map.setPaintProperty("events-glow-layer", "circle-opacity", glowOpacity);
+        }
+        if (map.getLayer("featured-glow-layer")) {
+          map.setPaintProperty("featured-glow-layer", "circle-opacity", featuredGlowOpacity);
+        }
       }
 
       // Apply category filter to all layers

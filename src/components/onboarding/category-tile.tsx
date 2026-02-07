@@ -37,12 +37,14 @@ interface CategoryTileProps {
   category: EventCategory;
   /** Whether this tile is currently selected. */
   selected: boolean;
+  /** Number of events in this category. */
+  eventCount?: number;
   /** Called when the tile is toggled. */
   onToggle: (category: EventCategory) => void;
 }
 
 /** Selectable category tile with icon, label, and glow effect. */
-export function CategoryTile({ category, selected, onToggle }: CategoryTileProps) {
+export function CategoryTile({ category, selected, eventCount, onToggle }: CategoryTileProps) {
   const Icon = CATEGORY_ICONS[category] ?? Users;
   const color = CATEGORY_COLORS[category];
   const label = CATEGORY_LABELS[category];
@@ -70,6 +72,14 @@ export function CategoryTile({ category, selected, onToggle }: CategoryTileProps
       >
         {label}
       </span>
+      {eventCount !== undefined && (
+        <span
+          className="text-[10px]"
+          style={{ color: selected ? color : "var(--text-muted)" }}
+        >
+          {eventCount} event{eventCount !== 1 ? "s" : ""}
+        </span>
+      )}
     </motion.button>
   );
 }

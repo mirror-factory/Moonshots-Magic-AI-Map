@@ -31,15 +31,28 @@ const VIBE_CATEGORIES: EventCategory[] = [
 interface OnboardingQuizProps {
   /** Whether the quiz overlay is visible. */
   open: boolean;
+  /** All available events, used to show per-category counts. */
+  events?: Array<{ category: string }>;
   /** Called when the quiz is completed. Returns selected categories. */
   onComplete: (categories: EventCategory[]) => void;
 }
 
 /** 3-step onboarding quiz overlay with starfield background. */
-export function OnboardingQuiz({ open, onComplete }: OnboardingQuizProps) {
+export function OnboardingQuiz({ open, events, onComplete }: OnboardingQuizProps) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<Set<EventCategory>>(new Set());
+
+  // Count events per category for visual feedback
+  const categoryCounts = events
+    ? VIBE_CATEGORIES.reduce<Record<string, number>>((acc, cat) => {
+        acc[cat] = events.filter((e) => e.category === cat).length;
+        return acc;
+      }, {})
+    : {};
+  const selectedEventCount = events
+    ? events.filter((e) => selectedCategories.has(e.category as EventCategory)).length
+    : 0;
 
   const handleToggleCategory = useCallback((category: EventCategory) => {
     setSelectedCategories((prev) => {
@@ -148,10 +161,19 @@ export function OnboardingQuiz({ open, onComplete }: OnboardingQuizProps) {
                       key={category}
                       category={category}
                       selected={selectedCategories.has(category)}
+                      eventCount={categoryCounts[category]}
                       onToggle={handleToggleCategory}
                     />
                   ))}
                 </div>
+                {selectedCategories.size > 0 && (
+                  <p
+                    className="text-center text-sm text-white/80"
+                    style={{ fontFamily: "var(--font-rajdhani)" }}
+                  >
+                    {selectedEventCount} event{selectedEventCount !== 1 ? "s" : ""} match your picks
+                  </p>
+                )}
                 <div className="flex gap-3">
                   <button
                     onClick={() => setStep(0)}

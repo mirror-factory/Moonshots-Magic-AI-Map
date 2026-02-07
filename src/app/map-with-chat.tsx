@@ -80,7 +80,7 @@ export function MapWithChat({ events }: MapWithChatProps) {
 
   return (
     <IntroContext.Provider value={{ showIntro: handleShowIntro }}>
-      <OnboardingQuiz open={onboardingOpen} onComplete={handleOnboardingComplete} />
+      <OnboardingQuiz open={onboardingOpen} events={events} onComplete={handleOnboardingComplete} />
       <MapContainer
         events={events}
         onAskAbout={handleAskAbout}

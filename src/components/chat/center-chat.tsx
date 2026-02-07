@@ -543,18 +543,22 @@ export function CenterChat({ initialInput, onClearInitialInput, onStartFlyover }
             borderTop: expanded ? "1px solid var(--border-color)" : "none",
           }}
         >
-          {/* Contextual greeting */}
-          {!expanded && messages.length === 0 && (
-            <div className="px-4 pt-3">
+          {/* Contextual greeting with Ditto avatar */}
+          {!expanded && (
+            <div className="flex items-center gap-2 px-4 pt-3">
+              <DittoAvatar state={messages.length > 0 ? "idle" : "excited"} size={24} />
               <p
                 className="text-xs"
                 style={{ color: "var(--text-dim)", fontFamily: "var(--font-chakra-petch)" }}
               >
-                {greeting}
+                {messages.length === 0 ? greeting : "Tap to continue chatting with Ditto"}
               </p>
             </div>
           )}
-          <div className="px-3 py-2">
+          <div
+            className="px-3 py-2"
+            onClick={() => !expanded && messages.length > 0 && setExpanded(true)}
+          >
             <PromptInput
               onSubmit={(message) => {
                 handleSend(message.text);
