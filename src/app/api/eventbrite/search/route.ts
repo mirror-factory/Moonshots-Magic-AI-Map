@@ -7,19 +7,20 @@
 import { NextResponse } from "next/server";
 import { parseEventbriteEvent } from "@/lib/registries/eventbrite-parser";
 
-const EVENTBRITE_API_KEY = process.env.EVENTBRITE_API_KEY;
+const EVENTBRITE_TOKEN = process.env.EVENTBRITE_PRIVATE_TOKEN || process.env.EVENTBRITE_API_KEY;
 const EVENTBRITE_BASE_URL = "https://www.eventbriteapi.com/v3";
 
 /**
  * GET /api/eventbrite/search?lat=&lng=&radius=&q=
  * Searches Eventbrite events by location and query.
+ * Uses EVENTBRITE_PRIVATE_TOKEN (preferred) or EVENTBRITE_API_KEY as Bearer token.
  */
 export async function GET(request: Request) {
-  if (!EVENTBRITE_API_KEY) {
+  if (!EVENTBRITE_TOKEN) {
     return NextResponse.json(
       {
-        error: "Eventbrite API key not configured",
-        message: "Set EVENTBRITE_API_KEY in your environment variables. See docs/EVENTBRITE-SETUP.md for instructions.",
+        error: "Eventbrite API token not configured",
+        message: "Set EVENTBRITE_PRIVATE_TOKEN in your environment variables. See docs/EVENTBRITE-SETUP.md for instructions.",
       },
       { status: 503 },
     );
@@ -51,7 +52,7 @@ export async function GET(request: Request) {
       `${EVENTBRITE_BASE_URL}/events/search/?${params.toString()}`,
       {
         headers: {
-          Authorization: `Bearer ${EVENTBRITE_API_KEY}`,
+          Authorization: `Bearer ${EVENTBRITE_TOKEN}`,
         },
         next: { revalidate: 300 }, // Cache for 5 minutes
       },

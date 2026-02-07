@@ -103,9 +103,9 @@
   --brand-primary-foreground: #ffffff;
 
   /* Glass tokens */
-  --glass-bg: rgba(248, 249, 250, 0.6);
-  --glass-blur: 12px;
-  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-bg: rgba(248, 249, 250, 0.92);
+  --glass-blur: 16px;
+  --glass-border: rgba(0, 0, 0, 0.1);
 
   /* Surfaces - Light */
   --bg: #ffffff;
@@ -211,9 +211,9 @@
   --border-color: rgba(255, 255, 255, 0.08);
 
   /* Glass tokens */
-  --glass-bg: rgba(20, 20, 20, 0.6);
-  --glass-blur: 12px;
-  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(18, 18, 18, 0.88);
+  --glass-blur: 16px;
+  --glass-border: rgba(255, 255, 255, 0.1);
 
   /* Text - Dark */
   --text: #ffffff;
@@ -282,9 +282,9 @@
   filter: saturate(0.7) contrast(1.05);
 }
 
-/* Dark mode with inverted hues */
+/* Dark mode — darken and desaturate without color inversion */
 .dark .maplibregl-canvas {
-  filter: invert(1) hue-rotate(180deg) saturate(0.6) contrast(0.85) brightness(0.8);
+  filter: brightness(0.35) saturate(0.4) contrast(1.2);
 }
 
 .maplibregl-ctrl-group {

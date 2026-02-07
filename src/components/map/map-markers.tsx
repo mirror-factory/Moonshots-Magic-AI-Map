@@ -67,8 +67,8 @@ export function MapMarkers({ events, visibleCategories, styleLoaded, isDark = fa
                 16, 36,
               ],
               "circle-color": colorExpr,
-              "circle-opacity": 0.15,
-              "circle-blur": 1,
+              "circle-opacity": 0.3,
+              "circle-blur": 0.8,
             },
           });
         }
@@ -85,13 +85,13 @@ export function MapMarkers({ events, visibleCategories, styleLoaded, isDark = fa
                 "interpolate",
                 ["linear"],
                 ["zoom"],
-                8, 16,
-                12, 32,
-                16, 50,
+                8, 20,
+                12, 40,
+                16, 60,
               ],
               "circle-color": colorExpr,
-              "circle-opacity": 0.1,
-              "circle-blur": 1,
+              "circle-opacity": 0.2,
+              "circle-blur": 0.8,
             },
           });
         }
