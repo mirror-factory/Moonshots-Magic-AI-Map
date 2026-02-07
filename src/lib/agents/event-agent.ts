@@ -1,9 +1,8 @@
 /**
  * @module agents/event-agent
  * Configures the AI {@link ToolLoopAgent} that powers the chat assistant.
- * Combines five tools (search, details, newsletters, ranking, map navigation)
- * with a system prompt tailored for Orlando event discovery.
- * Supports dynamic model selection from user settings.
+ * Combines tools with a system prompt tailored for Orlando event discovery.
+ * Supports dynamic model selection and ambient context injection.
  */
 
 import { ToolLoopAgent, stepCountIs } from "ai";
@@ -17,12 +16,60 @@ import { updateUserProfile } from "./tools/update-user-profile";
 import { startFlyover } from "./tools/start-flyover";
 import { DEFAULT_MODEL } from "@/lib/settings";
 
+/** Ambient context shape matching the client-side AmbientContext type. */
+interface AgentAmbientContext {
+  timeOfDay?: string;
+  hour?: number;
+  weather?: { temp: number; condition: string } | null;
+  location?: { lat: number; lng: number } | null;
+  dayOfWeek?: string;
+  isWeekend?: boolean;
+}
+
+/** Build a context block for the system prompt from ambient context. */
+function buildContextBlock(context?: AgentAmbientContext | null): string {
+  if (!context) return "";
+
+  const lines: string[] = ["\nCURRENT CONTEXT:"];
+
+  if (context.timeOfDay) {
+    const hour = context.hour ?? 0;
+    const amPm = hour >= 12 ? "PM" : "AM";
+    const h12 = hour % 12 || 12;
+    lines.push(`- Time: ${context.timeOfDay} (${h12}:00 ${amPm})`);
+  }
+
+  if (context.dayOfWeek) {
+    const weekendNote = context.isWeekend ? " (weekend)" : "";
+    lines.push(`- Day: ${context.dayOfWeek}${weekendNote}`);
+  }
+
+  if (context.weather) {
+    lines.push(`- Weather: ${context.weather.temp}°F, ${context.weather.condition}`);
+  }
+
+  lines.push("");
+  lines.push("DELIGHT TRIGGERS (Power of Moments):");
+  lines.push("- Event starts within 2 hours → mention urgency");
+  lines.push("- Great weather + outdoor events → highlight them");
+  lines.push("- First interaction of the day → lead with something unexpected");
+  lines.push("- Occasionally suggest outside usual preferences to spark discovery");
+
+  return lines.join("\n");
+}
+
 /**
- * Creates a new event agent instance with the specified model.
+ * Creates a new event agent instance with the specified model and optional context.
  * @param model - The model ID to use (defaults to stored preference or fallback).
+ * @param ambientContext - Optional ambient context for personalization.
  * @returns A configured ToolLoopAgent instance.
  */
-export function createEventAgent(model: string = DEFAULT_MODEL) {
+export function createEventAgent(
+  model: string = DEFAULT_MODEL,
+  ambientContext?: AgentAmbientContext | null,
+) {
+  const contextBlock = buildContextBlock(ambientContext);
+
   return new ToolLoopAgent({
     model,
 
@@ -96,7 +143,7 @@ GUIDELINES:
 - Keep responses concise but informative
 - When multiple events match, highlight the most relevant ones first
 
-Today's date is ${new Date().toISOString().split("T")[0]}`,
+Today's date is ${new Date().toISOString().split("T")[0]}${contextBlock}`,
 
     tools: {
       searchEvents,

@@ -23,6 +23,7 @@ import {
 import { MapStatusBar } from "./map-status-bar";
 import { MapControls } from "./map-controls";
 import { MapMarkers } from "./map-markers";
+import { MapHotspots } from "./map-hotspots";
 import { MapPopups } from "./map-popups";
 import { EVENT_CATEGORIES, type EventCategory, type EventEntry } from "@/lib/registries/types";
 import { FlyoverOverlay } from "./flyover-overlay";
@@ -432,6 +433,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
         />
 
         <MapMarkers events={events} visibleCategories={visibleCategories} styleLoaded={styleLoaded} isDark={isDark} />
+        <MapHotspots events={events} styleLoaded={styleLoaded} isDark={isDark} />
         <MapPopups onAskAbout={onAskAbout} />
         <MapStatusBar mode3D={mode3D} onToggle3D={handleToggle3D} onStartPersonalization={onStartPersonalization} />
 
@@ -531,10 +533,10 @@ function add3DLayers(map: maplibregl.Map, isDark: boolean) {
                 "interpolate",
                 ["linear"],
                 heightExpr,
-                0, "#1a1a2e",
-                50, "#2a2a4e",
-                100, "#3a3a6e",
-                200, "#4a4a8e",
+                0, "#1e1e3a",
+                50, "#2e2e5a",
+                100, "#4040a0",
+                200, "#5858c0",
               ]
             : [
                 "interpolate",

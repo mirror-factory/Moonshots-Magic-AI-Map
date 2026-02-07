@@ -39,13 +39,25 @@ The application is a single-page map interface with a floating AI chat panel. Us
 │  └─────────┼────────────────────┼─────────────────┘   │
 │            ▼                    ▼                      │
 │  ┌──────────────────────────────────────────┐         │
-│  │          Registry Layer (in-memory)       │         │
-│  │  events.ts ◄── events.json               │         │
-│  │  newsletters.ts ◄── newsletters.json     │         │
+│  │    CompositeEventSource (adapter pattern) │         │
+│  │  StaticAdapter ◄── events.json            │         │
+│  │  EventbriteAdapter ◄── /api/eventbrite    │         │
+│  │  newsletters.ts ◄── newsletters.json      │         │
 │  └──────────────────────────────────────────┘         │
 │                                                      │
 │  REST endpoints:                                     │
 │    GET /api/events       GET /api/newsletters         │
+│    GET /api/events/live  (merged multi-source)        │
+└──────────────────────────────────────────────────────┘
+                        │
+                        ▼
+┌──────────────────────────────────────────────────────┐
+│                  Supabase (PostgreSQL)                │
+│                                                      │
+│  Tables: profiles, events, user_interactions,        │
+│          chat_sessions                                │
+│  RLS:    All tables with row-level security           │
+│  FTS:    Full-text search via tsvector triggers       │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -64,6 +76,7 @@ src/
 │   ├── api/
 │   │   ├── chat/route.ts          # POST — AI chat streaming endpoint
 │   │   ├── events/route.ts        # GET  — Event query REST API
+│   │   ├── events/live/route.ts   # GET  — Merged multi-source events
 │   │   └── newsletters/route.ts   # GET  — Newsletter query REST API
 │   ├── docs/ai/                   # AI capabilities documentation
 │   │   ├── layout.tsx             # Docs layout with sidebar
@@ -80,20 +93,26 @@ src/
 │   ├── calendar/
 │   │   └── add-to-calendar-button.tsx  # "Add to Calendar" (Google, Apple, ICS)
 │   ├── chat/
+│   │   ├── center-chat.tsx        # Center-stage chat panel (context-aware)
 │   │   ├── chat-panel.tsx         # Main chat interface
 │   │   ├── chat-trigger.tsx       # FAB to open chat
+│   │   ├── ditto-avatar.tsx       # Ditto avatar with 5 expression states
+│   │   ├── ditto-personality.ts   # Contextual greetings and subtitles
+│   │   ├── suggestion-tiles.tsx   # Context-aware 2x3 suggestion grid
 │   │   ├── event-card.tsx         # Single event display card
 │   │   ├── event-list.tsx         # Vertical event list (optional ranking)
 │   │   ├── map-action.tsx         # Client-side map tool executor
 │   │   ├── newsletter-card.tsx    # Newsletter search result card
 │   │   └── voice-input-button.tsx # Voice input toggle for chat
 │   ├── effects/                   # Dark mode visual effects (brand aesthetic)
+│   │   ├── ambient-particles.tsx  # Floating particles over map (dark mode)
 │   │   ├── blurred-stars.tsx      # Animated blurred stars (intro modal)
 │   │   ├── sparkle.tsx            # Animated sparkle effect (thinking indicator)
 │   │   └── static-stars.tsx       # Star field overlay
 │   ├── intro/
 │   │   └── intro-modal.tsx        # First-visit intro modal
 │   ├── map/
+│   │   ├── map-hotspots.tsx       # Heatmap layer from event coordinates
 │   │   ├── event-detail.tsx       # Event detail panel (sidebar)
 │   │   ├── event-list-item.tsx    # Event row in sidebar list
 │   │   ├── event-sidebar.tsx      # Collapsible event sidebar
@@ -107,6 +126,9 @@ src/
 │   ├── settings/
 │   │   ├── model-selector.tsx     # AI model picker dropdown
 │   │   └── settings-modal.tsx     # User settings dialog
+│   ├── onboarding/
+│   │   ├── onboarding-flow.tsx    # 5-card conversational onboarding
+│   │   └── vibe-tile-large.tsx    # Large category selection tiles
 │   ├── theme-toggle.tsx           # Light/dark theme switcher
 │   └── ui/                        # shadcn/ui primitives
 │
@@ -118,7 +140,7 @@ src/
 │
 └── lib/
     ├── agents/
-    │   ├── event-agent.ts         # ToolLoopAgent configuration (8 tools)
+    │   ├── event-agent.ts         # ToolLoopAgent configuration (8 tools, context-aware)
     │   └── tools/
     │       ├── get-event-details.ts
     │       ├── get-user-profile.ts   # Client-side (no execute)
@@ -142,11 +164,19 @@ src/
     │   └── geojson.ts             # EventEntry → GeoJSON conversion
     ├── profile.ts                 # User profile types and helpers
     ├── profile-storage.ts         # localStorage profile persistence
+    ├── context/
+    │   └── ambient-context.ts     # Time/weather/location context engine
     ├── registries/
+    │   ├── event-source-adapter.ts # Multi-source adapter pattern
     │   ├── events.ts              # Event query functions
     │   ├── newsletters.ts         # Newsletter query functions
     │   └── types.ts               # Shared type definitions
     ├── settings.ts                # User settings (model selection, defaults)
+    ├── supabase/
+    │   ├── client.ts              # Browser Supabase client (SSR)
+    │   ├── middleware.ts           # Auth session refresh middleware
+    │   ├── server.ts              # Server Supabase client (SSR)
+    │   └── types.ts               # Generated database types
     ├── utils.ts                   # Shared utility functions (cn, etc.)
     └── voice/
         ├── cartesia-tts.ts        # Text-to-speech via Cartesia API
@@ -159,18 +189,20 @@ tests/
 │   ├── newsletters.ts            # createTestNewsletter() factory
 │   └── profiles.ts               # createTestProfile() factory
 ├── unit/
-│   ├── agents/                    # Tool + agent unit tests (5 files)
+│   ├── agents/                    # Tool + agent unit tests (7 files)
 │   ├── calendar/                  # Calendar link + ICS tests (2 files)
+│   ├── context/                   # Ambient context tests (1 file)
 │   ├── flyover/                   # Flyover engine tests (1 file)
 │   ├── map/                       # Config + GeoJSON tests (2 files)
 │   ├── profile/                   # Profile + storage tests (2 files)
 │   ├── registries/                # Event + newsletter query tests (2 files)
-│   └── settings/                  # Settings tests (1 file)
+│   ├── settings/                  # Settings tests (1 file)
+│   └── supabase/                  # Supabase types + client + adapter tests (3 files)
 ├── component/
 │   ├── chat/                      # EventCard, MapAction, ChatTrigger tests (3 files)
 │   └── effects/                   # Sparkle test (1 file)
 └── integration/
-    └── api/                       # Route handler tests (2 files)
+    └── api/                       # Route handler tests (3 files)
 
 e2e/                               # Playwright end-to-end tests
 ├── app-load.spec.ts
@@ -225,7 +257,13 @@ Four tools have no `execute` function — they are schema-only, streamed to the 
 This pattern allows the LLM to control browser-side features without server access.
 
 ### Registry-First Data Access
-All data queries go through the registry functions in `src/lib/registries/`. The JSON files are loaded once at import time and queried in-memory. There is no database; data is static.
+All data queries go through the registry functions in `src/lib/registries/`. The JSON files are loaded once at import time and queried in-memory. Live data is merged via the adapter pattern in `event-source-adapter.ts`.
+
+### Supabase Database
+PostgreSQL via Supabase with 4 tables: `profiles`, `events`, `user_interactions`, `chat_sessions`. All tables have Row-Level Security (RLS) enabled. The `events` table has full-text search via a tsvector trigger. Database types are auto-generated in `src/lib/supabase/types.ts`. Client utilities use `@supabase/ssr` for cookie-based auth in both browser and server contexts.
+
+### Ambient Context
+The `AmbientContext` engine (`src/lib/context/ambient-context.ts`) gathers time, weather (Open-Meteo API), and geolocation at runtime. It caches results in localStorage with a 30-min TTL. Context flows to: onboarding (category ordering), suggestion tiles (priority), Ditto greetings, and the AI agent system prompt (delight triggers).
 
 ## Component Architecture
 
@@ -292,7 +330,7 @@ See **[docs/FEATURES.md](docs/FEATURES.md)** for a complete registry of all 35 f
 
 ## Current Issues
 
-- **Static data**: Event data is loaded from static JSON; no database persistence or admin interface
+- **Auth not wired**: Supabase schema and RLS are in place but auth flows are not yet connected to the UI
 - **Color duplication**: Category colors are duplicated in CSS variables (`globals.css`) and JavaScript (`config.ts`) — MapLibre requires hex literals
 - **No marker clustering**: Map markers overlap at low zoom levels without clustering
 - **Story coverage**: 6/24 components have Storybook stories (run `pnpm check-stories` for details)
@@ -303,13 +341,19 @@ See **[docs/FEATURES.md](docs/FEATURES.md)** for a complete registry of all 35 f
 2. ~~3D map with terrain and buildings~~ ✅
 3. ~~AI capabilities documentation page at `/docs/ai`~~ ✅
 4. ~~GitHub Action for automated doc generation~~ ✅
-5. ~~Test suite (286 tests, 87% coverage, Vitest + Playwright)~~ ✅
+5. ~~Test suite (323 tests, 87% coverage, Vitest + Playwright)~~ ✅
 6. ~~Storybook foundation (6 stories, 18 variants)~~ ✅
 7. ~~Git hooks (commitlint, pre-push typecheck + coverage + docs)~~ ✅
 8. ~~Claude skills (ai-team, feature-testing, commit-docs)~~ ✅
 9. ~~Voice input (speech-to-text + Cartesia TTS)~~ ✅
 10. ~~Flyover tours (camera animation state machine)~~ ✅
 11. ~~User personalization (profile storage + preferences)~~ ✅
+12. ~~Conversational onboarding (5-card flow with context-aware ordering)~~ ✅
+13. ~~Ambient context engine (time/weather/location for personalization)~~ ✅
+14. ~~Ditto personality system (greetings, state machine, expression states)~~ ✅
+15. ~~Map hotspots heatmap layer~~ ✅
+16. ~~Live data adapter pattern (static + Eventbrite multi-source)~~ ✅
+17. ~~Supabase database (4 tables, RLS, full-text search)~~ ✅
 
 ## Quality Infrastructure
 

@@ -71,12 +71,12 @@ export function MapMarkers({ events, visibleCategories, styleLoaded, isDark = fa
               ],
               "circle-color": colorExpr,
               "circle-opacity": glowOpacity,
-              "circle-blur": 0.8,
+              "circle-blur": 1.0,
             },
           });
         }
 
-        // Featured event extra glow
+        // Featured event extra glow with pulsing opacity
         if (!map.getLayer("featured-glow-layer")) {
           map.addLayer({
             id: "featured-glow-layer",
@@ -93,8 +93,9 @@ export function MapMarkers({ events, visibleCategories, styleLoaded, isDark = fa
                 16, 60,
               ],
               "circle-color": colorExpr,
+              "circle-opacity-transition": { duration: 1000 },
               "circle-opacity": featuredGlowOpacity,
-              "circle-blur": 0.8,
+              "circle-blur": 1.0,
             },
           });
         }

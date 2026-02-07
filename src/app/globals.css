@@ -426,6 +426,43 @@
 }
 
 /* ============================================
+   AMBIENT EFFECTS
+   ============================================ */
+
+/* Float-up animation for ambient particles */
+@keyframes float-up {
+  0% {
+    transform: translateY(0) translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100vh) translateX(20px);
+    opacity: 0;
+  }
+}
+
+/* Subtle pulse for glow effects */
+@keyframes subtle-pulse {
+  0%, 100% {
+    box-shadow: 0 0 30px rgba(53, 96, 255, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 50px rgba(53, 96, 255, 0.15);
+  }
+}
+
+/* Animated border glow on chat panel (dark mode only) */
+.dark .glow-border {
+  animation: subtle-pulse 4s ease-in-out infinite;
+}
+
+/* ============================================
    SCROLLBAR STYLES
    ============================================ */
 ::-webkit-scrollbar {

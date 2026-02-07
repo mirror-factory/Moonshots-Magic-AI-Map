@@ -5,3 +5,4 @@
  */
 
 export { StaticStars } from "./static-stars";
+export { AmbientParticles } from "./ambient-particles";

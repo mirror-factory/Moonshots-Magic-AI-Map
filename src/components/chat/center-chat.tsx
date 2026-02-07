@@ -2,11 +2,12 @@
  * @module components/chat/center-chat
  * Center-stage chat component that replaces the floating FAB chat panel.
  * Always-visible input bar at bottom center, expands upward to show conversation.
+ * Shows contextual Ditto greeting based on ambient context.
  */
 
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useChat } from "@ai-sdk/react";
 import { lastAssistantMessageIsCompleteWithToolCalls } from "ai";
@@ -50,7 +51,9 @@ import { VoiceInputButton } from "./voice-input-button";
 import { speak, stopSpeaking, isSpeaking } from "@/lib/voice/cartesia-tts";
 import { getProfile, updateProfile } from "@/lib/profile-storage";
 import { SuggestionTiles } from "./suggestion-tiles";
-import { DittoAvatar } from "./ditto-avatar";
+import { DittoAvatar, type DittoState } from "./ditto-avatar";
+import { getDittoGreeting } from "./ditto-personality";
+import type { AmbientContext } from "@/lib/context/ambient-context";
 
 interface CenterChatProps {
   /** Externally-provided input (e.g. from "Ask Ditto about" button). */
@@ -59,21 +62,22 @@ interface CenterChatProps {
   onClearInitialInput?: () => void;
   /** Called to start a flyover tour. */
   onStartFlyover?: (eventIds: string[], theme?: string) => void;
-}
-
-/** Returns a time-of-day greeting string. */
-function getGreeting(name?: string): string {
-  const hour = new Date().getHours();
-  const timeGreeting =
-    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  return name ? `${timeGreeting}, ${name}` : timeGreeting;
+  /** Ambient context for personalization. */
+  ambientContext?: AmbientContext | null;
 }
 
 /** Center-stage chat bar with expand-upward conversation panel. */
-export function CenterChat({ initialInput, onClearInitialInput, onStartFlyover }: CenterChatProps) {
+export function CenterChat({
+  initialInput,
+  onClearInitialInput,
+  onStartFlyover,
+  ambientContext = null,
+}: CenterChatProps) {
   const [expanded, setExpanded] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+  const [dittoState, setDittoState] = useState<DittoState>("greeting");
   const containerRef = useRef<HTMLDivElement>(null);
+  const greetingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { messages, sendMessage, status, stop, addToolOutput } = useChat({
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
@@ -155,31 +159,67 @@ export function CenterChat({ initialInput, onClearInitialInput, onStartFlyover }
     },
   });
 
+  // Ditto state machine: greeting → idle → thinking/celebrating
+  useEffect(() => {
+    if (status === "streaming" || status === "submitted") {
+      setDittoState("thinking");
+    } else if (messages.length > 0) {
+      // Briefly celebrate when events arrive
+      const lastMsg = messages[messages.length - 1];
+      const hasEvents = lastMsg?.role === "assistant" && lastMsg.parts.some(
+        (p) => p.type.startsWith("tool-searchEvents") || p.type.startsWith("tool-rankEvents"),
+      );
+      if (hasEvents) {
+        setDittoState("celebrating");
+        const timer = setTimeout(() => setDittoState("idle"), 2000);
+        return () => clearTimeout(timer);
+      }
+      setDittoState("idle");
+    }
+  }, [status, messages]);
+
+  // Initial greeting state → idle after 3s
+  useEffect(() => {
+    greetingTimerRef.current = setTimeout(() => {
+      if (messages.length === 0) setDittoState("excited");
+    }, 3000);
+    return () => {
+      if (greetingTimerRef.current) clearTimeout(greetingTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Request options that include ambient context in the body (memoized for stable deps). */
+  const requestOptions = useMemo(
+    () => (ambientContext ? { body: { context: ambientContext } } : undefined),
+    [ambientContext],
+  );
+
   const handleSend = useCallback(
     (text: string) => {
       if (!text.trim()) return;
       setExpanded(true);
-      sendMessage({ text });
+      sendMessage({ text }, requestOptions);
     },
-    [sendMessage],
+    [sendMessage, requestOptions],
   );
 
   const handleSuggestionClick = useCallback(
     (query: string) => {
       setExpanded(true);
-      sendMessage({ text: query });
+      sendMessage({ text: query }, requestOptions);
     },
-    [sendMessage],
+    [sendMessage, requestOptions],
   );
 
   const handleVoiceTranscript = useCallback(
     (text: string) => {
       if (text.trim()) {
         setExpanded(true);
-        sendMessage({ text });
+        sendMessage({ text }, requestOptions);
       }
     },
-    [sendMessage],
+    [sendMessage, requestOptions],
   );
 
   const handleSpeak = useCallback(async (messageId: string, text: string) => {
@@ -241,8 +281,7 @@ export function CenterChat({ initialInput, onClearInitialInput, onStartFlyover }
   }, [messages.length]);
 
   const profile = typeof window !== "undefined" ? getProfile() : null;
-  const greeting = getGreeting(profile?.name);
-  const dittoState = status === "streaming" || status === "submitted" ? "thinking" : messages.length > 0 ? "idle" : "excited";
+  const greeting = getDittoGreeting(ambientContext, profile?.name);
 
   const handleSuggestionSelect = useCallback((query: string) => {
     handleSuggestionClick(query);
@@ -263,14 +302,14 @@ export function CenterChat({ initialInput, onClearInitialInput, onStartFlyover }
             exit={{ opacity: 0, y: 10 }}
             className="mb-3"
           >
-            <SuggestionTiles onSelect={handleSuggestionSelect} />
+            <SuggestionTiles onSelect={handleSuggestionSelect} context={ambientContext} />
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Unified chat panel — single container for header + messages + input */}
       <div
-        className="grain-texture flex flex-col rounded-2xl shadow-2xl"
+        className="grain-texture glow-border flex flex-col rounded-2xl shadow-2xl"
         style={{
           background: "var(--glass-bg)",
           border: "1px solid var(--glass-border)",
@@ -296,7 +335,7 @@ export function CenterChat({ initialInput, onClearInitialInput, onStartFlyover }
                 style={{ borderColor: "var(--border-color)" }}
               >
                 <div className="flex items-center gap-3">
-                  <DittoAvatar state={dittoState} size={32} />
+                  <DittoAvatar state={dittoState} size={36} />
                   <div>
                     <h3
                       className="text-sm font-semibold"
@@ -546,7 +585,7 @@ export function CenterChat({ initialInput, onClearInitialInput, onStartFlyover }
           {/* Contextual greeting with Ditto avatar */}
           {!expanded && (
             <div className="flex items-center gap-2 px-4 pt-3">
-              <DittoAvatar state={messages.length > 0 ? "idle" : "excited"} size={24} />
+              <DittoAvatar state={dittoState} size={24} />
               <p
                 className="text-xs"
                 style={{ color: "var(--text-dim)", fontFamily: "var(--font-chakra-petch)" }}
