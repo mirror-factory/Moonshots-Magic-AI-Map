@@ -89,7 +89,7 @@ export function BlurredStars({ count = 150, color = "#ffffff" }: BlurredStarsPro
       <div
         className="absolute left-1/2 top-1/2 h-[80%] w-[80%] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-30"
         style={{
-          background: "radial-gradient(circle, #3560FF 0%, transparent 70%)",
+          background: "radial-gradient(circle, #0063CD 0%, transparent 70%)",
           filter: "blur(60px)",
         }}
       />

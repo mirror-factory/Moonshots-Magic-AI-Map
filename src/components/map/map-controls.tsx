@@ -57,11 +57,11 @@ function MapControlsHeader({
       }}
     >
       {/* Text Logo - always visible */}
-      <div className="flex flex-col" style={{ lineHeight: "0.9" }}>
-        <span className="text-base font-bold tracking-wide dark:text-white text-black">
+      <div className="flex flex-col" style={{ lineHeight: "0.9", fontFamily: "var(--font-bebas-neue)" }}>
+        <span className="text-lg tracking-wide dark:text-white text-black">
           MOONSHOTS
         </span>
-        <span className="text-base font-bold tracking-wide dark:text-white text-black" style={{ marginTop: "-2px" }}>
+        <span className="text-lg tracking-wide dark:text-white text-black" style={{ marginTop: "-2px" }}>
           & MAGIC
         </span>
       </div>

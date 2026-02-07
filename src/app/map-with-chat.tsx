@@ -1,21 +1,21 @@
 /**
  * @module app/map-with-chat
- * Client component that composes the full-screen map with the floating
- * chat panel. Manages the "Ask about this" bridge between map popups
- * and the chat input. Shows intro modal for first-time visitors.
+ * Client component that composes the full-screen map with the center-stage
+ * chat bar. Manages the "Ask about this" bridge between map popups
+ * and the chat input. Shows onboarding quiz for first-time visitors.
  */
 
 "use client";
 
 import { useState, useCallback, useRef, createContext, useContext } from "react";
 import { MapContainer } from "@/components/map/map-container";
-import { ChatPanel } from "@/components/chat/chat-panel";
-import { IntroModal } from "@/components/intro/intro-modal";
-import type { EventEntry } from "@/lib/registries/types";
+import { CenterChat } from "@/components/chat/center-chat";
+import { OnboardingQuiz } from "@/components/onboarding/onboarding-quiz";
+import type { EventEntry, EventCategory } from "@/lib/registries/types";
 
-const INTRO_STORAGE_KEY = "moonshots_intro_seen";
+const ONBOARDING_STORAGE_KEY = "moonshots_onboarding_complete";
 
-/** Context for triggering intro modal replay. */
+/** Context for triggering onboarding replay. */
 interface IntroContextValue {
   showIntro: () => void;
 }
@@ -37,22 +37,23 @@ interface MapWithChatProps {
 /** Type for the flyover start handler. */
 type FlyoverHandler = (eventIds: string[], theme?: string) => void;
 
-/** Composes the full-screen map with the floating chat panel. */
+/** Composes the full-screen map with the center-stage chat bar. */
 export function MapWithChat({ events }: MapWithChatProps) {
   const [chatInput, setChatInput] = useState<string | undefined>();
-  const [introOpen, setIntroOpen] = useState(() => {
+  const [onboardingOpen, setOnboardingOpen] = useState(() => {
     if (typeof window === "undefined") return false;
-    return !localStorage.getItem(INTRO_STORAGE_KEY);
+    return !localStorage.getItem(ONBOARDING_STORAGE_KEY);
   });
+  const [initialCategories, setInitialCategories] = useState<EventCategory[] | null>(null);
   const flyoverHandlerRef = useRef<FlyoverHandler | null>(null);
 
-  const handleDismissIntro = useCallback(() => {
-    localStorage.setItem(INTRO_STORAGE_KEY, "true");
-    setIntroOpen(false);
+  const handleOnboardingComplete = useCallback((categories: EventCategory[]) => {
+    setInitialCategories(categories);
+    setOnboardingOpen(false);
   }, []);
 
   const handleShowIntro = useCallback(() => {
-    setIntroOpen(true);
+    setOnboardingOpen(true);
   }, []);
 
   const handleAskAbout = useCallback((title: string) => {
@@ -60,7 +61,6 @@ export function MapWithChat({ events }: MapWithChatProps) {
   }, []);
 
   const handleStartPersonalization = useCallback(() => {
-    // Use a special prefix to trigger personalization flow
     setChatInput("__PERSONALIZE__");
   }, []);
 
@@ -69,24 +69,30 @@ export function MapWithChat({ events }: MapWithChatProps) {
   }, []);
 
   const handleFlyoverRequest = useCallback((handler: FlyoverHandler) => {
-    console.log("[MapWithChat] Flyover handler registered");
     flyoverHandlerRef.current = handler;
   }, []);
 
   const startFlyover = useCallback((eventIds: string[], theme?: string) => {
-    console.log("[MapWithChat] startFlyover called with", eventIds.length, "events");
     if (flyoverHandlerRef.current) {
       flyoverHandlerRef.current(eventIds, theme);
-    } else {
-      console.warn("[MapWithChat] No flyover handler registered!");
     }
   }, []);
 
   return (
     <IntroContext.Provider value={{ showIntro: handleShowIntro }}>
-      <IntroModal open={introOpen} onDismiss={handleDismissIntro} />
-      <MapContainer events={events} onAskAbout={handleAskAbout} onFlyoverRequest={handleFlyoverRequest} onStartPersonalization={handleStartPersonalization}>
-        <ChatPanel initialInput={chatInput} onClearInitialInput={handleClearInput} onStartFlyover={startFlyover} />
+      <OnboardingQuiz open={onboardingOpen} onComplete={handleOnboardingComplete} />
+      <MapContainer
+        events={events}
+        onAskAbout={handleAskAbout}
+        onFlyoverRequest={handleFlyoverRequest}
+        onStartPersonalization={handleStartPersonalization}
+        initialCategories={initialCategories ?? undefined}
+      >
+        <CenterChat
+          initialInput={chatInput}
+          onClearInitialInput={handleClearInput}
+          onStartFlyover={startFlyover}
+        />
       </MapContainer>
     </IntroContext.Provider>
   );

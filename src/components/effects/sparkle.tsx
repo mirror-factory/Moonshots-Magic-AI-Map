@@ -91,7 +91,7 @@ export function Sparkle({
   active = false,
   count = 20,
   color = "#ffffff",
-  glowColor = "#3560FF",
+  glowColor = "#0063CD",
   children,
 }: SparkleProps) {
   const sparkles = useMemo(() => generateSparkles(count), [count]);

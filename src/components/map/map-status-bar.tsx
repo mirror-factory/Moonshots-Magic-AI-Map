@@ -84,13 +84,14 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
 
   return (
     <>
-      <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
+      <div className="absolute bottom-0 left-0 right-0 z-10">
         <div
-          className="flex items-center gap-4 rounded-full px-4 py-2 font-mono text-xs shadow-lg backdrop-blur-md"
+          className="flex items-center justify-center gap-4 px-4 py-1.5 font-mono text-xs backdrop-blur-md"
           style={{
             background: "var(--chat-bg)",
-            border: "1px solid var(--border-color)",
+            borderTop: "1px solid var(--border-color)",
             color: "var(--text-dim)",
+            fontFamily: "var(--font-rajdhani)",
           }}
         >
           <StatusItem label="LAT" value={status.lat.toFixed(4)} activeColor={activeColor} />

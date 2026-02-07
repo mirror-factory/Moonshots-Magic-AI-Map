@@ -44,11 +44,13 @@ interface MapContainerProps {
   onAskAbout?: (eventTitle: string) => void;
   onFlyoverRequest?: (handler: (eventIds: string[], theme?: string) => void) => void;
   onStartPersonalization?: () => void;
+  /** Initial category filter from onboarding quiz. */
+  initialCategories?: EventCategory[];
   children?: ReactNode;
 }
 
 /** Renders the root map with MapLibre GL and composes child layers. */
-export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPersonalization, children }: MapContainerProps) {
+export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPersonalization, initialCategories, children }: MapContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<maplibregl.Map | null>(null);
   const [styleLoaded, setStyleLoaded] = useState(false);
@@ -147,6 +149,13 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
       map.easeTo({ pitch: 0, duration: 1000 });
     }
   }, [map, mode3D, isDark, styleLoaded]);
+
+  // Apply initial categories from onboarding quiz
+  useEffect(() => {
+    if (initialCategories && initialCategories.length > 0) {
+      setVisibleCategories(new Set(initialCategories));
+    }
+  }, [initialCategories]);
 
   const handleToggleCategory = useCallback((category: EventCategory) => {
     setVisibleCategories((prev) => {

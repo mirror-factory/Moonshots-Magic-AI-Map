@@ -51,6 +51,51 @@ export function MapMarkers({ events, visibleCategories, styleLoaded, isDark = fa
           "#888888", // fallback
         ] as unknown as maplibregl.ExpressionSpecification;
 
+        // Glow layer behind markers
+        if (!map.getLayer("events-glow-layer")) {
+          map.addLayer({
+            id: "events-glow-layer",
+            type: "circle",
+            source: "events",
+            paint: {
+              "circle-radius": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                8, 10,
+                12, 21,
+                16, 36,
+              ],
+              "circle-color": colorExpr,
+              "circle-opacity": 0.15,
+              "circle-blur": 1,
+            },
+          });
+        }
+
+        // Featured event extra glow
+        if (!map.getLayer("featured-glow-layer")) {
+          map.addLayer({
+            id: "featured-glow-layer",
+            type: "circle",
+            source: "events",
+            filter: ["==", ["get", "featured"], true],
+            paint: {
+              "circle-radius": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                8, 16,
+                12, 32,
+                16, 50,
+              ],
+              "circle-color": colorExpr,
+              "circle-opacity": 0.1,
+              "circle-blur": 1,
+            },
+          });
+        }
+
         map.addLayer({
           id: "events-layer",
           type: "circle",
@@ -60,14 +105,14 @@ export function MapMarkers({ events, visibleCategories, styleLoaded, isDark = fa
               "interpolate",
               ["linear"],
               ["zoom"],
-              8, 4,
-              12, 7,
-              16, 12,
+              8, 5,
+              12, 9,
+              16, 14,
             ],
             "circle-color": colorExpr,
             "circle-stroke-color": strokeColor,
-            "circle-stroke-width": 1.5,
-            "circle-opacity": 0.9,
+            "circle-stroke-width": 2,
+            "circle-opacity": 1.0,
           },
         });
       } else {
@@ -75,13 +120,23 @@ export function MapMarkers({ events, visibleCategories, styleLoaded, isDark = fa
         map.setPaintProperty("events-layer", "circle-stroke-color", strokeColor);
       }
 
-      // Apply category filter
+      // Apply category filter to all layers
       const filterExpr: maplibregl.ExpressionFilterSpecification = [
         "in",
         ["get", "category"],
         ["literal", [...visibleCategories]],
       ];
       map.setFilter("events-layer", filterExpr);
+      if (map.getLayer("events-glow-layer")) {
+        map.setFilter("events-glow-layer", filterExpr);
+      }
+      if (map.getLayer("featured-glow-layer")) {
+        map.setFilter("featured-glow-layer", [
+          "all",
+          ["==", ["get", "featured"], true],
+          filterExpr,
+        ] as unknown as maplibregl.ExpressionFilterSpecification);
+      }
     };
 
     // Add layer now since styleLoaded is true
