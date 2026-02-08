@@ -8,13 +8,14 @@ import type { EventCategory } from "@/lib/registries/types";
 
 /**
  * Map style URLs by theme.
- * Uses OpenFreeMap Liberty style for both themes (has 3D building height data).
- * Grayscale and dark effects are applied via CSS filters on the map canvas.
+ * Light: OpenFreeMap Liberty (has 3D building height data via OpenMapTiles schema).
+ * Dark: CartoDB Dark Matter GL (uses same OpenMapTiles schema — `render_height` works).
  * @see https://openfreemap.org
+ * @see https://github.com/CartoDB/basemap-styles
  */
 export const MAP_STYLES_BY_THEME = {
   light: "https://tiles.openfreemap.org/styles/liberty",
-  dark: "https://tiles.openfreemap.org/styles/liberty",
+  dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
 } as const;
 
 /** Default map center as `[longitude, latitude]` (Orlando, FL). */
@@ -56,6 +57,27 @@ export const CATEGORY_COLORS: Record<EventCategory, string> = {
   market: "#ffa94d",
   other: "#888888",
 };
+
+/**
+ * Returns the MapTiler terrain DEM source URL, or null if no API key is set.
+ * @returns Terrain source URL or null.
+ */
+export function getTerrainSourceUrl(): string | null {
+  const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
+  if (!key) return null;
+  return `https://api.maptiler.com/tiles/terrain-rgb-v2/{z}/{x}/{y}.webp?key=${key}`;
+}
+
+/** Terrain configuration for 3D mode. */
+export const TERRAIN_CONFIG = {
+  /** Height exaggeration factor (1.0 = realistic, higher = dramatic). */
+  exaggeration: 1.5,
+  /** Hillshade light direction in degrees (315 = northwest sun). */
+  hillshadeDirection: 315,
+} as const;
+
+/** OpenRouteService API base URL. */
+export const ORS_API_BASE = "https://api.openrouteservice.org/v2";
 
 /** Human-readable display labels for each event category. */
 export const CATEGORY_LABELS: Record<EventCategory, string> = {

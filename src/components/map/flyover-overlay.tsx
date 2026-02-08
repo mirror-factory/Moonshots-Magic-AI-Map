@@ -166,7 +166,7 @@ export function FlyoverOverlay({
           className="pointer-events-none absolute inset-0 z-30"
         >
           {/* Top bar with controls - centered at top of screen */}
-          <div className="pointer-events-auto absolute left-1/2 top-4 z-20 flex -translate-x-1/2 items-center gap-3">
+          <div className="pointer-events-auto absolute left-1/2 top-4 z-20 flex max-w-[95vw] -translate-x-1/2 items-center gap-3">
             {/* Combined tour info and controls */}
             <div
               className="flex items-center gap-4 rounded-full px-5 py-2.5 shadow-xl backdrop-blur-lg"

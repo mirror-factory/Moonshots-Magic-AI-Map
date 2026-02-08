@@ -19,6 +19,8 @@ import {
   DEFAULT_ZOOM,
   DEFAULT_PITCH,
   DEFAULT_BEARING,
+  getTerrainSourceUrl,
+  TERRAIN_CONFIG,
 } from "@/lib/map/config";
 import { MapStatusBar } from "./map-status-bar";
 import { MapControls } from "./map-controls";
@@ -26,6 +28,9 @@ import { MapMarkers } from "./map-markers";
 import { MapHotspots } from "./map-hotspots";
 import { MapPopups } from "./map-popups";
 import { EVENT_CATEGORIES, type EventCategory, type EventEntry } from "@/lib/registries/types";
+import { MapDirections } from "./map-directions";
+import { DirectionsPanel } from "./directions-panel";
+import { MapIsochrone } from "./map-isochrone";
 import { FlyoverOverlay } from "./flyover-overlay";
 import {
   type FlyoverProgress,
@@ -36,9 +41,16 @@ import {
   stopFlyover as stopFlyoverState,
   updateWaypointAudio,
 } from "@/lib/flyover/flyover-engine";
-import { animateToWaypoint, introAnimation, outroAnimation, calculateCenter } from "@/lib/flyover/camera-animator";
+import { animateToWaypoint, cinematicIntro, outroAnimation, calculateCenter, orbitWaypoint } from "@/lib/flyover/camera-animator";
 import { speak, stopSpeaking, playAudioBuffer, generateAudioBuffer } from "@/lib/voice/cartesia-tts";
 import { playFlyoverIntro, stopFlyoverAudio } from "@/lib/flyover/flyover-audio";
+import { getDirections, type DirectionsResult, type TravelProfile } from "@/lib/map/routing";
+import { getIsochrone, type IsochroneResult } from "@/lib/map/isochrone";
+
+/** Default isochrone time ranges in minutes. */
+const ISOCHRONE_MINUTES: number[] = [5, 10, 15, 30];
+/** Default isochrone travel profile. */
+const ISOCHRONE_PROFILE: TravelProfile = "driving-car";
 
 interface MapContainerProps {
   events: EventEntry[];
@@ -55,7 +67,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<maplibregl.Map | null>(null);
   const [styleLoaded, setStyleLoaded] = useState(false);
-  const [controlsOpen, setControlsOpen] = useState(false);
+  const [controlsOpen] = useState(false);
   const [mode3D, setMode3D] = useState(false);
   const [visibleCategories, setVisibleCategories] = useState<Set<EventCategory>>(
     () => new Set(EVENT_CATEGORIES),
@@ -66,6 +78,19 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
   const introPromiseRef = useRef<Promise<void> | null>(null);
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+
+  // Directions state
+  const [directionsRoute, setDirectionsRoute] = useState<DirectionsResult | null>(null);
+  const [directionsOrigin, setDirectionsOrigin] = useState<[number, number] | null>(null);
+  const [directionsDestination, setDirectionsDestination] = useState<[number, number] | null>(null);
+  const [directionsProfile, setDirectionsProfile] = useState<TravelProfile>("driving-car");
+  const [directionsLoading, setDirectionsLoading] = useState(false);
+  const [directionsError, setDirectionsError] = useState<string | null>(null);
+
+  // Isochrone state
+  const [isochroneResult, setIsochroneResult] = useState<IsochroneResult | null>(null);
+  const [isochroneActive, setIsochroneActive] = useState(false);
+  const [isochroneLoading, setIsochroneLoading] = useState(false);
 
   // Initialize map
   useEffect(() => {
@@ -79,7 +104,21 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
       pitch: DEFAULT_PITCH,
       bearing: DEFAULT_BEARING,
       attributionControl: {},
+      // Start with globe projection for cinematic "zoom from space" intro
+      // Type definition lags behind the MapLibre GL runtime API
+      ...({ projection: { type: "globe" } } as Record<string, unknown>),
     });
+
+    // Transition from globe to mercator on first interaction or after 3s
+    // setProjection is available at runtime but not in the TS types
+    const switchToMercator = () => {
+      (instance as unknown as { setProjection: (p: { type: string }) => void }).setProjection({ type: "mercator" });
+      instance.off("mousedown", switchToMercator);
+      instance.off("touchstart", switchToMercator);
+    };
+    instance.on("mousedown", switchToMercator);
+    instance.on("touchstart", switchToMercator);
+    const globeTimer = setTimeout(switchToMercator, 3000);
 
     instance.addControl(new maplibregl.NavigationControl(), "top-right");
     instance.addControl(
@@ -95,15 +134,21 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
     setMap(instance);
 
     return () => {
+      clearTimeout(globeTimer);
       instance.remove();
     };
     // Only run on mount - theme changes handled separately
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // React to theme changes
+  // React to theme changes — only reload style when theme actually changes
+  const prevThemeRef = useRef(isDark);
   useEffect(() => {
     if (!map) return;
+
+    // Skip if the theme hasn't changed (avoids wiping custom layers)
+    if (prevThemeRef.current === isDark) return;
+    prevThemeRef.current = isDark;
 
     const newStyle = isDark ? MAP_STYLES_BY_THEME.dark : MAP_STYLES_BY_THEME.light;
 
@@ -136,20 +181,35 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
     });
   }, [map, isDark, mode3D]);
 
-  // Handle 3D mode toggle
+  // Handle 3D mode toggle (terrain, buildings, three.js markers)
   useEffect(() => {
     if (!map || !styleLoaded) return;
 
     if (mode3D) {
-      // Enable 3D mode
       add3DLayers(map, isDark);
       map.easeTo({ pitch: 50, duration: 1000 });
+
+      // Dynamic import keeps three.js (~150KB gz) out of initial bundle
+      import("@/lib/map/three-layer").then(({ createThreeLayer, THREE_LAYER_ID }) => {
+        if (!map.getLayer(THREE_LAYER_ID)) {
+          const layer = createThreeLayer(events);
+          map.addLayer(layer);
+          console.log("[3D] Three.js marker layer added");
+        }
+      }).catch((err) => console.error("[3D] Failed to load three.js layer:", err));
     } else {
-      // Disable 3D mode
+      // Remove three.js layer first (before removing terrain source it may reference)
+      import("@/lib/map/three-layer").then(({ THREE_LAYER_ID }) => {
+        if (map.getLayer(THREE_LAYER_ID)) {
+          map.removeLayer(THREE_LAYER_ID);
+          console.log("[3D] Three.js marker layer removed");
+        }
+      }).catch(() => {});
+
       remove3DLayers(map);
       map.easeTo({ pitch: 0, duration: 1000 });
     }
-  }, [map, mode3D, isDark, styleLoaded]);
+  }, [map, mode3D, isDark, styleLoaded, events]);
 
   // Apply initial categories from onboarding quiz
   useEffect(() => {
@@ -310,9 +370,9 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
       const waypoint = waypoints[currentIndex];
 
       if (state === "preparing") {
-        // Intro animation
+        // Cinematic intro — orbital sweep
         const center = calculateCenter(waypoints.map((w) => w.center));
-        await introAnimation(map, center);
+        await cinematicIntro(map, center, flyoverAbortRef);
         if (flyoverAbortRef.current) return;
         setFlyoverProgress((prev) => prev ? { ...prev, state: "flying" } : null);
         return;
@@ -334,24 +394,34 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
           introPromiseRef.current = null; // Clear after first wait
         }
 
-        // Start narration
+        // Start narration + gentle orbital drift during speech
         setFlyoverProgress((prev) =>
           prev ? { ...prev, state: "narrating", currentNarrative: waypoint.narrative } : null,
         );
 
-        // Play pre-buffered audio if available, otherwise generate on-the-fly
-        try {
-          if (waypoint.audioBuffer) {
-            // Play pre-buffered audio
-            await playAudioBuffer(waypoint.audioBuffer);
-          } else {
-            // Fallback: generate audio on-the-fly
-            await speak(waypoint.narrative);
+        // Play audio and orbit concurrently
+        const audioPromise = (async () => {
+          try {
+            if (waypoint.audioBuffer) {
+              await playAudioBuffer(waypoint.audioBuffer);
+            } else {
+              await speak(waypoint.narrative);
+            }
+          } catch (error) {
+            console.error("[Flyover] TTS error:", error);
           }
-        } catch (error) {
-          console.error("[Flyover] TTS error:", error);
-          // Continue even if TTS fails - use captions as fallback
-        }
+        })();
+
+        const orbitPromise = orbitWaypoint(map, waypoint.center, {
+          duration: 8000,
+          degreesPerOrbit: 25,
+          abortRef: flyoverAbortRef,
+        });
+
+        // Wait for audio to finish (orbit will be cancelled by abortRef if needed)
+        await audioPromise;
+        // Don't wait for orbit to finish — audio determines pacing
+        void orbitPromise;
 
         if (flyoverAbortRef.current) return;
 
@@ -414,6 +484,115 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
     });
   }, []);
 
+  // --- Directions handlers ---
+  const fetchDirections = useCallback(
+    async (origin: [number, number], dest: [number, number], profile: TravelProfile) => {
+      setDirectionsLoading(true);
+      setDirectionsError(null);
+      setDirectionsOrigin(origin);
+      setDirectionsDestination(dest);
+      try {
+        const result = await getDirections(origin, dest, profile);
+        setDirectionsRoute(result);
+      } catch (err) {
+        setDirectionsError(err instanceof Error ? err.message : "Failed to get directions");
+      } finally {
+        setDirectionsLoading(false);
+      }
+    },
+    [],
+  );
+
+  const handleGetDirections = useCallback(
+    (coordinates: [number, number]) => {
+      // Get user's current location via Geolocation API
+      if (!navigator.geolocation) {
+        setDirectionsError("Geolocation is not supported by your browser");
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const origin: [number, number] = [position.coords.longitude, position.coords.latitude];
+          setDirectionsDestination(coordinates);
+          fetchDirections(origin, coordinates, directionsProfile);
+        },
+        () => {
+          // Fallback: use map center as origin
+          if (map) {
+            const center = map.getCenter();
+            fetchDirections([center.lng, center.lat], coordinates, directionsProfile);
+          } else {
+            setDirectionsError("Could not determine your location");
+          }
+        },
+        { enableHighAccuracy: true, timeout: 5000 },
+      );
+    },
+    [directionsProfile, fetchDirections, map],
+  );
+
+  const handleDirectionsProfileChange = useCallback(
+    (profile: TravelProfile) => {
+      setDirectionsProfile(profile);
+      if (directionsOrigin && directionsDestination) {
+        fetchDirections(directionsOrigin, directionsDestination, profile);
+      }
+    },
+    [directionsOrigin, directionsDestination, fetchDirections],
+  );
+
+  const handleCloseDirections = useCallback(() => {
+    setDirectionsRoute(null);
+    setDirectionsOrigin(null);
+    setDirectionsDestination(null);
+    setDirectionsError(null);
+    setDirectionsLoading(false);
+  }, []);
+
+  // --- Isochrone handlers ---
+  const handleToggleIsochrone = useCallback(() => {
+    if (isochroneActive) {
+      setIsochroneActive(false);
+      setIsochroneResult(null);
+      return;
+    }
+
+    setIsochroneActive(true);
+    setIsochroneLoading(true);
+
+    const fetchIsochrone = (center: [number, number]) => {
+      getIsochrone(center, ISOCHRONE_MINUTES, ISOCHRONE_PROFILE)
+        .then((result) => {
+          setIsochroneResult(result);
+        })
+        .catch((err) => {
+          console.error("[Isochrone] Error:", err);
+          setIsochroneActive(false);
+        })
+        .finally(() => setIsochroneLoading(false));
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => fetchIsochrone([pos.coords.longitude, pos.coords.latitude]),
+        () => {
+          // Fallback to map center
+          if (map) {
+            const c = map.getCenter();
+            fetchIsochrone([c.lng, c.lat]);
+          } else {
+            setIsochroneActive(false);
+            setIsochroneLoading(false);
+          }
+        },
+        { enableHighAccuracy: true, timeout: 5000 },
+      );
+    } else if (map) {
+      const c = map.getCenter();
+      fetchIsochrone([c.lng, c.lat]);
+    }
+  }, [isochroneActive, map]);
+
   return (
     <MapContext value={map}>
       <div className="relative h-full w-full">
@@ -424,7 +603,6 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
 
         <MapControls
           open={controlsOpen}
-          onToggle={() => setControlsOpen((p) => !p)}
           visibleCategories={visibleCategories}
           onToggleCategory={handleToggleCategory}
           events={events}
@@ -434,8 +612,29 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
 
         <MapMarkers events={events} visibleCategories={visibleCategories} styleLoaded={styleLoaded} isDark={isDark} />
         <MapHotspots events={events} styleLoaded={styleLoaded} isDark={isDark} />
-        <MapPopups onAskAbout={onAskAbout} />
-        <MapStatusBar mode3D={mode3D} onToggle3D={handleToggle3D} onStartPersonalization={onStartPersonalization} />
+        <MapPopups onAskAbout={onAskAbout} onGetDirections={handleGetDirections} />
+        <MapDirections route={directionsRoute} origin={directionsOrigin} destination={directionsDestination} />
+        <MapIsochrone result={isochroneResult} events={events} visibleCategories={visibleCategories} />
+        <MapStatusBar
+          mode3D={mode3D}
+          onToggle3D={handleToggle3D}
+          onStartPersonalization={onStartPersonalization}
+          isochroneActive={isochroneActive}
+          isochroneLoading={isochroneLoading}
+          onToggleIsochrone={handleToggleIsochrone}
+        />
+
+        {/* Directions panel */}
+        {(directionsRoute || directionsLoading || directionsError) && (
+          <DirectionsPanel
+            route={directionsRoute}
+            loading={directionsLoading}
+            profile={directionsProfile}
+            onProfileChange={handleDirectionsProfileChange}
+            onClose={handleCloseDirections}
+            error={directionsError}
+          />
+        )}
 
         {/* Flyover overlay */}
         {flyoverProgress && (
@@ -455,24 +654,57 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
 }
 
 /**
- * Adds 3D terrain and building layers to the map.
- * Uses OpenFreeMap source which has building data with render_height.
+ * Adds 3D terrain, hillshade, and building layers to the map.
+ * Terrain uses MapTiler DEM (gracefully skipped without API key).
+ * Buildings use OpenMapTiles schema (`render_height`).
  * @param map - The MapLibre GL map instance.
  * @param isDark - Whether dark theme is active.
- * @see https://maplibre.org/maplibre-gl-js/docs/examples/display-buildings-in-3d/
  */
 function add3DLayers(map: maplibregl.Map, isDark: boolean) {
-  // Safety check - ensure style is loaded
   if (!map.isStyleLoaded()) return;
 
-  // Log available sources for debugging
   const style = map.getStyle();
   const sourceNames = Object.keys(style?.sources || {});
   console.log("[3D] Available sources:", sourceNames);
 
-  // Add 3D buildings layer if not already present
+  // --- Terrain ---
+  const terrainUrl = getTerrainSourceUrl();
+  if (terrainUrl && !map.getSource("terrain-dem")) {
+    map.addSource("terrain-dem", {
+      type: "raster-dem",
+      tiles: [terrainUrl],
+      tileSize: 256,
+      maxzoom: 14,
+    });
+    map.setTerrain({ source: "terrain-dem", exaggeration: TERRAIN_CONFIG.exaggeration });
+
+    // Hillshade layer for depth
+    if (!map.getLayer("terrain-hillshade")) {
+      map.addLayer({
+        id: "terrain-hillshade",
+        type: "hillshade",
+        source: "terrain-dem",
+        paint: {
+          "hillshade-illumination-direction": TERRAIN_CONFIG.hillshadeDirection,
+          "hillshade-exaggeration": 0.3,
+          "hillshade-shadow-color": isDark ? "#000000" : "#3a3a3a",
+          "hillshade-highlight-color": isDark ? "#222244" : "#ffffff",
+        },
+      });
+    }
+    console.log("[3D] Terrain + hillshade added");
+  }
+
+  // --- 3D buildings ---
+  // Remove flat building layers from the style (e.g. CARTO Dark Matter has "building" + "building-top")
+  // so they don't render over our 3D extrusion layer.
+  for (const flatId of ["building-top", "building"]) {
+    if (map.getLayer(flatId)) {
+      map.removeLayer(flatId);
+    }
+  }
+
   if (!map.getLayer("3d-buildings")) {
-    // Find the vector source - try openfreemap first (official example), then openmaptiles
     const sources = style?.sources || {};
     let buildingSource: string | undefined;
 
@@ -483,7 +715,6 @@ function add3DLayers(map: maplibregl.Map, isDark: boolean) {
       }
     }
 
-    // Fallback: use first available vector source
     if (!buildingSource) {
       for (const [name, source] of Object.entries(sources)) {
         if ((source as { type: string }).type === "vector") {
@@ -498,7 +729,6 @@ function add3DLayers(map: maplibregl.Map, isDark: boolean) {
       return;
     }
 
-    // Find the first symbol layer with text to insert buildings below labels
     const layers = style?.layers || [];
     let labelLayerId: string | undefined;
     for (const layer of layers) {
@@ -510,9 +740,6 @@ function add3DLayers(map: maplibregl.Map, isDark: boolean) {
 
     console.log("[3D] Adding buildings layer with source:", buildingSource, "below:", labelLayerId);
 
-    // Use exact paint properties from official MapLibre example
-    // https://maplibre.org/maplibre-gl-js/docs/examples/display-buildings-in-3d/
-    // Note: CARTO/OpenMapTiles uses "render_height" or "height" depending on tile source
     const heightExpr: maplibregl.ExpressionSpecification = [
       "coalesce",
       ["get", "render_height"],
@@ -530,32 +757,20 @@ function add3DLayers(map: maplibregl.Map, isDark: boolean) {
         paint: {
           "fill-extrusion-color": isDark
             ? [
-                "interpolate",
-                ["linear"],
-                heightExpr,
-                0, "#1e1e3a",
-                50, "#2e2e5a",
-                100, "#4040a0",
-                200, "#5858c0",
+                "interpolate", ["linear"], heightExpr,
+                0, "#2a2a50", 50, "#3d3d7a", 100, "#5858b8", 200, "#7070e0",
               ]
             : [
-                "interpolate",
-                ["linear"],
-                heightExpr,
-                0, "#9090a0",
-                50, "#7070a0",
-                100, "#5050a0",
-                200, "#3030a0",
+                "interpolate", ["linear"], heightExpr,
+                0, "#9090a0", 50, "#7070a0", 100, "#5050a0", 200, "#3030a0",
               ],
           "fill-extrusion-height": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            13, 0,
-            14.5, heightExpr,
+            "interpolate", ["linear"], ["zoom"],
+            13, 0, 14.5, heightExpr,
           ],
           "fill-extrusion-base": ["get", "render_min_height"],
-          "fill-extrusion-opacity": 0.85,
+          "fill-extrusion-opacity": isDark ? 0.9 : 0.85,
+          "fill-extrusion-vertical-gradient": true,
         },
       },
       labelLayerId,
@@ -563,21 +778,49 @@ function add3DLayers(map: maplibregl.Map, isDark: boolean) {
 
     console.log("[3D] Buildings layer added successfully");
   }
+
+  // --- Sky / Atmosphere ---
+  // Sky layer type exists at runtime but not in the TS type definitions
+  if (!map.getLayer("sky-layer")) {
+    map.addLayer({
+      id: "sky-layer",
+      type: "sky",
+      paint: {
+        "sky-type": "atmosphere",
+        "sky-atmosphere-sun": [0, 0],
+        "sky-atmosphere-sun-intensity": 15,
+      },
+    } as unknown as maplibregl.LayerSpecification);
+    console.log("[3D] Sky atmosphere layer added");
+  }
 }
 
 /**
- * Removes 3D building layers from the map.
+ * Removes 3D terrain, hillshade, and building layers from the map.
  * @param map - The MapLibre GL map instance.
  */
 function remove3DLayers(map: maplibregl.Map) {
-  // Safety check - ensure style is loaded
   if (!map.isStyleLoaded()) return;
 
-  // Remove 3D buildings layer
+  // Remove terrain
+  map.setTerrain(null);
+  if (map.getLayer("terrain-hillshade")) {
+    map.removeLayer("terrain-hillshade");
+  }
+  if (map.getSource("terrain-dem")) {
+    map.removeSource("terrain-dem");
+  }
+
+  // Remove 3D buildings
   if (map.getLayer("3d-buildings")) {
     map.removeLayer("3d-buildings");
-    console.log("[3D] Buildings layer removed");
   }
+
+  // Remove sky
+  if (map.getLayer("sky-layer")) {
+    map.removeLayer("sky-layer");
+  }
+  console.log("[3D] Layers removed");
 }
 
 /** Venue highlight source and layer IDs. */

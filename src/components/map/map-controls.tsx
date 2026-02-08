@@ -8,7 +8,7 @@
 
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Filter, MapPin, ChevronDown, SlidersHorizontal } from "lucide-react";
+import { Filter, MapPin, ChevronDown } from "lucide-react";
 import { EVENT_CATEGORIES, type EventCategory, type EventEntry } from "@/lib/registries/types";
 import { CATEGORY_LABELS, PRESET_LOCATIONS } from "@/lib/map/config";
 import { useMap } from "./use-map";
@@ -33,7 +33,6 @@ import { EventsDropdown } from "./events-dropdown";
 
 interface MapControlsProps {
   open: boolean;
-  onToggle: () => void;
   visibleCategories: Set<EventCategory>;
   onToggleCategory: (category: EventCategory) => void;
   events: EventEntry[];
@@ -44,7 +43,6 @@ interface MapControlsProps {
 /** Slide-out panel with category filters, event list, and navigation. */
 export function MapControls({
   open,
-  onToggle,
   visibleCategories,
   onToggleCategory,
   events,
@@ -82,9 +80,6 @@ export function MapControls({
   // Filter events by visible categories
   const filteredEvents = events.filter((e) => visibleCategories.has(e.category));
 
-  // Count of active filters (categories deselected from the full set)
-  const activeFilterCount = EVENT_CATEGORIES.length - visibleCategories.size;
-
   return (
     <>
       {/* Top-left header: Logo dropdown + filter toggle */}
@@ -95,28 +90,6 @@ export function MapControls({
           onAskAbout={onAskAbout}
           onShowOnMap={handleShowOnMap}
         />
-
-        {/* Map filter toggle button */}
-        <button
-          onClick={onToggle}
-          className="relative flex h-10 w-10 items-center justify-center rounded-xl shadow-lg backdrop-blur-md transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-          style={{
-            background: "var(--glass-bg)",
-            border: "1px solid var(--glass-border)",
-            color: "var(--text)",
-          }}
-          title={open ? "Close filters" : "Map filters"}
-        >
-          <SlidersHorizontal className="h-4 w-4" />
-          {activeFilterCount > 0 && (
-            <span
-              className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-white"
-              style={{ background: "var(--brand-primary)" }}
-            >
-              {activeFilterCount}
-            </span>
-          )}
-        </button>
       </div>
 
       {/* Sliding Panel (below header) */}
@@ -129,7 +102,7 @@ export function MapControls({
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="absolute left-4 top-[5.5rem] z-10 flex flex-col overflow-hidden rounded-2xl shadow-xl backdrop-blur-md"
             style={{
-              width: "var(--panel-width)",
+              width: "min(var(--panel-width), calc(100vw - 2rem))",
               maxHeight: "calc(100% - 140px)",
               background: "var(--glass-bg)",
               border: "1px solid var(--glass-border)",

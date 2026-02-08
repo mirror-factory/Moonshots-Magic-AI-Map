@@ -1,8 +1,8 @@
 /**
  * @module components/chat/suggestion-tiles
- * 2x3 grid of suggestion tiles displayed above the center chat bar
- * when no messages are present. Context-aware ordering based on time,
- * weather, and day of week.
+ * Horizontally-scrollable suggestion tiles displayed above the chat bar
+ * when no messages are present. Shows 2 tiles at a time with swipe/scroll
+ * for the rest. Context-aware ordering based on time, weather, and day of week.
  */
 
 "use client";
@@ -95,7 +95,7 @@ interface SuggestionTilesProps {
   context?: AmbientContext | null;
 }
 
-/** 2x3 grid of context-aware suggestion tiles with glass styling. */
+/** Horizontally-scrollable suggestion tiles — 2 visible at a time. */
 export function SuggestionTiles({ onSelect, context = null }: SuggestionTilesProps) {
   const sortedTiles = useMemo(() => {
     return [...ALL_TILES].sort(
@@ -104,30 +104,31 @@ export function SuggestionTiles({ onSelect, context = null }: SuggestionTilesPro
   }, [context]);
 
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="flex gap-2 overflow-x-auto scrollbar-hide">
       {sortedTiles.map((tile, i) => (
         <motion.button
           key={tile.label}
           onClick={() => onSelect(tile.query)}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, x: 12 }}
+          animate={{ opacity: 1, x: 0 }}
           transition={{ delay: i * 0.05 }}
-          className="flex items-start gap-3 rounded-xl px-5 py-4 text-left transition-colors"
+          className="flex shrink-0 items-start gap-2.5 rounded-xl px-4 py-3 text-left transition-colors"
           style={{
+            width: "calc(50% - 4px)",
             background: "var(--glass-bg)",
             border: "1px solid var(--glass-border)",
             backdropFilter: "blur(var(--glass-blur))",
             fontFamily: "var(--font-chakra-petch)",
           }}
         >
-          <span className="text-2xl leading-none">{tile.emoji}</span>
+          <span className="text-lg leading-none">{tile.emoji}</span>
           <div className="min-w-0">
-            <span className="text-base font-medium" style={{ color: "var(--text)" }}>
+            <span className="text-sm font-medium" style={{ color: "var(--text)" }}>
               {tile.label}
             </span>
-            <p className="mt-0.5 text-xs leading-snug" style={{ color: "var(--text-dim)" }}>
+            <p className="mt-0.5 text-[10px] leading-snug" style={{ color: "var(--text-dim)" }}>
               {tile.subtitle}
             </p>
           </div>

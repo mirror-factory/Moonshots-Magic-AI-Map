@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
-import { Sun, Moon, Settings, Play, Box } from "lucide-react";
+import { Sun, Moon, Settings, Play, Box, Clock, Loader2 } from "lucide-react";
 import { useMap } from "./use-map";
 import { useIntro } from "@/app/map-with-chat";
 import { SettingsModal } from "@/components/settings/settings-modal";
@@ -40,10 +40,13 @@ interface MapStatusBarProps {
   mode3D?: boolean;
   onToggle3D?: () => void;
   onStartPersonalization?: () => void;
+  isochroneActive?: boolean;
+  isochroneLoading?: boolean;
+  onToggleIsochrone?: () => void;
 }
 
 /** Displays real-time map viewport coordinates in a bottom bar with theme toggle and settings. */
-export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalization }: MapStatusBarProps) {
+export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalization, isochroneActive, isochroneLoading, onToggleIsochrone }: MapStatusBarProps) {
   const map = useMap();
   const { resolvedTheme, setTheme } = useTheme();
   const mounted = useMounted();
@@ -86,7 +89,7 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
     <>
       <div className="absolute bottom-0 left-0 right-0 z-10">
         <div
-          className="flex items-center justify-center gap-4 px-4 py-1.5 font-mono text-xs backdrop-blur-md"
+          className="flex items-center justify-center gap-2 px-3 py-1.5 font-mono text-xs backdrop-blur-md sm:gap-4 sm:px-4"
           style={{
             background: "var(--chat-bg)",
             borderTop: "1px solid var(--border-color)",
@@ -94,9 +97,9 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
             fontFamily: "var(--font-rajdhani)",
           }}
         >
-          <StatusItem label="LAT" value={status.lat.toFixed(4)} activeColor={activeColor} />
+          <StatusItem label="LAT" value={status.lat.toFixed(4)} activeColor={activeColor} hideLabel />
           <Separator />
-          <StatusItem label="LNG" value={status.lng.toFixed(4)} activeColor={activeColor} />
+          <StatusItem label="LNG" value={status.lng.toFixed(4)} activeColor={activeColor} hideLabel />
           <Separator />
           <StatusItem label="Z" value={status.zoom.toFixed(1)} activeColor={activeColor} />
           <Separator />
@@ -114,6 +117,25 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
               >
                 <Box className="h-3.5 w-3.5" />
                 <span className="text-[10px] font-medium">3D</span>
+              </button>
+              <Separator />
+            </>
+          )}
+          {/* Isochrone Toggle */}
+          {onToggleIsochrone && (
+            <>
+              <button
+                onClick={onToggleIsochrone}
+                className="flex items-center gap-1 transition-colors hover:opacity-70"
+                style={{ color: isochroneActive ? activeColor : inactiveColor }}
+                aria-label={isochroneActive ? "Hide travel zones" : "Show travel zones"}
+                title={isochroneActive ? "Hide travel zones" : "Travel zones"}
+              >
+                {isochroneLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Clock className="h-3.5 w-3.5" />
+                )}
               </button>
               <Separator />
             </>
@@ -170,10 +192,10 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
 }
 
 /** Displays a labeled value in the status bar. */
-function StatusItem({ label, value, activeColor }: { label: string; value: string; activeColor: string }) {
+function StatusItem({ label, value, activeColor, hideLabel }: { label: string; value: string; activeColor: string; hideLabel?: boolean }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span style={{ color: "var(--text-muted)" }}>{label}</span>
+      <span className={hideLabel ? "hidden sm:inline" : ""} style={{ color: "var(--text-muted)" }}>{label}</span>
       <span style={{ color: activeColor }}>{value}</span>
     </div>
   );

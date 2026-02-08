@@ -15,10 +15,11 @@ import type { EventCategory } from "@/lib/registries/types";
 
 interface MapPopupsProps {
   onAskAbout?: (eventTitle: string) => void;
+  onGetDirections?: (coordinates: [number, number], eventTitle: string) => void;
 }
 
 /** Handles click-to-popup interactions on the events map layer. */
-export function MapPopups({ onAskAbout }: MapPopupsProps) {
+export function MapPopups({ onAskAbout, onGetDirections }: MapPopupsProps) {
   const map = useMap();
   const popupRef = useRef<maplibregl.Popup | null>(null);
 
@@ -65,21 +66,40 @@ export function MapPopups({ onAskAbout }: MapPopupsProps) {
           <h3 style="margin: 0 0 6px; font-size: 15px; font-weight: 600; color: var(--text);">${props.title}</h3>
           <p style="margin: 0 0 4px; font-size: 12px; color: var(--text-dim);">${props.venue}</p>
           <p style="margin: 0 0 10px; font-size: 12px; color: var(--text-dim);">${dateStr}</p>
-          <button
-            class="popup-ask-btn"
-            data-title="${props.title.replace(/"/g, "&quot;")}"
-            style="
-              background: var(--brand-primary);
-              color: var(--brand-primary-foreground);
-              border: none;
-              padding: 6px 12px;
-              border-radius: 6px;
-              font-size: 12px;
-              font-weight: 500;
-              cursor: pointer;
-              width: 100%;
-            "
-          >Ask about this</button>
+          <div style="display: flex; gap: 6px;">
+            <button
+              class="popup-ask-btn"
+              data-title="${props.title.replace(/"/g, "&quot;")}"
+              style="
+                background: var(--brand-primary);
+                color: var(--brand-primary-foreground);
+                border: none;
+                padding: 6px 12px;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 500;
+                cursor: pointer;
+                flex: 1;
+              "
+            >Ask about this</button>
+            <button
+              class="popup-directions-btn"
+              data-lng="${coords[0]}"
+              data-lat="${coords[1]}"
+              data-title="${props.title.replace(/"/g, "&quot;")}"
+              style="
+                background: var(--surface-2);
+                color: var(--text);
+                border: 1px solid var(--border-color);
+                padding: 6px 12px;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 500;
+                cursor: pointer;
+                white-space: nowrap;
+              "
+            >Directions</button>
+          </div>
         </div>
       `;
 
@@ -89,13 +109,24 @@ export function MapPopups({ onAskAbout }: MapPopupsProps) {
         .setHTML(html)
         .addTo(map);
 
-      // Wire up button click after popup is added to DOM
+      // Wire up button clicks after popup is added to DOM
       setTimeout(() => {
-        const btn = document.querySelector(".popup-ask-btn");
-        if (btn && onAskAbout) {
-          btn.addEventListener("click", () => {
-            const title = btn.getAttribute("data-title") ?? "";
+        const askBtn = document.querySelector(".popup-ask-btn");
+        if (askBtn && onAskAbout) {
+          askBtn.addEventListener("click", () => {
+            const title = askBtn.getAttribute("data-title") ?? "";
             onAskAbout(title);
+            popupRef.current?.remove();
+          });
+        }
+
+        const dirBtn = document.querySelector(".popup-directions-btn");
+        if (dirBtn && onGetDirections) {
+          dirBtn.addEventListener("click", () => {
+            const lng = parseFloat(dirBtn.getAttribute("data-lng") ?? "0");
+            const lat = parseFloat(dirBtn.getAttribute("data-lat") ?? "0");
+            const title = dirBtn.getAttribute("data-title") ?? "";
+            onGetDirections([lng, lat], title);
             popupRef.current?.remove();
           });
         }
@@ -120,7 +151,7 @@ export function MapPopups({ onAskAbout }: MapPopupsProps) {
       map.off("mouseleave", "events-layer", handleMouseLeave);
       popupRef.current?.remove();
     };
-  }, [map, onAskAbout]);
+  }, [map, onAskAbout, onGetDirections]);
 
   return null;
 }

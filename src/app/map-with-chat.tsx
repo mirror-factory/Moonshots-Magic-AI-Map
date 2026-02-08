@@ -9,12 +9,14 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect, createContext, useContext } from "react";
-import { useTheme } from "next-themes";
-import { MapContainer } from "@/components/map/map-container";
+import dynamic from "next/dynamic";
+
+const MapContainer = dynamic(
+  () => import("@/components/map/map-container").then((m) => m.MapContainer),
+  { ssr: false }
+);
 import { CenterChat } from "@/components/chat/center-chat";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
-import { StaticStars } from "@/components/effects/static-stars";
-import { AmbientParticles } from "@/components/effects/ambient-particles";
 import { getAmbientContext, type AmbientContext } from "@/lib/context/ambient-context";
 import type { EventEntry, EventCategory } from "@/lib/registries/types";
 
@@ -53,8 +55,6 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
   const [ambientContext, setAmbientContext] = useState<AmbientContext | null>(null);
   const [liveEvents, setLiveEvents] = useState<EventEntry[]>([]);
   const flyoverHandlerRef = useRef<FlyoverHandler | null>(null);
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
 
   // Fetch ambient context on mount
   useEffect(() => {
@@ -128,10 +128,6 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
         onStartPersonalization={handleStartPersonalization}
         initialCategories={initialCategories ?? undefined}
       >
-        {/* Ambient effects — dark mode only */}
-        {isDark && <StaticStars />}
-        {isDark && <AmbientParticles />}
-
         <CenterChat
           initialInput={chatInput}
           onClearInitialInput={handleClearInput}

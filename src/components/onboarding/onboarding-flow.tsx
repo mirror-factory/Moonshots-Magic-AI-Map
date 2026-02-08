@@ -198,14 +198,15 @@ export function OnboardingFlow({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center"
+        className="fixed inset-0 z-50 overflow-y-auto"
         style={{ background: "#050505" }}
       >
         <BlurredStars count={200} />
 
-        <div className="relative z-10 flex w-full max-w-md flex-col items-center px-6">
+        <div className="flex min-h-full items-center justify-center px-4 py-8 sm:px-6">
+          <div className="relative z-10 flex w-full max-w-md flex-col items-center">
           {/* Progress dots */}
-          <div className="mb-8 flex gap-2">
+          <div className="mb-4 flex gap-2 sm:mb-8">
             {Array.from({ length: totalSteps }, (_, i) => (
               <div
                 key={i}
@@ -226,11 +227,11 @@ export function OnboardingFlow({
                 initial={{ opacity: 0, x: 50 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -50 }}
-                className="flex w-full flex-col items-center gap-6"
+                className="flex w-full flex-col items-center gap-4 sm:gap-6"
               >
                 <DittoAvatar state="excited" size={80} />
                 <h1
-                  className="text-3xl tracking-wider text-white"
+                  className="text-2xl tracking-wider text-white sm:text-3xl"
                   style={{ fontFamily: "var(--font-bebas-neue)" }}
                 >
                   HEY THERE! I&apos;M DITTO.
@@ -269,10 +270,10 @@ export function OnboardingFlow({
                 initial={{ opacity: 0, x: 50 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -50 }}
-                className="flex w-full flex-col items-center gap-6"
+                className="flex w-full flex-col items-center gap-4 sm:gap-6"
               >
                 <h2
-                  className="text-2xl tracking-wider text-white"
+                  className="text-xl tracking-wider text-white sm:text-2xl"
                   style={{ fontFamily: "var(--font-bebas-neue)" }}
                 >
                   WHAT SOUNDS FUN?
@@ -325,10 +326,10 @@ export function OnboardingFlow({
                 initial={{ opacity: 0, x: 50 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -50 }}
-                className="flex w-full flex-col items-center gap-6"
+                className="flex w-full flex-col items-center gap-4 sm:gap-6"
               >
                 <h2
-                  className="text-2xl tracking-wider text-white"
+                  className="text-xl tracking-wider text-white sm:text-2xl"
                   style={{ fontFamily: "var(--font-bebas-neue)" }}
                 >
                   WHAT&apos;S YOUR VIBE?
@@ -386,10 +387,10 @@ export function OnboardingFlow({
                 initial={{ opacity: 0, x: 50 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -50 }}
-                className="flex w-full flex-col items-center gap-6"
+                className="flex w-full flex-col items-center gap-4 sm:gap-6"
               >
                 <h2
-                  className="text-2xl tracking-wider text-white"
+                  className="text-xl tracking-wider text-white sm:text-2xl"
                   style={{ fontFamily: "var(--font-bebas-neue)" }}
                 >
                   ANY PRIORITIES?
@@ -450,11 +451,11 @@ export function OnboardingFlow({
                 initial={{ opacity: 0, x: 50 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -50 }}
-                className="flex w-full flex-col items-center gap-6"
+                className="flex w-full flex-col items-center gap-4 sm:gap-6"
               >
                 <DittoAvatar state="celebrating" size={80} />
                 <h2
-                  className="text-2xl tracking-wider text-white"
+                  className="text-xl tracking-wider text-white sm:text-2xl"
                   style={{ fontFamily: "var(--font-bebas-neue)" }}
                 >
                   {name.trim() ? `GREAT TASTE, ${name.trim().toUpperCase()}!` : "YOU'RE ALL SET!"}
@@ -482,6 +483,7 @@ export function OnboardingFlow({
               </motion.div>
             )}
           </AnimatePresence>
+          </div>
         </div>
       </motion.div>
     </AnimatePresence>

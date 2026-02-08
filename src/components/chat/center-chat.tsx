@@ -290,8 +290,8 @@ export function CenterChat({
   return (
     <div
       ref={containerRef}
-      className="fixed bottom-8 left-1/2 z-30 -translate-x-1/2"
-      style={{ width: "min(650px, 92vw)" }}
+      className="fixed bottom-4 right-4 z-30 sm:bottom-8 sm:right-8"
+      style={{ width: "min(420px, 88vw)" }}
     >
       {/* Suggestion tiles - visible only when collapsed and no messages */}
       <AnimatePresence>
@@ -326,12 +326,11 @@ export function CenterChat({
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="flex min-h-0 flex-col overflow-hidden"
-              style={{ maxHeight: "calc(70vh - 80px)" }}
+              className="overflow-hidden"
             >
               {/* Header with Ditto and collapse */}
               <div
-                className="flex flex-shrink-0 items-center justify-between border-b px-4 py-2"
+                className="flex items-center justify-between border-b px-4 py-2"
                 style={{ borderColor: "var(--border-color)" }}
               >
                 <div className="flex items-center gap-3">
@@ -357,12 +356,14 @@ export function CenterChat({
                 </button>
               </div>
 
-              {/* Scrollable messages area */}
-              <div className="min-h-0 flex-1 overflow-y-auto">
-                <Conversation className="h-full">
+              {/* Scrollable messages area — direct maxHeight for StickToBottom */}
+              <Conversation
+                className="overflow-y-auto"
+                style={{ maxHeight: "calc(70vh - 140px)" }}
+              >
                   <ConversationContent className="px-4 py-4">
-                    {messages.map((message) => (
-                      <Message key={message.id} from={message.role}>
+                    {messages.map((message, index) => (
+                      <Message key={`${message.id}-${index}`} from={message.role}>
                         <MessageContent>
                           {message.parts.map((part, i) => {
                             const key = `${message.id}-${i}`;
@@ -570,7 +571,6 @@ export function CenterChat({
                   </ConversationContent>
                   <ConversationScrollButton />
                 </Conversation>
-              </div>
             </motion.div>
           )}
         </AnimatePresence>

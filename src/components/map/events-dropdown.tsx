@@ -213,9 +213,9 @@ export function EventsDropdown({
                 className="hidden h-12 w-auto cursor-pointer transition-all duration-200 hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.5)] dark:block"
                 priority
               />
-              {/* Light-mode logo */}
+              {/* Light-mode logo (black + blue) */}
               <Image
-                src="/moonshots-magic-logo-light.svg"
+                src="/moonshots-magic-logo-light-blue.svg"
                 alt="Moonshots & Magic"
                 width={160}
                 height={48}
@@ -226,9 +226,9 @@ export function EventsDropdown({
             <div className="flex items-center gap-1.5">
               <Badge
                 variant="secondary"
-                className="border border-primary/20 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+                className="border border-blue-500/30 bg-blue-600/80 px-2 py-0.5 text-xs font-medium text-white transition-colors hover:bg-blue-600/90 dark:bg-blue-500/70 dark:hover:bg-blue-500/80"
               >
-                {events.length} events
+                tap to view events
               </Badge>
               <ChevronDown
                 className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`}
@@ -241,15 +241,18 @@ export function EventsDropdown({
           className="grain-texture w-[440px] border-border/40 bg-card/95 p-0 shadow-2xl backdrop-blur-xl"
           align="start"
           sideOffset={12}
+          style={{ maxHeight: "calc(100vh - 120px)" }}
         >
           {selectedEvent ? (
-            <EventDetailPanelDropdown
-              event={selectedEvent}
-              onBack={handleBack}
-              onClose={handleClose}
-              onAskDitto={handleAskAbout}
-              onShowMap={onShowOnMap ? handleShowOnMap : undefined}
-            />
+            <div className="flex flex-col" style={{ maxHeight: "calc(100vh - 120px)" }}>
+              <EventDetailPanelDropdown
+                event={selectedEvent}
+                onBack={handleBack}
+                onClose={handleClose}
+                onAskDitto={handleAskAbout}
+                onShowMap={onShowOnMap ? handleShowOnMap : undefined}
+              />
+            </div>
           ) : (
             <div className="relative z-10 flex flex-col">
               {/* Header */}

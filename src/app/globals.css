@@ -277,16 +277,6 @@
    MAPLIBRE THEME OVERRIDES
    ============================================ */
 
-/* Subtle desaturation in light mode */
-.maplibregl-canvas {
-  filter: saturate(0.7) contrast(1.05);
-}
-
-/* Dark mode — darken and desaturate without color inversion */
-.dark .maplibregl-canvas {
-  filter: brightness(0.35) saturate(0.4) contrast(1.2);
-}
-
 .maplibregl-ctrl-group {
   background: var(--surface) !important;
   border: 1px solid var(--border-color) !important;
@@ -362,47 +352,6 @@
 }
 
 /* ============================================
-   EVENT MARKERS
-   ============================================ */
-.event-marker {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.event-marker:hover {
-  transform: scale(1.3);
-  box-shadow: 0 0 12px var(--map-marker-shadow);
-}
-
-.event-marker--music { background: var(--category-music); }
-.event-marker--arts { background: var(--category-arts); }
-.event-marker--sports { background: var(--category-sports); }
-.event-marker--food { background: var(--category-food); }
-.event-marker--tech { background: var(--category-tech); }
-.event-marker--community { background: var(--category-community); }
-.event-marker--family { background: var(--category-family); }
-.event-marker--nightlife { background: var(--category-nightlife); }
-.event-marker--outdoor { background: var(--category-outdoor); }
-.event-marker--education { background: var(--category-education); }
-.event-marker--festival { background: var(--category-festival); }
-.event-marker--market { background: var(--category-market); }
-.event-marker--other { background: var(--category-other); }
-
-/* Featured event pulse */
-.event-marker--featured {
-  animation: marker-pulse 2s infinite;
-}
-
-@keyframes marker-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 var(--map-marker-shadow); }
-  50% { box-shadow: 0 0 0 8px transparent; }
-}
-
-/* ============================================
    GRAIN TEXTURE OVERLAY
    ============================================ */
 .grain-texture {
@@ -429,24 +378,6 @@
    AMBIENT EFFECTS
    ============================================ */
 
-/* Float-up animation for ambient particles */
-@keyframes float-up {
-  0% {
-    transform: translateY(0) translateX(0);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(-100vh) translateX(20px);
-    opacity: 0;
-  }
-}
-
 /* Subtle pulse for glow effects */
 @keyframes subtle-pulse {
   0%, 100% {
@@ -460,6 +391,25 @@
 /* Animated border glow on chat panel (dark mode only) */
 .dark .glow-border {
   animation: subtle-pulse 4s ease-in-out infinite;
+}
+
+/* ============================================
+   SAFE AREA SUPPORT
+   ============================================ */
+:root {
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ============================================
+   SCROLLBAR-HIDE UTILITY
+   ============================================ */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
 /* ============================================

@@ -63,14 +63,14 @@ export function VibeTileLarge({ category, selected, onToggle }: VibeTileLargePro
       onClick={() => onToggle(category)}
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
-      className="flex min-h-[100px] flex-col items-center justify-center gap-1.5 rounded-2xl p-4 transition-colors"
+      className="flex min-h-[80px] flex-col items-center justify-center gap-1.5 rounded-2xl p-3 transition-colors sm:min-h-[100px] sm:p-4"
       style={{
         background: selected ? `${color}22` : "rgba(255, 255, 255, 0.05)",
         border: `2px solid ${selected ? color : "rgba(255, 255, 255, 0.08)"}`,
         boxShadow: selected ? `0 0 24px ${color}40` : "none",
       }}
     >
-      <span className="text-2xl">{emoji}</span>
+      <span className="text-xl sm:text-2xl">{emoji}</span>
       <span
         className="text-sm font-medium"
         style={{

@@ -122,7 +122,7 @@ export function EventDetailPanelDropdown({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full max-h-[calc(100vh-120px)]">
       {/* Header */}
       <div
         className="flex items-center justify-between p-4 border-b"

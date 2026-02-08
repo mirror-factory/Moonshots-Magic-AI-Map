@@ -1,8 +1,7 @@
 /**
  * @module components/effects
- * Re-exports all visual effects components for the brand aesthetic.
- * These effects should only be rendered in dark mode.
+ * Re-exports visual effects components for the brand aesthetic.
  */
 
-export { StaticStars } from "./static-stars";
-export { AmbientParticles } from "./ambient-particles";
+export { Sparkle } from "./sparkle";
+export { BlurredStars } from "./blurred-stars";
