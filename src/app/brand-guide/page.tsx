@@ -160,14 +160,34 @@ function AnimatedLogo({ className, width = 750, height = 250 }: { className?: st
       gsap.set(path, { opacity: 0.15 });
     });
 
-    // Animate each path lighting up in sequence
+    // Map paths to letter order: M-O-O-N-S-H-O-T-S-&-M-A-G-I-C
+    // Based on x-coordinates and reading order
+    const letterOrder = [
+      0,  // M (MOONSHOTS)
+      5,  // O
+      4,  // O
+      2,  // N
+      10, // S
+      7,  // H
+      8,  // O
+      14, // T
+      11, // S
+      6,  // & (ampersand)
+      1,  // M (MAGIC)
+      9,  // A
+      15, // G
+      12, // I
+      13, // C
+    ];
+
+    // Animate each path lighting up in letter order
     const timeline = gsap.timeline({ delay: 0.5 });
-    paths.forEach((path, index) => {
-      timeline.to(path, {
+    letterOrder.forEach((pathIndex, step) => {
+      timeline.to(paths[pathIndex], {
         opacity: 1,
         duration: 0.15,
         ease: "power2.out",
-      }, index * 0.08); // Stagger each by 80ms
+      }, step * 0.08); // Stagger each by 80ms
     });
 
     return () => {
