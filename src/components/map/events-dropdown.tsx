@@ -452,18 +452,18 @@ export function EventsDropdown({
             className="h-auto rounded-lg p-0 pr-2 transition-all duration-200 hover:scale-105 hover:bg-transparent focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
           >
             <div className="relative">
-              {/* Dark-mode logo */}
+              {/* Dark-mode logo (M&M Logo - Dark) */}
               <Image
-                src="/moonshots-magic-logo-dark.svg"
+                src="/mm-logo-dark.svg"
                 alt="Moonshots & Magic"
                 width={160}
                 height={48}
                 className="hidden h-12 w-auto cursor-pointer transition-all duration-200 hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.5)] dark:block"
                 priority
               />
-              {/* Light-mode logo (black + blue) */}
+              {/* Light-mode logo (M&M Logo - Black) */}
               <Image
-                src="/moonshots-magic-logo-light.svg"
+                src="/mm-logo-light.svg"
                 alt="Moonshots & Magic"
                 width={160}
                 height={48}

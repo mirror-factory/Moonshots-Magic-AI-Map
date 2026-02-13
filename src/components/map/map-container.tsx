@@ -853,6 +853,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
           activePreset={activePreset}
           onPresetChange={setActivePreset}
           onAskAbout={onAskAbout}
+          onShowEventOnMap={handleShowEventOnMap}
           detailEventId={detailEventId}
           onClearDetailEvent={() => setDetailEventId(null)}
         />

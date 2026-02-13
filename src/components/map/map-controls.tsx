@@ -41,6 +41,8 @@ interface MapControlsProps {
   /** Callback when user changes the date filter preset. */
   onPresetChange?: (preset: DatePreset) => void;
   onAskAbout?: (eventTitle: string) => void;
+  /** Cinematic show-on-map handler (fly + card + orbit). */
+  onShowEventOnMap?: (eventId: string) => void;
   /** Event ID to auto-open in the dropdown detail view. */
   detailEventId?: string | null;
   /** Clear the externally-set detail event ID. */
@@ -58,6 +60,7 @@ export function MapControls({
   activePreset,
   onPresetChange,
   onAskAbout,
+  onShowEventOnMap,
   detailEventId,
   onClearDetailEvent,
 }: MapControlsProps) {
@@ -76,7 +79,9 @@ export function MapControls({
   }, []);
 
   const handleShowOnMap = useCallback((event: EventEntry) => {
-    if (map) {
+    if (onShowEventOnMap) {
+      onShowEventOnMap(event.id);
+    } else if (map) {
       map.flyTo({
         center: event.coordinates,
         zoom: 17,
@@ -84,7 +89,7 @@ export function MapControls({
         duration: 2000,
       });
     }
-  }, [map]);
+  }, [map, onShowEventOnMap]);
 
   const handleBackToList = useCallback(() => {
     setSelectedEvent(null);
@@ -99,13 +104,14 @@ export function MapControls({
 
   return (
     <>
-      {/* Top-left header: Logo dropdown with backdrop blur */}
+      {/* Top-left header: Logo dropdown with glass pill */}
       <div
         className="absolute left-4 top-6 z-20 flex items-center gap-2 rounded-2xl px-2 py-1"
         style={{
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
-          background: "rgba(0, 0, 0, 0.15)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          background: "var(--glass-bg)",
+          border: "1px solid var(--glass-border)",
         }}
       >
         <EventsDropdown

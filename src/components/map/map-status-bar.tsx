@@ -9,7 +9,7 @@
 
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, Fragment } from "react";
 import { useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
 import maplibregl from "maplibre-gl";
@@ -381,29 +381,31 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
                 <X className="h-3.5 w-3.5" />
               </button>
             ) : (
-              presets.map((preset) => {
+              presets.map((preset, i) => {
                 const isActive = activePreset === preset;
                 return (
-                  <button
-                    key={preset}
-                    onClick={() => onPresetChange(preset)}
-                    className="rounded-full px-3.5 py-1.5 text-sm font-semibold transition-all hover:opacity-80"
-                    style={{
-                      background: isActive ? "#3560FF" : "transparent",
-                      color: isActive
-                        ? "#ffffff"
-                        : isDark
-                          ? "rgba(255, 255, 255, 0.65)"
-                          : "rgba(0, 0, 0, 0.6)",
-                      border: isActive
-                        ? "1px solid transparent"
-                        : isDark
-                          ? "1px solid rgba(255, 255, 255, 0.15)"
-                          : "1px solid rgba(0, 0, 0, 0.15)",
-                    }}
-                  >
-                    {DATE_PRESET_LABELS[preset]}
-                  </button>
+                  <Fragment key={preset}>
+                    {i > 0 && (
+                      <div
+                        className="h-4 w-px shrink-0"
+                        style={{ background: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)" }}
+                      />
+                    )}
+                    <button
+                      onClick={() => onPresetChange(preset)}
+                      className="rounded-full px-3.5 py-1.5 text-sm font-semibold transition-all hover:opacity-80"
+                      style={{
+                        background: isActive ? "#3560FF" : "transparent",
+                        color: isActive
+                          ? "#ffffff"
+                          : isDark
+                            ? "rgba(255, 255, 255, 0.65)"
+                            : "rgba(0, 0, 0, 0.6)",
+                      }}
+                    >
+                      {DATE_PRESET_LABELS[preset]}
+                    </button>
+                  </Fragment>
                 );
               })
             )}

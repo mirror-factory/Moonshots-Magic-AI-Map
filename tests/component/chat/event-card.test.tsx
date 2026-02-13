@@ -1,14 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { EventCard } from "@/components/chat/event-card";
 
-vi.mock("@/components/ui/badge", () => ({
-  Badge: ({ children, ...props }: any) => (
-    <span data-testid="badge" {...props}>
-      {children}
-    </span>
-  ),
-}));
-
 const baseEvent = {
   id: "evt-1",
   title: "Jazz Night",
@@ -31,36 +23,20 @@ describe("EventCard", () => {
     expect(screen.getByText("Lake Eola")).toBeInTheDocument();
   });
 
-  it("renders formatted date (short weekday, short month, day)", () => {
+  it("renders formatted date and time with separator", () => {
     render(<EventCard event={baseEvent} />);
     const date = new Date("2026-03-15T19:00:00Z");
-    const expected = date.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
-    // Date and time are rendered together in a single span
-    const timeStr = date.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-    });
-    expect(screen.getByText(`${expected} ${timeStr}`)).toBeInTheDocument();
-  });
-
-  it("renders formatted time", () => {
-    render(<EventCard event={baseEvent} />);
-    const date = new Date("2026-03-15T19:00:00Z");
-    const timeStr = date.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-    });
-    // Time appears combined with date string
     const dateStr = date.toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
       day: "numeric",
     });
-    expect(screen.getByText(`${dateStr} ${timeStr}`)).toBeInTheDocument();
+    const timeStr = date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+    // Date and time are rendered in a single span with · separator
+    expect(screen.getByText(`${dateStr} · ${timeStr}`)).toBeInTheDocument();
   });
 
   it('shows "Free" when price.isFree is true', () => {
@@ -90,21 +66,22 @@ describe("EventCard", () => {
     expect(screen.getByText("$15")).toBeInTheDocument();
   });
 
-  it('shows "TBD" when no price', () => {
-    render(<EventCard event={baseEvent} />);
-    expect(screen.getByText("TBD")).toBeInTheDocument();
+  it("hides price row when no price data", () => {
+    const { container } = render(<EventCard event={baseEvent} />);
+    // Tag icon (price row) should not be present when no price
+    const tagIcons = container.querySelectorAll(".lucide-tag");
+    expect(tagIcons.length).toBe(0);
   });
 
-  it("shows category badge with label from CATEGORY_LABELS", () => {
+  it("does NOT show category badge (compact card)", () => {
     render(<EventCard event={baseEvent} />);
-    // "music" maps to "Music" in CATEGORY_LABELS
-    expect(screen.getByText("Music")).toBeInTheDocument();
+    expect(screen.queryByText("Music")).not.toBeInTheDocument();
   });
 
-  it('shows "Featured" badge when featured is true', () => {
+  it('does NOT show "Featured" badge when featured is true (compact card)', () => {
     const event = { ...baseEvent, featured: true };
     render(<EventCard event={event} />);
-    expect(screen.getByText("Featured")).toBeInTheDocument();
+    expect(screen.queryByText("Featured")).not.toBeInTheDocument();
   });
 
   it('does NOT show "Featured" badge when featured is false', () => {
@@ -116,5 +93,18 @@ describe("EventCard", () => {
   it('does NOT show "Featured" badge when featured is undefined', () => {
     render(<EventCard event={baseEvent} />);
     expect(screen.queryByText("Featured")).not.toBeInTheDocument();
+  });
+
+  it("renders Learn More button when coordinates and onShowOnMap provided", () => {
+    const event = { ...baseEvent, coordinates: [-81.37, 28.54] as [number, number] };
+    const onShowOnMap = vi.fn();
+    render(<EventCard event={event} onShowOnMap={onShowOnMap} />);
+    expect(screen.getByText("Learn More")).toBeInTheDocument();
+  });
+
+  it("does NOT render Learn More button without coordinates", () => {
+    const onShowOnMap = vi.fn();
+    render(<EventCard event={baseEvent} onShowOnMap={onShowOnMap} />);
+    expect(screen.queryByText("Learn More")).not.toBeInTheDocument();
   });
 });
