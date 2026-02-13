@@ -16,6 +16,7 @@ import {
   Sparkles,
   Map,
   Share2,
+  Navigation,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,8 @@ export interface EventDetailPanelDropdownProps {
   onAskDitto: (eventTitle: string) => void;
   /** Optional callback to pan/zoom the map to the event location. */
   onShowMap?: (event: EventEntry) => void;
+  /** Optional callback to get directions to the event. */
+  onGetDirections?: (event: EventEntry) => void;
 }
 
 /**
@@ -113,6 +116,7 @@ export function EventDetailPanelDropdown({
   onClose,
   onAskDitto,
   onShowMap,
+  onGetDirections,
 }: EventDetailPanelDropdownProps) {
   const { toast } = useToast();
 
@@ -187,7 +191,7 @@ export function EventDetailPanelDropdown({
         {/* Event Header */}
         <div className="space-y-2 px-6">
           <h2
-            className="oswald-h2 text-[11px] text-balance leading-tight"
+            className="font-oswald font-bold uppercase tracking-wide text-[11px] text-balance leading-tight"
             style={{ color: "var(--text)" }}
           >
             {event.title}
@@ -335,6 +339,19 @@ export function EventDetailPanelDropdown({
         >
           <Share2 className="h-4 w-4" />
         </Button>
+
+        {/* Get Directions */}
+        {onGetDirections && event.coordinates && (
+          <Button
+            onClick={() => onGetDirections(event)}
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 bg-transparent"
+            title="Get Directions"
+          >
+            <Navigation className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   );
