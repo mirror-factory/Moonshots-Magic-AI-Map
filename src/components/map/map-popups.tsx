@@ -192,9 +192,9 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopu
       const positionDismiss = () => {
         if (!dismissElRef.current || !selectedCoordsRef.current) return;
         const pt = map.project(selectedCoordsRef.current);
-        // Place X at the top-right edge of the golden pulse orb (radius ~20px)
-        dismissElRef.current.style.left = `${pt.x + 5}px`;
-        dismissElRef.current.style.top = `${pt.y - 27}px`;
+        // Center the X on the golden orb (button is 22×22px)
+        dismissElRef.current.style.left = `${pt.x - 11}px`;
+        dismissElRef.current.style.top = `${pt.y - 11}px`;
       };
 
       renderHandlerRef.current = positionDismiss;
