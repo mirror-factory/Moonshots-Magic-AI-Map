@@ -1,14 +1,13 @@
 /**
  * @module components/map/events-dropdown
- * Popover-based events dropdown triggered by the brand logo. Provides search,
- * category filtering, a scrollable event list with staggered fade-in animation,
- * and an inline event detail panel. Adapted from the v0 prototype for the
- * project's {@link EventEntry} data model.
+ * Popover-based events dropdown triggered by the brand logo. Shows AI-highlighted
+ * events when available, with search within results. Falls back to all events
+ * when nothing is highlighted.
  */
 
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import Image from "next/image";
 import {
   Search,
@@ -16,9 +15,8 @@ import {
   MapPin,
   X,
   ChevronDown,
-  Filter,
-  Check,
   Sparkles,
+  Filter,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,21 +24,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  EVENT_CATEGORIES,
-  type EventCategory,
-  type EventEntry,
-} from "@/lib/registries/types";
+import type { EventEntry, EventCategory } from "@/lib/registries/types";
 import { CATEGORY_LABELS } from "@/lib/map/config";
 import { EventDetailPanelDropdown } from "./event-detail-panel-dropdown";
+import { type DatePreset, DATE_PRESET_LABELS } from "@/lib/map/event-filters";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -50,8 +39,18 @@ import { EventDetailPanelDropdown } from "./event-detail-panel-dropdown";
  * Props for {@link EventsDropdown}.
  */
 export interface EventsDropdownProps {
-  /** Array of events to display in the dropdown. */
+  /** Array of all events. */
   events: EventEntry[];
+  /** Event IDs currently highlighted by the AI chat. */
+  highlightedEventIds?: string[];
+  /** Effective event IDs currently shown on the map (AI or date filter). */
+  effectiveEventIds?: string[];
+  /** Whether AI results are overriding the date filter. */
+  aiResultsActive?: boolean;
+  /** Active date preset when not overridden by AI. */
+  activePreset?: DatePreset;
+  /** Callback when user changes the date filter preset. */
+  onPresetChange?: (preset: DatePreset) => void;
   /** Callback fired when the user asks the AI about a specific event. */
   onAskAbout?: (eventTitle: string) => void;
   /** Callback fired when the user requests to show an event on the map. */
@@ -93,68 +92,221 @@ function formatEventTime(startDate: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Virtualized list
+// ---------------------------------------------------------------------------
+
+/** Height of each event row in pixels. */
+const ROW_HEIGHT = 76;
+/** Extra rows to render above/below the visible area. */
+const OVERSCAN = 5;
+/** Max visible height of the scrollable list. */
+const LIST_HEIGHT = 480;
+
+/** Props for {@link VirtualEventList}. */
+interface VirtualEventListProps {
+  events: EventEntry[];
+  searchQuery: string;
+  onEventClick: (event: EventEntry) => void;
+  onShowOnMap?: (event: EventEntry) => void;
+}
+
+/**
+ * Renders a virtualized list of event rows. Only mounts DOM nodes
+ * for items in or near the visible scroll window.
+ *
+ * @param props - Component props.
+ * @returns The rendered virtualized event list.
+ */
+function VirtualEventList({ events, searchQuery, onEventClick, onShowOnMap }: VirtualEventListProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+
+  // Key for remounting the scroll container when the list changes (resets scroll)
+  const listKey = useMemo(
+    () => `${events.length}-${events[0]?.id ?? "empty"}`,
+    [events],
+  );
+
+  if (events.length === 0) {
+    return (
+      <div className="max-h-[480px] overflow-y-auto px-6 py-16 text-center">
+        {searchQuery ? (
+          <>
+            <Search className="mx-auto mb-3 h-8 w-8 text-muted-foreground/20" />
+            <p className="mb-1 text-sm font-medium text-muted-foreground">No matching events</p>
+            <p className="text-xs text-muted-foreground">Try adjusting your search</p>
+          </>
+        ) : (
+          <>
+            <Sparkles className="mx-auto mb-3 h-8 w-8 text-muted-foreground/20" />
+            <p className="mb-1 text-sm font-medium text-muted-foreground">No events for this period</p>
+            <p className="text-xs text-muted-foreground">Try a different filter or ask the AI</p>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  const totalHeight = events.length * ROW_HEIGHT;
+  const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
+  const visibleCount = Math.ceil(LIST_HEIGHT / ROW_HEIGHT) + OVERSCAN * 2;
+  const endIndex = Math.min(events.length, startIndex + visibleCount);
+
+  return (
+    <div
+      key={listKey}
+      ref={scrollRef}
+      className="overflow-y-auto"
+      style={{ maxHeight: LIST_HEIGHT }}
+      onScroll={(e) => setScrollTop((e.target as HTMLDivElement).scrollTop)}
+    >
+      <div className="relative px-3 py-2" style={{ height: totalHeight }}>
+        {events.slice(startIndex, endIndex).map((event, i) => {
+          const index = startIndex + i;
+          return (
+            <button
+              type="button"
+              key={event.id}
+              onClick={() => onEventClick(event)}
+              className="group absolute left-3 right-3 overflow-hidden rounded-lg px-4 py-3 text-left transition-colors duration-150 hover:bg-accent/50"
+              style={{ top: index * ROW_HEIGHT, height: ROW_HEIGHT }}
+            >
+              <div className="absolute bottom-0 left-0 top-0 w-0 bg-primary/20 transition-all duration-200 group-hover:w-1" />
+              <div className="flex items-start justify-between gap-3 pl-2">
+                <div className="min-w-0 flex-1">
+                  <h3 className="mb-1.5 line-clamp-1 text-sm font-medium text-foreground transition-colors group-hover:text-primary">
+                    {event.title}
+                  </h3>
+                  <div className="mb-1 flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="h-3 w-3 shrink-0" />
+                      <span>
+                        {formatEventDate(event.startDate)} &middot;{" "}
+                        {event.allDay ? "All Day" : formatEventTime(event.startDate)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{event.venue}</span>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Badge
+                    variant="outline"
+                    className="shrink-0 border-primary/20 bg-primary/10 text-xs text-primary"
+                  >
+                    {CATEGORY_LABELS[event.category]}
+                  </Badge>
+                  {onShowOnMap && event.coordinates && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => { e.stopPropagation(); onShowOnMap(event); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onShowOnMap(event); } }}
+                      className="flex h-7 w-7 items-center justify-center rounded-md opacity-0 transition-all hover:bg-primary/10 group-hover:opacity-100"
+                      title="Show on map"
+                    >
+                      <MapPin className="h-3.5 w-3.5 text-primary" />
+                    </span>
+                  )}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 /**
  * Events dropdown popover anchored to the brand logo.
  *
- * Features:
- * - Search by event title or venue name
- * - Multi-select category filter via nested dropdown
- * - Scrollable event list with staggered fade-in animation
- * - Inline {@link EventDetailPanelDropdown} when an event is selected
- * - Dark/light mode brand logos
- * - Grain texture background overlay
+ * Shows AI-highlighted events when available (query-driven), with search
+ * within results. Falls back to all events when nothing is highlighted.
  *
  * @param props - Component props.
  * @returns The rendered popover dropdown.
- *
- * @example
- * ```tsx
- * <EventsDropdown
- *   events={allEvents}
- *   onAskAbout={(title) => openChat(title)}
- *   onShowOnMap={(evt) => flyTo(evt.coordinates)}
- * />
- * ```
  */
 export function EventsDropdown({
   events,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  highlightedEventIds,
+  effectiveEventIds,
+  aiResultsActive,
+  activePreset,
+  onPresetChange,
   onAskAbout,
   onShowOnMap,
 }: EventsDropdownProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategories, setSelectedCategories] = useState<
-    EventCategory[]
-  >([]);
   const [selectedEvent, setSelectedEvent] = useState<EventEntry | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<EventCategory | null>(null);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
 
-  // ---- Category toggle ----
+  const hasEffective = (effectiveEventIds?.length ?? 0) > 0;
 
-  const toggleCategory = useCallback((category: EventCategory) => {
-    setSelectedCategories((prev) =>
-      prev.includes(category)
-        ? prev.filter((c) => c !== category)
-        : [...prev, category],
-    );
-  }, []);
+  // Base event list: effective (AI or date-filtered) events, otherwise all
+  const baseEvents = useMemo(() => {
+    if (!hasEffective) return events;
+    const idSet = new Set(effectiveEventIds);
+    return events.filter((e) => idSet.has(e.id));
+  }, [events, effectiveEventIds, hasEffective]);
 
-  // ---- Filtered events ----
-
+  // Apply search + category + date range filters on top of base events
   const filteredEvents = useMemo(() => {
+    let filtered = baseEvents;
+
+    // Category filter
+    if (selectedCategory) {
+      filtered = filtered.filter((e) => e.category === selectedCategory);
+    }
+
+    // Custom date range filter
+    if (dateFrom) {
+      const from = new Date(dateFrom);
+      filtered = filtered.filter((e) => new Date(e.startDate) >= from);
+    }
+    if (dateTo) {
+      const to = new Date(dateTo);
+      to.setHours(23, 59, 59, 999);
+      filtered = filtered.filter((e) => new Date(e.startDate) <= to);
+    }
+
+    // Text search filter
     const lowerQuery = searchQuery.toLowerCase();
-    return events.filter((event) => {
-      const matchesSearch =
-        event.title.toLowerCase().includes(lowerQuery) ||
-        event.venue.toLowerCase().includes(lowerQuery);
-      const matchesCategory =
-        selectedCategories.length === 0 ||
-        selectedCategories.includes(event.category);
-      return matchesSearch && matchesCategory;
-    });
-  }, [events, searchQuery, selectedCategories]);
+    if (lowerQuery) {
+      filtered = filtered.filter(
+        (event) =>
+          event.title.toLowerCase().includes(lowerQuery) ||
+          event.venue.toLowerCase().includes(lowerQuery),
+      );
+    }
+
+    return filtered;
+  }, [baseEvents, searchQuery, selectedCategory, dateFrom, dateTo]);
+
+  const activeFilterCount =
+    (selectedCategory ? 1 : 0) + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0);
+
+  /** Available categories derived from the base events. */
+  const availableCategories = useMemo(() => {
+    const counts = new Map<EventCategory, number>();
+    for (const e of baseEvents) {
+      counts.set(e.category, (counts.get(e.category) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, count]) => ({ category: cat, count }));
+  }, [baseEvents]);
 
   // ---- Handlers ----
 
@@ -170,7 +322,16 @@ export function EventsDropdown({
     setOpen(false);
     setSelectedEvent(null);
     setSearchQuery("");
-    setSelectedCategories([]);
+    setSelectedCategory(null);
+    setDateFrom("");
+    setDateTo("");
+    setShowFilters(false);
+  }, []);
+
+  const clearAllFilters = useCallback(() => {
+    setSelectedCategory(null);
+    setDateFrom("");
+    setDateTo("");
   }, []);
 
   const clearSearch = useCallback(() => {
@@ -228,7 +389,11 @@ export function EventsDropdown({
                 variant="secondary"
                 className="border border-blue-500/30 bg-blue-600/80 px-2 py-0.5 text-xs font-medium text-white transition-colors hover:bg-blue-600/90 dark:bg-blue-500/70 dark:hover:bg-blue-500/80"
               >
-                tap to view events
+                {aiResultsActive
+                  ? `${effectiveEventIds?.length ?? 0} results`
+                  : hasEffective
+                    ? `${effectiveEventIds?.length ?? 0} events`
+                    : "tap to view events"}
               </Badge>
               <ChevronDown
                 className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`}
@@ -260,10 +425,24 @@ export function EventsDropdown({
                 <div className="flex items-start justify-between">
                   <div>
                     <h2 className="mb-1 text-lg font-semibold text-foreground">
-                      Orlando Events
+                      {aiResultsActive
+                        ? "Search Results"
+                        : activePreset === "today"
+                          ? "Today's Events"
+                          : activePreset === "weekend"
+                            ? "Weekend Events"
+                            : activePreset === "week"
+                              ? "This Week's Events"
+                              : activePreset === "month"
+                                ? "This Month's Events"
+                                : "All Events"}
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      Discover what&apos;s happening
+                      {aiResultsActive
+                        ? `${effectiveEventIds?.length ?? 0} events found`
+                        : hasEffective
+                          ? `${effectiveEventIds?.length ?? 0} events`
+                          : "No events for this filter"}
                     </p>
                   </div>
                   <Button
@@ -277,171 +456,159 @@ export function EventsDropdown({
                 </div>
               </div>
 
-              {/* Search */}
-              <div className="border-b border-border/40 px-6 py-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search events..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="border-border/50 bg-background/50 pl-9 pr-9 transition-all focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
-                  />
-                  {searchQuery && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={clearSearch}
-                      className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+              {/* Date filter chips */}
+              {onPresetChange && !aiResultsActive && (
+                <div className="flex items-center gap-1.5 border-b border-border/40 px-6 py-3">
+                  {(["all", "today", "weekend", "week", "month"] as DatePreset[]).map((preset) => (
+                    <button
+                      key={preset}
+                      onClick={() => onPresetChange(preset)}
+                      className="rounded-full px-3 py-1 text-xs font-medium transition-all hover:opacity-80"
+                      style={{
+                        background: activePreset === preset ? "hsl(var(--primary))" : "transparent",
+                        color: activePreset === preset ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))",
+                        border: activePreset === preset ? "1px solid transparent" : "1px solid hsl(var(--border) / 0.5)",
+                      }}
                     >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
+                      {DATE_PRESET_LABELS[preset]}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Search + filter toggle */}
+              <div className="border-b border-border/40 px-6 py-3">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder={aiResultsActive ? "Filter results..." : "Search events..."}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="h-9 border-border/50 bg-background/50 pl-9 pr-9 text-sm transition-all focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
+                    />
+                    {searchQuery && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={clearSearch}
+                        className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                  <Button
+                    variant={showFilters ? "secondary" : "ghost"}
+                    size="icon"
+                    className="relative h-9 w-9 shrink-0"
+                    onClick={() => setShowFilters((v) => !v)}
+                    aria-label="Toggle filters"
+                  >
+                    <Filter className="h-4 w-4" />
+                    {activeFilterCount > 0 && (
+                      <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </Button>
                 </div>
               </div>
 
-              {/* Category Filters */}
-              <div className="border-b border-border/40 px-6 py-3">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="h-9 w-full justify-between border-border/50 bg-background/50 hover:bg-accent"
-                    >
-                      <span className="flex items-center gap-2 text-sm">
-                        <Filter className="h-3.5 w-3.5" />
-                        {selectedCategories.length === 0
-                          ? "All Categories"
-                          : `${selectedCategories.length} selected`}
-                      </span>
-                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    className="w-[380px] border-border/40 bg-card/95 backdrop-blur-xl"
-                    align="start"
-                  >
-                    <div className="p-2">
-                      <div className="mb-2 flex items-center justify-between px-2">
-                        <span className="text-xs font-medium text-muted-foreground">
-                          Filter by category
-                        </span>
-                        {selectedCategories.length > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedCategories([])}
-                            className="h-6 px-2 text-xs text-primary hover:text-primary"
-                          >
-                            Clear all
-                          </Button>
-                        )}
-                      </div>
-                      {EVENT_CATEGORIES.map((category) => (
-                        <DropdownMenuItem
-                          key={category}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            toggleCategory(category);
-                          }}
-                          className={`cursor-pointer ${
-                            selectedCategories.includes(category)
-                              ? "bg-primary text-primary-foreground"
-                              : ""
-                          }`}
+              {/* Expandable filter panel */}
+              {showFilters && (
+                <div className="space-y-3 border-b border-border/40 px-6 py-3">
+                  {/* Category chips */}
+                  <div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">Category</span>
+                      {activeFilterCount > 0 && (
+                        <button
+                          onClick={clearAllFilters}
+                          className="text-xs text-primary hover:underline"
                         >
-                          <div className="flex w-full items-center gap-2">
-                            <div
-                              className={`flex h-4 w-4 items-center justify-center rounded border-2 ${
-                                selectedCategories.includes(category)
-                                  ? "border-primary-foreground bg-primary-foreground"
-                                  : "border-border"
-                              }`}
-                            >
-                              {selectedCategories.includes(category) && (
-                                <Check className="h-3 w-3 text-primary" />
-                              )}
-                            </div>
-                            <span className="flex-1">
-                              {CATEGORY_LABELS[category]}
-                            </span>
-                          </div>
-                        </DropdownMenuItem>
+                          Clear all
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {availableCategories.map(({ category, count }) => (
+                        <button
+                          key={category}
+                          onClick={() =>
+                            setSelectedCategory((prev) =>
+                              prev === category ? null : category,
+                            )
+                          }
+                          className="rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-all hover:opacity-80"
+                          style={{
+                            background:
+                              selectedCategory === category
+                                ? "hsl(var(--primary))"
+                                : "transparent",
+                            color:
+                              selectedCategory === category
+                                ? "hsl(var(--primary-foreground))"
+                                : "hsl(var(--muted-foreground))",
+                            border:
+                              selectedCategory === category
+                                ? "1px solid transparent"
+                                : "1px solid hsl(var(--border) / 0.5)",
+                          }}
+                        >
+                          {CATEGORY_LABELS[category]} ({count})
+                        </button>
                       ))}
                     </div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              {/* Events List */}
-              <div className="max-h-[480px] overflow-y-auto">
-                {filteredEvents.length === 0 ? (
-                  <div className="px-6 py-16 text-center">
-                    <Search className="mx-auto mb-3 h-8 w-8 text-muted-foreground/20" />
-                    <p className="mb-1 text-sm font-medium text-muted-foreground">
-                      No events found
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Try adjusting your filters or search
-                    </p>
                   </div>
-                ) : (
-                  <div className="px-3 py-2">
-                    {filteredEvents.map((event, index) => (
-                      <button
-                        type="button"
-                        key={event.id}
-                        onClick={() => handleEventClick(event)}
-                        className="group relative w-full overflow-hidden rounded-lg px-4 py-3 text-left transition-all duration-200 hover:bg-accent/50"
-                        style={{
-                          animation: `eventsDropdownFadeIn 0.3s ease-out ${index * 0.03}s both`,
-                        }}
-                      >
-                        {/* Left accent bar on hover */}
-                        <div className="absolute bottom-0 left-0 top-0 w-0 bg-primary/20 transition-all duration-200 group-hover:w-1" />
 
-                        <div className="flex items-start justify-between gap-3 pl-2">
-                          <div className="min-w-0 flex-1">
-                            <h3 className="mb-1.5 line-clamp-2 text-sm font-medium text-foreground transition-colors group-hover:text-primary">
-                              {event.title}
-                            </h3>
-                            <div className="mb-1 flex items-center gap-3 text-xs text-muted-foreground">
-                              <div className="flex items-center gap-1.5">
-                                <Calendar className="h-3 w-3 shrink-0" />
-                                <span>
-                                  {formatEventDate(event.startDate)} &middot;{" "}
-                                  {event.allDay
-                                    ? "All Day"
-                                    : formatEventTime(event.startDate)}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <MapPin className="h-3 w-3 shrink-0" />
-                              <span className="truncate">{event.venue}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant="outline"
-                              className="shrink-0 border-primary/20 bg-primary/10 text-xs text-primary"
-                            >
-                              {CATEGORY_LABELS[event.category]}
-                            </Badge>
-                            <Sparkles className="h-4 w-4 text-primary opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
-                          </div>
-                        </div>
-                      </button>
-                    ))}
+                  {/* Custom date range */}
+                  <div>
+                    <span className="mb-2 block text-xs font-medium text-muted-foreground">
+                      Custom Date Range
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={dateFrom}
+                        onChange={(e) => setDateFrom(e.target.value)}
+                        className="h-8 flex-1 rounded-md border border-border/50 bg-background/50 px-2 text-xs text-foreground"
+                      />
+                      <span className="text-xs text-muted-foreground">to</span>
+                      <input
+                        type="date"
+                        value={dateTo}
+                        onChange={(e) => setDateTo(e.target.value)}
+                        className="h-8 flex-1 rounded-md border border-border/50 bg-background/50 px-2 text-xs text-foreground"
+                      />
+                      {(dateFrom || dateTo) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={() => { setDateFrom(""); setDateTo(""); }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* Events List (virtualized) */}
+              <VirtualEventList
+                events={filteredEvents}
+                searchQuery={searchQuery}
+                onEventClick={handleEventClick}
+                onShowOnMap={onShowOnMap ? handleShowOnMap : undefined}
+              />
 
               {/* Footer */}
               {filteredEvents.length > 0 && (
                 <div className="border-t border-border/40 bg-secondary/30 px-6 py-3 text-center">
                   <p className="text-xs text-muted-foreground">
-                    {filteredEvents.length} of {events.length} events
+                    {filteredEvents.length} of {baseEvents.length} events
                   </p>
                 </div>
               )}
@@ -450,18 +617,6 @@ export function EventsDropdown({
         </PopoverContent>
       </Popover>
 
-      <style jsx global>{`
-        @keyframes eventsDropdownFadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </>
   );
 }

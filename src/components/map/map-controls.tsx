@@ -1,25 +1,19 @@
 /**
  * @module components/map/map-controls
- * Top-left map overlay with brand logo events dropdown, filter toggle,
- * and a slide-out sidebar for category filtering, event list, and navigation.
+ * Top-left map overlay with brand logo events dropdown and a slide-out sidebar
+ * showing AI-highlighted events. Category filtering removed in favor of
+ * query-driven markers.
  */
 
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Filter, MapPin, ChevronDown } from "lucide-react";
-import { EVENT_CATEGORIES, type EventCategory, type EventEntry } from "@/lib/registries/types";
-import { CATEGORY_LABELS, PRESET_LOCATIONS } from "@/lib/map/config";
+import { MapPin } from "lucide-react";
+import type { EventEntry } from "@/lib/registries/types";
+import { PRESET_LOCATIONS } from "@/lib/map/config";
 import { useMap } from "./use-map";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectTrigger,
@@ -30,23 +24,35 @@ import {
 import { EventSidebar } from "./event-sidebar";
 import { EventDetail } from "./event-detail";
 import { EventsDropdown } from "./events-dropdown";
+import type { DatePreset } from "@/lib/map/event-filters";
 
 interface MapControlsProps {
   open: boolean;
-  visibleCategories: Set<EventCategory>;
-  onToggleCategory: (category: EventCategory) => void;
   events: EventEntry[];
   eventCount: number;
+  /** Event IDs currently highlighted by the AI chat. */
+  highlightedEventIds?: string[];
+  /** Effective event IDs currently shown on the map (AI or date filter). */
+  effectiveEventIds?: string[];
+  /** Whether AI results are overriding the date filter. */
+  aiResultsActive?: boolean;
+  /** Active date preset when not overridden by AI. */
+  activePreset?: DatePreset;
+  /** Callback when user changes the date filter preset. */
+  onPresetChange?: (preset: DatePreset) => void;
   onAskAbout?: (eventTitle: string) => void;
 }
 
-/** Slide-out panel with category filters, event list, and navigation. */
+/** Slide-out panel with AI-highlighted event list and navigation. */
 export function MapControls({
   open,
-  visibleCategories,
-  onToggleCategory,
   events,
   eventCount,
+  highlightedEventIds,
+  effectiveEventIds,
+  aiResultsActive,
+  activePreset,
+  onPresetChange,
   onAskAbout,
 }: MapControlsProps) {
   const map = useMap();
@@ -67,8 +73,9 @@ export function MapControls({
     if (map) {
       map.flyTo({
         center: event.coordinates,
-        zoom: 15,
-        duration: 1500,
+        zoom: 17,
+        pitch: 60,
+        duration: 2000,
       });
     }
   }, [map]);
@@ -77,16 +84,24 @@ export function MapControls({
     setSelectedEvent(null);
   }, []);
 
-  // Filter events by visible categories
-  const filteredEvents = events.filter((e) => visibleCategories.has(e.category));
+  // Show only AI-highlighted events
+  const highlightedEvents = useMemo(() => {
+    if (!highlightedEventIds?.length) return [];
+    const idSet = new Set(highlightedEventIds);
+    return events.filter((e) => idSet.has(e.id));
+  }, [events, highlightedEventIds]);
 
   return (
     <>
-      {/* Top-left header: Logo dropdown + filter toggle */}
+      {/* Top-left header: Logo dropdown */}
       <div className="absolute left-4 top-6 z-20 flex items-center gap-2">
-        {/* Brand logo events dropdown */}
         <EventsDropdown
           events={events}
+          highlightedEventIds={highlightedEventIds}
+          effectiveEventIds={effectiveEventIds}
+          aiResultsActive={aiResultsActive}
+          activePreset={activePreset}
+          onPresetChange={onPresetChange}
           onAskAbout={onAskAbout}
           onShowOnMap={handleShowOnMap}
         />
@@ -138,61 +153,11 @@ export function MapControls({
                   className="text-xs font-medium uppercase tracking-wider"
                   style={{ color: "var(--text-muted)" }}
                 >
-                  Map Filters
+                  Quick Navigate
                 </h3>
               </div>
 
-              {/* Category Dropdown */}
               <div className="space-y-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors"
-                    style={{
-                      background: "var(--surface-2)",
-                      border: "1px solid var(--border-color)",
-                      color: "var(--text)",
-                    }}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Filter className="h-4 w-4" style={{ color: "var(--text-dim)" }} />
-                      Categories
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <Badge
-                        variant="secondary"
-                        className="text-xs"
-                        style={{
-                          background: "var(--surface-3)",
-                          color: "var(--text-dim)",
-                        }}
-                      >
-                        {visibleCategories.size}/{EVENT_CATEGORIES.length}
-                      </Badge>
-                      <ChevronDown className="h-4 w-4" style={{ color: "var(--text-dim)" }} />
-                    </span>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="start"
-                    className="w-56"
-                    style={{
-                      background: "var(--glass-bg)",
-                      borderColor: "var(--border-color)",
-                    }}
-                  >
-                    {EVENT_CATEGORIES.map((cat) => (
-                      <DropdownMenuCheckboxItem
-                        key={cat}
-                        checked={visibleCategories.has(cat)}
-                        onCheckedChange={() => onToggleCategory(cat)}
-                        className="cursor-pointer"
-                      >
-                        {CATEGORY_LABELS[cat]}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                {/* Quick Navigate Dropdown */}
                 <Select
                   value=""
                   onValueChange={(value) => {
@@ -209,7 +174,7 @@ export function MapControls({
                   >
                     <span className="flex items-center gap-2">
                       <MapPin className="h-4 w-4" style={{ color: "var(--text-dim)" }} />
-                      <SelectValue placeholder="Quick Navigate" />
+                      <SelectValue placeholder="Jump to location" />
                     </span>
                   </SelectTrigger>
                   <SelectContent
@@ -230,12 +195,19 @@ export function MapControls({
 
             <Separator />
 
-            {/* Event List */}
-            <EventSidebar
-              events={filteredEvents}
-              onEventClick={handleEventClick}
-              visibleCategories={visibleCategories}
-            />
+            {/* Event List — shows only highlighted events */}
+            {highlightedEvents.length > 0 ? (
+              <EventSidebar
+                events={highlightedEvents}
+                onEventClick={handleEventClick}
+              />
+            ) : (
+              <div className="px-4 py-8 text-center">
+                <p className="text-sm" style={{ color: "var(--text-dim)" }}>
+                  Ask the AI to find events
+                </p>
+              </div>
+            )}
 
             <Separator />
 
@@ -245,7 +217,9 @@ export function MapControls({
               style={{ borderColor: "var(--border-color)" }}
             >
               <p className="text-xs" style={{ color: "var(--text-dim)" }}>
-                {filteredEvents.length} of {eventCount} events visible
+                {highlightedEvents.length > 0
+                  ? `${highlightedEvents.length} events highlighted`
+                  : `${eventCount} events available`}
               </p>
             </div>
           </motion.div>

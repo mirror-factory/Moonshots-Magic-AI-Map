@@ -2,11 +2,12 @@
  * @module components/map/map-directions
  * Renders a route line and origin/destination markers on the map
  * using GeoJSON source and layers. Manages layer lifecycle with cleanup.
+ * The glow layers pulse with a smooth sine-wave animation.
  */
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type maplibregl from "maplibre-gl";
 import { useMap } from "./use-map";
 import type { DirectionsResult } from "@/lib/map/routing";
@@ -14,6 +15,7 @@ import type { DirectionsResult } from "@/lib/map/routing";
 /** Source and layer IDs for the route overlay. */
 const ROUTE_SOURCE = "directions-route";
 const ROUTE_LINE = "directions-route-line";
+const ROUTE_LINE_GLOW = "directions-route-glow";
 const ROUTE_LINE_CASING = "directions-route-casing";
 const ROUTE_ORIGIN = "directions-origin";
 const ROUTE_DEST = "directions-destination";
@@ -31,12 +33,46 @@ interface MapDirectionsProps {
 /** Renders a route line with origin/destination markers on the map. */
 export function MapDirections({ route, origin, destination }: MapDirectionsProps) {
   const map = useMap();
+  const animFrameRef = useRef<number>(0);
+
+  // Pulsating glow animation
+  useEffect(() => {
+    if (!map || !route) return;
+
+    const animate = () => {
+      const t = Date.now() / 1000;
+      // Sine wave oscillating between 0 and 1, period ~2s
+      const pulse = (Math.sin(t * Math.PI) + 1) / 2;
+
+      // Outer casing: opacity pulses 0.08 → 0.25
+      if (map.getLayer(ROUTE_LINE_CASING)) {
+        map.setPaintProperty(ROUTE_LINE_CASING, "line-opacity", 0.08 + pulse * 0.17);
+      }
+      // Middle glow: opacity pulses 0.2 → 0.5
+      if (map.getLayer(ROUTE_LINE_GLOW)) {
+        map.setPaintProperty(ROUTE_LINE_GLOW, "line-opacity", 0.2 + pulse * 0.3);
+      }
+      // Core line: opacity pulses 0.7 → 1.0
+      if (map.getLayer(ROUTE_LINE)) {
+        map.setPaintProperty(ROUTE_LINE, "line-opacity", 0.7 + pulse * 0.3);
+      }
+
+      animFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(animFrameRef.current);
+    };
+  }, [map, route]);
 
   useEffect(() => {
     if (!map) return;
 
     const cleanup = () => {
-      for (const id of [ROUTE_LINE, ROUTE_LINE_CASING, ROUTE_ORIGIN, ROUTE_DEST]) {
+      cancelAnimationFrame(animFrameRef.current);
+      for (const id of [ROUTE_LINE, ROUTE_LINE_GLOW, ROUTE_LINE_CASING, ROUTE_ORIGIN, ROUTE_DEST]) {
         if (map.getLayer(id)) map.removeLayer(id);
       }
       if (map.getSource(ROUTE_SOURCE)) map.removeSource(ROUTE_SOURCE);
@@ -62,7 +98,7 @@ export function MapDirections({ route, origin, destination }: MapDirectionsProps
       });
     }
 
-    // Route casing (dark outline)
+    // Route casing — outer ambient glow (soft white)
     if (!map.getLayer(ROUTE_LINE_CASING)) {
       map.addLayer({
         id: ROUTE_LINE_CASING,
@@ -70,14 +106,31 @@ export function MapDirections({ route, origin, destination }: MapDirectionsProps
         source: ROUTE_SOURCE,
         layout: { "line-join": "round", "line-cap": "round" },
         paint: {
-          "line-color": "#1a1a3e",
-          "line-width": 8,
-          "line-opacity": 0.5,
+          "line-color": "#ffffff",
+          "line-width": 18,
+          "line-opacity": 0.12,
+          "line-blur": 8,
         },
       });
     }
 
-    // Route line (brand-colored)
+    // Route middle glow (warm white)
+    if (!map.getLayer(ROUTE_LINE_GLOW)) {
+      map.addLayer({
+        id: ROUTE_LINE_GLOW,
+        type: "line",
+        source: ROUTE_SOURCE,
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: {
+          "line-color": "#e8f0ff",
+          "line-width": 10,
+          "line-opacity": 0.3,
+          "line-blur": 3,
+        },
+      });
+    }
+
+    // Route core — solid bright white
     if (!map.getLayer(ROUTE_LINE)) {
       map.addLayer({
         id: ROUTE_LINE,
@@ -85,10 +138,9 @@ export function MapDirections({ route, origin, destination }: MapDirectionsProps
         source: ROUTE_SOURCE,
         layout: { "line-join": "round", "line-cap": "round" },
         paint: {
-          "line-color": "#3b82f6",
-          "line-width": 5,
+          "line-color": "#ffffff",
+          "line-width": 4,
           "line-opacity": 0.9,
-          "line-dasharray": [0, 2, 1],
         },
       });
     }
@@ -147,7 +199,7 @@ export function MapDirections({ route, origin, destination }: MapDirectionsProps
           [route.bbox[0], route.bbox[1]],
           [route.bbox[2], route.bbox[3]],
         ],
-        { padding: 80, duration: 1000 },
+        { padding: { top: 140, bottom: 160, left: 140, right: 500 }, maxZoom: 13, duration: 1200 },
       );
     }
 

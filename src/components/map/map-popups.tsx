@@ -69,6 +69,7 @@ export function MapPopups({ onAskAbout, onGetDirections }: MapPopupsProps) {
           <div style="display: flex; gap: 6px;">
             <button
               class="popup-ask-btn"
+              data-id="${props.id}"
               data-title="${props.title.replace(/"/g, "&quot;")}"
               style="
                 background: var(--brand-primary);
@@ -114,8 +115,9 @@ export function MapPopups({ onAskAbout, onGetDirections }: MapPopupsProps) {
         const askBtn = document.querySelector(".popup-ask-btn");
         if (askBtn && onAskAbout) {
           askBtn.addEventListener("click", () => {
+            const id = askBtn.getAttribute("data-id") ?? "";
             const title = askBtn.getAttribute("data-title") ?? "";
-            onAskAbout(title);
+            onAskAbout(id ? `__EVENT__:${id}:${title}` : title);
             popupRef.current?.remove();
           });
         }

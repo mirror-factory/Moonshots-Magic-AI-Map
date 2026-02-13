@@ -7,7 +7,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, ExternalLink, Check, AlertCircle, Sparkles } from "lucide-react";
+import { X, ExternalLink, Check, AlertCircle, Sparkles, Database } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { ModelSelector } from "./model-selector";
@@ -21,6 +21,7 @@ import {
   getModelById,
   type ModelId,
 } from "@/lib/settings";
+import { getEventSourceStats } from "@/lib/registries/events";
 
 interface SettingsModalProps {
   open: boolean;
@@ -285,6 +286,9 @@ function SettingsModalContent({ onClose, onStartPersonalization }: SettingsModal
             </div>
           </section>
 
+          {/* Event Sources */}
+          <EventSourcesSection />
+
           {/* Documentation Links */}
           <section>
             <h3
@@ -367,5 +371,99 @@ function SettingsModalContent({ onClose, onStartPersonalization }: SettingsModal
         </div>
       </motion.div>
     </>
+  );
+}
+
+/** Source type to icon color mapping for visual distinction. */
+const SOURCE_COLORS: Record<string, string> = {
+  ticketmaster: "#009CDE",
+  eventbrite: "#F05537",
+  serpapi: "#34A853",
+  scraper: "#8B5CF6",
+  manual: "#6B7280",
+  overpass: "#F59E0B",
+  predicthq: "#EC4899",
+};
+
+/** Displays event source breakdown and sync metadata. */
+function EventSourcesSection() {
+  const stats = getEventSourceStats();
+  const syncDate = new Date(stats.lastSynced);
+  const syncStr = syncDate.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  return (
+    <section>
+      <h3
+        className="mb-3 text-sm font-medium flex items-center gap-2"
+        style={{ color: "var(--text)" }}
+      >
+        <Database className="h-4 w-4" style={{ color: "var(--brand-primary)" }} />
+        Event Sources
+      </h3>
+      <div
+        className="rounded-lg p-4 space-y-3"
+        style={{
+          background: "var(--surface-2)",
+          border: "1px solid var(--border-color)",
+        }}
+      >
+        {/* Summary row */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium" style={{ color: "var(--text)" }}>
+            {stats.total.toLocaleString()} total events
+          </span>
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+            Synced {syncStr}
+          </span>
+        </div>
+
+        {/* Source breakdown */}
+        <div className="space-y-2">
+          {stats.sources.map((src) => {
+            const pct = Math.round((src.count / stats.total) * 100);
+            const color = SOURCE_COLORS[src.type] ?? "var(--text-dim)";
+            return (
+              <div key={src.type}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium" style={{ color: "var(--text)" }}>
+                    {src.label}
+                  </span>
+                  <span className="text-xs tabular-nums" style={{ color: "var(--text-dim)" }}>
+                    {src.count.toLocaleString()} ({pct}%)
+                  </span>
+                </div>
+                <div
+                  className="h-1.5 w-full rounded-full overflow-hidden"
+                  style={{ background: "var(--surface-3)" }}
+                >
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${pct}%`,
+                      background: color,
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Sync info */}
+        <p className="text-xs pt-1" style={{ color: "var(--text-muted)" }}>
+          Events are synced from Ticketmaster, Eventbrite, SerpApi, and Orlando-area
+          web sources. Run <code
+            className="rounded px-1 py-0.5 text-[10px] font-mono"
+            style={{ background: "var(--surface-3)" }}
+          >pnpm sync-events</code> to refresh.
+        </p>
+      </div>
+    </section>
   );
 }

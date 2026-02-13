@@ -11,7 +11,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useChat } from "@ai-sdk/react";
 import { lastAssistantMessageIsCompleteWithToolCalls } from "ai";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Pin, PinOff } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -49,11 +49,15 @@ import { MapAction } from "./map-action";
 import { Sparkle } from "@/components/effects/sparkle";
 import { VoiceInputButton } from "./voice-input-button";
 import { speak, stopSpeaking, isSpeaking } from "@/lib/voice/cartesia-tts";
+import { getChatPinned, setChatPinned } from "@/lib/settings";
 import { getProfile, updateProfile } from "@/lib/profile-storage";
 import { SuggestionTiles } from "./suggestion-tiles";
 import { DittoAvatar, type DittoState } from "./ditto-avatar";
 import { getDittoGreeting } from "./ditto-personality";
+import { useMap } from "@/components/map/use-map";
 import type { AmbientContext } from "@/lib/context/ambient-context";
+import type { DatePreset } from "@/lib/map/event-filters";
+import type { EventCategory } from "@/lib/registries/types";
 
 interface CenterChatProps {
   /** Externally-provided input (e.g. from "Ask Ditto about" button). */
@@ -62,6 +66,14 @@ interface CenterChatProps {
   onClearInitialInput?: () => void;
   /** Called to start a flyover tour. */
   onStartFlyover?: (eventIds: string[], theme?: string) => void;
+  /** Called to get directions to coordinates. */
+  onGetDirections?: (coordinates: [number, number]) => void;
+  /** Called to highlight events on the map. */
+  onHighlightEvents?: (eventIds: string[]) => void;
+  /** Called to start cinematic presentation mode. */
+  onStartPresentation?: () => void;
+  /** Called to change the active date/category filter on the map. */
+  onChangeFilter?: (preset?: DatePreset, category?: EventCategory) => void;
   /** Ambient context for personalization. */
   ambientContext?: AmbientContext | null;
 }
@@ -71,13 +83,46 @@ export function CenterChat({
   initialInput,
   onClearInitialInput,
   onStartFlyover,
+  onGetDirections,
+  onHighlightEvents,
+  onStartPresentation,
+  onChangeFilter,
   ambientContext = null,
 }: CenterChatProps) {
   const [expanded, setExpanded] = useState(false);
+  const [pinned, setPinned] = useState(() => getChatPinned());
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [dittoState, setDittoState] = useState<DittoState>("greeting");
   const containerRef = useRef<HTMLDivElement>(null);
   const greetingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const map = useMap();
+
+  /** Show an event on the map at standard zoom. */
+  const handleShowOnMap = useCallback(
+    (coordinates: [number, number], _title?: string) => {
+      void _title;
+      map?.flyTo({ center: coordinates, zoom: 14, duration: 1500 });
+    },
+    [map],
+  );
+
+  /** Fly to an event at close zoom. */
+  const handleFlyTo = useCallback(
+    (coordinates: [number, number], _title?: string) => {
+      void _title;
+      map?.flyTo({ center: coordinates, zoom: 17, duration: 2000, pitch: 45 });
+    },
+    [map],
+  );
+
+  /** Trigger directions from the card. */
+  const handleCardDirections = useCallback(
+    (coordinates: [number, number], _title?: string) => {
+      void _title;
+      onGetDirections?.(coordinates);
+    },
+    [onGetDirections],
+  );
 
   const { messages, sendMessage, status, stop, addToolOutput } = useChat({
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
@@ -154,6 +199,77 @@ export function CenterChat({
           tool: "startFlyover",
           toolCallId: toolCall.toolCallId,
           output: { started: true, eventCount: input.eventIds.length, theme: input.theme },
+        });
+      }
+
+      if (toolCall.toolName === "highlightEvents") {
+        const input = toolCall.input as { eventIds: string[]; fitBounds?: boolean };
+        onHighlightEvents?.(input.eventIds);
+        addToolOutput({
+          tool: "highlightEvents",
+          toolCallId: toolCall.toolCallId,
+          output: {
+            highlighted: true,
+            count: input.eventIds.length,
+            cleared: input.eventIds.length === 0,
+          },
+        });
+      }
+
+      if (toolCall.toolName === "mapNavigate") {
+        const input = toolCall.input as {
+          action: string;
+          coordinates?: [number, number];
+          eventIds?: string[];
+          zoom?: number;
+        };
+        // Execute the map action directly
+        if (input.action === "flyTo" && input.coordinates) {
+          map?.flyTo({ center: input.coordinates, zoom: input.zoom ?? 14, duration: 1500 });
+        }
+        if (input.action === "highlight" && input.eventIds) {
+          onHighlightEvents?.(input.eventIds);
+        }
+        addToolOutput({
+          tool: "mapNavigate",
+          toolCallId: toolCall.toolCallId,
+          output: { action: input.action, status: "executed" },
+        });
+      }
+
+      if (toolCall.toolName === "getDirectionsTool") {
+        const input = toolCall.input as { eventId: string; coordinates: [number, number]; title: string };
+        onGetDirections?.(input.coordinates);
+        addToolOutput({
+          tool: "getDirectionsTool",
+          toolCallId: toolCall.toolCallId,
+          output: { started: true, destination: input.title },
+        });
+      }
+
+      if (toolCall.toolName === "changeEventFilter") {
+        const input = toolCall.input as { preset?: string; category?: string };
+        onChangeFilter?.(
+          input.preset as DatePreset | undefined,
+          input.category as EventCategory | undefined,
+        );
+        addToolOutput({
+          tool: "changeEventFilter",
+          toolCallId: toolCall.toolCallId,
+          output: {
+            applied: true,
+            preset: input.preset ?? "unchanged",
+            category: input.category ?? "all",
+          },
+        });
+      }
+
+      if (toolCall.toolName === "startPresentation") {
+        onStartPresentation?.();
+        addToolOutput({
+          tool: "startPresentation",
+          toolCallId: toolCall.toolCallId,
+          output: { started: true },
         });
       }
     },
@@ -237,9 +353,9 @@ export function CenterChat({
     }
   }, [speakingMessageId]);
 
-  // Click outside to collapse
+  // Click outside to collapse (skipped when pinned)
   useEffect(() => {
-    if (!expanded) return;
+    if (!expanded || pinned) return;
     const handleClick = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setExpanded(false);
@@ -247,7 +363,7 @@ export function CenterChat({
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [expanded]);
+  }, [expanded, pinned]);
 
   // Auto-expand and send when initialInput is provided
   const lastProcessedInputRef = useRef<string | null>(null);
@@ -264,6 +380,13 @@ export function CenterChat({
     const timeoutId = setTimeout(() => {
       if (initialInput === "__PERSONALIZE__") {
         sendMessage({ text: "Personalize my experience" });
+      } else if (initialInput.startsWith("__EVENT__:")) {
+        // Format: __EVENT__:id:title — look up by ID for reliable results
+        const parts = initialInput.slice("__EVENT__:".length);
+        const colonIdx = parts.indexOf(":");
+        const eventId = parts.slice(0, colonIdx);
+        const title = parts.slice(colonIdx + 1);
+        sendMessage({ text: `Tell me about "${title}" (event ID: ${eventId}). Use getEventDetails to look it up.` });
       } else {
         sendMessage({ text: `Tell me about "${initialInput}"` });
       }
@@ -323,14 +446,14 @@ export function CenterChat({
           {expanded && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
+              animate={{ opacity: 1, height: "calc(70vh - 60px)" }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="overflow-hidden"
+              className="flex min-h-0 flex-col overflow-hidden"
             >
               {/* Header with Ditto and collapse */}
               <div
-                className="flex items-center justify-between border-b px-4 py-2"
+                className="flex flex-shrink-0 items-center justify-between border-b px-4 py-2"
                 style={{ borderColor: "var(--border-color)" }}
               >
                 <div className="flex items-center gap-3">
@@ -356,11 +479,8 @@ export function CenterChat({
                 </button>
               </div>
 
-              {/* Scrollable messages area — direct maxHeight for StickToBottom */}
-              <Conversation
-                className="overflow-y-auto"
-                style={{ maxHeight: "calc(70vh - 140px)" }}
-              >
+              {/* Scrollable messages area — StickToBottom manages its own scroll */}
+              <Conversation className="min-h-0 flex-1">
                   <ConversationContent className="px-4 py-4">
                     {messages.map((message, index) => (
                       <Message key={`${message.id}-${index}`} from={message.role}>
@@ -401,6 +521,88 @@ export function CenterChat({
                                   </div>
                                 );
                               }
+
+                              // Parse ACTION: markers into tappable buttons
+                              const actionRegex = /ACTION:\s*(.+?)\s*\|\s*type:\s*(\w+)\s*\|\s*(.+?)(?:\n|$)/g;
+                              const hasActions = actionRegex.test(part.text);
+                              if (hasActions) {
+                                actionRegex.lastIndex = 0;
+                                const segments: Array<{ type: "text"; content: string } | { type: "action"; label: string; actionType: string; params: string }> = [];
+                                let lastIdx = 0;
+                                let match: RegExpExecArray | null;
+                                while ((match = actionRegex.exec(part.text)) !== null) {
+                                  if (match.index > lastIdx) {
+                                    segments.push({ type: "text", content: part.text.slice(lastIdx, match.index).trim() });
+                                  }
+                                  segments.push({ type: "action", label: match[1].trim(), actionType: match[2].trim(), params: match[3].trim() });
+                                  lastIdx = match.index + match[0].length;
+                                }
+                                if (lastIdx < part.text.length) {
+                                  const remaining = part.text.slice(lastIdx).trim();
+                                  if (remaining) segments.push({ type: "text", content: remaining });
+                                }
+                                return (
+                                  <div key={key}>
+                                    {segments.map((seg, si) => {
+                                      if (seg.type === "text") {
+                                        return <MessageResponse key={si}>{seg.content}</MessageResponse>;
+                                      }
+                                      const handleAction = () => {
+                                        try {
+                                          if (seg.actionType === "flyover") {
+                                            const idsMatch = seg.params.match(/eventIds:\s*(\[.*?\])/);
+                                            const themeMatch = seg.params.match(/theme:\s*"(.*?)"/);
+                                            if (idsMatch) {
+                                              const ids = JSON.parse(idsMatch[1]) as string[];
+                                              onStartFlyover?.(ids, themeMatch?.[1]);
+                                            }
+                                          } else if (seg.actionType === "directions") {
+                                            const coordMatch = seg.params.match(/coordinates:\s*\[([-\d.]+),([-\d.]+)\]/);
+                                            if (coordMatch) {
+                                              onGetDirections?.([parseFloat(coordMatch[1]), parseFloat(coordMatch[2])]);
+                                            }
+                                          } else if (seg.actionType === "showOnMap") {
+                                            const coordMatch = seg.params.match(/coordinates:\s*\[([-\d.]+),([-\d.]+)\]/);
+                                            const titleMatch = seg.params.match(/title:\s*"(.*?)"/);
+                                            if (coordMatch) {
+                                              handleShowOnMap(
+                                                [parseFloat(coordMatch[1]), parseFloat(coordMatch[2])],
+                                                titleMatch?.[1] ?? "",
+                                              );
+                                            }
+                                          }
+                                        } catch {
+                                          // Gracefully ignore parse errors
+                                        }
+                                      };
+                                      return (
+                                        <button
+                                          key={si}
+                                          onClick={handleAction}
+                                          className="my-1 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+                                          style={{
+                                            background: "#3560FF",
+                                            color: "#ffffff",
+                                            boxShadow: "0 0 12px rgba(53,96,255,0.3)",
+                                          }}
+                                        >
+                                          {seg.actionType === "flyover" && (
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 2L11 13" /><path d="M22 2L15 22L11 13L2 9L22 2Z" /></svg>
+                                          )}
+                                          {seg.actionType === "directions" && (
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="3 11 22 2 13 21 11 13 3 11" /></svg>
+                                          )}
+                                          {seg.actionType === "showOnMap" && (
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                                          )}
+                                          {seg.label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              }
+
                               return <MessageResponse key={key}>{part.text}</MessageResponse>;
                             }
 
@@ -416,7 +618,15 @@ export function CenterChat({
                             if (part.type === "tool-searchEvents") {
                               if (part.state === "output-available" && part.output) {
                                 const output = part.output as { events: Array<Record<string, unknown>> };
-                                return <EventList key={key} events={output.events as never[]} />;
+                                return (
+                                  <EventList
+                                    key={key}
+                                    events={output.events as never[]}
+                                    onShowOnMap={handleShowOnMap}
+                                    onFlyTo={handleFlyTo}
+                                    onGetDirections={handleCardDirections}
+                                  />
+                                );
                               }
                               return (
                                 <Tool key={key}>
@@ -427,7 +637,15 @@ export function CenterChat({
 
                             if (part.type === "tool-getEventDetails") {
                               if (part.state === "output-available" && part.output) {
-                                return <EventCard key={key} event={part.output as never} />;
+                                return (
+                                  <EventCard
+                                    key={key}
+                                    event={part.output as never}
+                                    onShowOnMap={handleShowOnMap}
+                                    onFlyTo={handleFlyTo}
+                                    onGetDirections={handleCardDirections}
+                                  />
+                                );
                               }
                               return (
                                 <Tool key={key}>
@@ -451,7 +669,16 @@ export function CenterChat({
                             if (part.type === "tool-rankEvents") {
                               if (part.state === "output-available" && part.output) {
                                 const output = part.output as { events: Array<Record<string, unknown>> };
-                                return <EventList key={key} events={output.events as never[]} ranked />;
+                                return (
+                                  <EventList
+                                    key={key}
+                                    events={output.events as never[]}
+                                    ranked
+                                    onShowOnMap={handleShowOnMap}
+                                    onFlyTo={handleFlyTo}
+                                    onGetDirections={handleCardDirections}
+                                  />
+                                );
                               }
                               return (
                                 <Tool key={key}>
@@ -502,6 +729,86 @@ export function CenterChat({
                                   <ToolHeader type={part.type} state={part.state} title="Preparing flyover tour..." />
                                 </Tool>
                               );
+                            }
+
+                            if (part.type === "tool-highlightEvents") {
+                              if (part.state === "output-available") {
+                                const output = part.output as { count: number; cleared: boolean };
+                                if (output.cleared) return null;
+                                return (
+                                  <div
+                                    key={key}
+                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
+                                    style={{ background: "var(--surface-2)", color: "var(--text-dim)" }}
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <circle cx="12" cy="12" r="10" />
+                                      <circle cx="12" cy="12" r="3" />
+                                    </svg>
+                                    Highlighting {output.count} event{output.count !== 1 ? "s" : ""} on the map
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }
+
+                            if (part.type === "tool-getDirectionsTool") {
+                              if (part.state === "output-available") {
+                                const output = part.output as { destination: string };
+                                return (
+                                  <div
+                                    key={key}
+                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
+                                    style={{ background: "var(--surface-2)", color: "var(--text-dim)" }}
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <polygon points="3 11 22 2 13 21 11 13 3 11" />
+                                    </svg>
+                                    Getting directions to {output.destination}...
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }
+
+                            if (part.type === "tool-changeEventFilter") {
+                              if (part.state === "output-available") {
+                                const output = part.output as { preset: string; category: string };
+                                const label = output.preset !== "unchanged"
+                                  ? `Filter set to: ${output.preset}${output.category !== "all" ? ` / ${output.category}` : ""}`
+                                  : `Category filter: ${output.category}`;
+                                return (
+                                  <div
+                                    key={key}
+                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
+                                    style={{ background: "var(--surface-2)", color: "var(--text-dim)" }}
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                                    </svg>
+                                    {label}
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }
+
+                            if (part.type === "tool-startPresentation") {
+                              if (part.state === "output-available") {
+                                return (
+                                  <div
+                                    key={key}
+                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
+                                    style={{ background: "var(--surface-2)", color: "var(--text-dim)" }}
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <path d="M5 3l14 9-14 9V3z" />
+                                    </svg>
+                                    Launching presentation...
+                                  </div>
+                                );
+                              }
+                              return null;
                             }
 
                             if (part.type.startsWith("tool-")) {
@@ -608,10 +915,28 @@ export function CenterChat({
                 onFocus={() => messages.length > 0 && setExpanded(true)}
               />
               <PromptInputFooter>
-                <VoiceInputButton
-                  onTranscript={handleVoiceTranscript}
-                  disabled={status === "submitted" || status === "streaming"}
-                />
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      const next = !pinned;
+                      setPinned(next);
+                      setChatPinned(next);
+                    }}
+                    className="rounded-md p-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                    aria-label={pinned ? "Unpin chat (allow auto-close)" : "Pin chat open"}
+                    title={pinned ? "Unpin chat" : "Pin chat open"}
+                  >
+                    {pinned ? (
+                      <Pin className="h-4 w-4" style={{ color: "var(--brand-primary, #3560ff)" }} />
+                    ) : (
+                      <PinOff className="h-4 w-4" style={{ color: "var(--text-dim)" }} />
+                    )}
+                  </button>
+                  <VoiceInputButton
+                    onTranscript={handleVoiceTranscript}
+                    disabled={status === "submitted" || status === "streaming"}
+                  />
+                </div>
                 <PromptInputSubmit
                   status={status === "submitted" || status === "streaming" ? status : undefined}
                   onStop={stop}

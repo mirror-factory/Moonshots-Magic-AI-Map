@@ -8,7 +8,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState, useCallback, type ReactNode } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode } from "react";
 import { useTheme } from "next-themes";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -27,7 +27,7 @@ import { MapControls } from "./map-controls";
 import { MapMarkers } from "./map-markers";
 import { MapHotspots } from "./map-hotspots";
 import { MapPopups } from "./map-popups";
-import { EVENT_CATEGORIES, type EventCategory, type EventEntry } from "@/lib/registries/types";
+import type { EventEntry } from "@/lib/registries/types";
 import { MapDirections } from "./map-directions";
 import { DirectionsPanel } from "./directions-panel";
 import { MapIsochrone } from "./map-isochrone";
@@ -46,6 +46,8 @@ import { speak, stopSpeaking, playAudioBuffer, generateAudioBuffer } from "@/lib
 import { playFlyoverIntro, stopFlyoverAudio } from "@/lib/flyover/flyover-audio";
 import { getDirections, type DirectionsResult, type TravelProfile } from "@/lib/map/routing";
 import { getIsochrone, type IsochroneResult } from "@/lib/map/isochrone";
+import { type DatePreset, getEventsForPreset } from "@/lib/map/event-filters";
+import type { EventCategory } from "@/lib/registries/types";
 
 /** Default isochrone time ranges in minutes. */
 const ISOCHRONE_MINUTES: number[] = [5, 10, 15, 30];
@@ -56,26 +58,30 @@ interface MapContainerProps {
   events: EventEntry[];
   onAskAbout?: (eventTitle: string) => void;
   onFlyoverRequest?: (handler: (eventIds: string[], theme?: string) => void) => void;
+  onDirectionsRequest?: (handler: (coordinates: [number, number]) => void) => void;
+  /** Registers a handler for AI-driven filter changes. */
+  onFilterChangeRequest?: (handler: (preset?: DatePreset, category?: EventCategory) => void) => void;
   onStartPersonalization?: () => void;
-  /** Initial category filter from onboarding quiz. */
-  initialCategories?: EventCategory[];
+  /** Event IDs currently highlighted by the AI chat. */
+  highlightedEventIds?: string[];
+  /** Callback to clear AI-highlighted events and restore the date filter. */
+  onClearHighlights?: () => void;
   children?: ReactNode;
 }
 
 /** Renders the root map with MapLibre GL and composes child layers. */
-export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPersonalization, initialCategories, children }: MapContainerProps) {
+export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirectionsRequest, onFilterChangeRequest, onStartPersonalization, highlightedEventIds, onClearHighlights, children }: MapContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<maplibregl.Map | null>(null);
   const [styleLoaded, setStyleLoaded] = useState(false);
   const [controlsOpen] = useState(false);
-  const [mode3D, setMode3D] = useState(false);
-  const [visibleCategories, setVisibleCategories] = useState<Set<EventCategory>>(
-    () => new Set(EVENT_CATEGORIES),
-  );
+  const [mode3D, setMode3D] = useState(true);
   const [flyoverProgress, setFlyoverProgress] = useState<FlyoverProgress | null>(null);
   const flyoverAbortRef = useRef<boolean>(false);
   const introPlayingRef = useRef<boolean>(false);
   const introPromiseRef = useRef<Promise<void> | null>(null);
+  const ambientOrbitRef = useRef<number>(0);
+  const ambientStoppedRef = useRef<boolean>(false);
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
@@ -92,6 +98,17 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
   const [isochroneActive, setIsochroneActive] = useState(false);
   const [isochroneLoading, setIsochroneLoading] = useState(false);
 
+  // Date filter state — default to today's events
+  const [activePreset, setActivePreset] = useState<DatePreset>("today");
+
+  const defaultEventIds = useMemo(
+    () => getEventsForPreset(events, activePreset),
+    [events, activePreset],
+  );
+
+  const aiResultsActive = (highlightedEventIds?.length ?? 0) > 0;
+  const effectiveEventIds = aiResultsActive ? highlightedEventIds! : defaultEventIds;
+
   // Initialize map
   useEffect(() => {
     if (!containerRef.current) return;
@@ -104,21 +121,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
       pitch: DEFAULT_PITCH,
       bearing: DEFAULT_BEARING,
       attributionControl: {},
-      // Start with globe projection for cinematic "zoom from space" intro
-      // Type definition lags behind the MapLibre GL runtime API
-      ...({ projection: { type: "globe" } } as Record<string, unknown>),
     });
-
-    // Transition from globe to mercator on first interaction or after 3s
-    // setProjection is available at runtime but not in the TS types
-    const switchToMercator = () => {
-      (instance as unknown as { setProjection: (p: { type: string }) => void }).setProjection({ type: "mercator" });
-      instance.off("mousedown", switchToMercator);
-      instance.off("touchstart", switchToMercator);
-    };
-    instance.on("mousedown", switchToMercator);
-    instance.on("touchstart", switchToMercator);
-    const globeTimer = setTimeout(switchToMercator, 3000);
 
     instance.addControl(new maplibregl.NavigationControl(), "top-right");
     instance.addControl(
@@ -126,20 +129,76 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
       "bottom-right",
     );
 
-    // Track when style is loaded
+    // Track when style is loaded + apply blue tint
     instance.on("style.load", () => {
+      tintMapGrayscale(instance, isDark);
       setStyleLoaded(true);
     });
 
     setMap(instance);
 
     return () => {
-      clearTimeout(globeTimer);
+      cancelAnimationFrame(ambientOrbitRef.current);
       instance.remove();
     };
     // Only run on mount - theme changes handled separately
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Ambient cinematic orbit — continuous slow rotation on load, stops on user interaction
+  useEffect(() => {
+    if (!map || !styleLoaded || ambientStoppedRef.current) return;
+
+    const ROTATION_SPEED = 1.2; // degrees per second (slow cinematic orbit)
+    const ORBIT_RADIUS = 0.003; // lng/lat radius of circular drift around Lake Eola
+    let lastTime = performance.now();
+
+    const stopAmbient = () => {
+      ambientStoppedRef.current = true;
+      cancelAnimationFrame(ambientOrbitRef.current);
+      map.off("mousedown", stopAmbient);
+      map.off("touchstart", stopAmbient);
+      map.off("wheel", stopAmbient);
+    };
+
+    // Stop on any user interaction
+    map.on("mousedown", stopAmbient);
+    map.on("touchstart", stopAmbient);
+    map.on("wheel", stopAmbient);
+
+    const animate = (now: number) => {
+      if (ambientStoppedRef.current) return;
+
+      const dt = (now - lastTime) / 1000;
+      lastTime = now;
+
+      const bearing = map.getBearing() + ROTATION_SPEED * dt;
+
+      // Slow circular orbit around Lake Eola center
+      const t = now / 1000;
+      const orbitAngle = t * 0.04; // ~90s per full circle
+      const centerLng = DEFAULT_CENTER[0] + Math.sin(orbitAngle) * ORBIT_RADIUS;
+      const centerLat = DEFAULT_CENTER[1] + Math.cos(orbitAngle) * ORBIT_RADIUS;
+
+      map.easeTo({
+        bearing,
+        center: [centerLng, centerLat],
+        duration: 0,
+        animate: false,
+      });
+
+      ambientOrbitRef.current = requestAnimationFrame(animate);
+    };
+
+    ambientOrbitRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(ambientOrbitRef.current);
+      map.off("mousedown", stopAmbient);
+      map.off("touchstart", stopAmbient);
+      map.off("wheel", stopAmbient);
+    };
+  }, [map, styleLoaded]);
 
   // React to theme changes — only reload style when theme actually changes
   const prevThemeRef = useRef(isDark);
@@ -171,6 +230,9 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
       map.setPitch(pitch);
       map.setBearing(bearing);
 
+      // Apply blue tint to light-mode basemap
+      tintMapGrayscale(map, isDark);
+
       // Mark style as loaded
       setStyleLoaded(true);
 
@@ -198,37 +260,38 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
         }
       }).catch((err) => console.error("[3D] Failed to load three.js layer:", err));
     } else {
-      // Remove three.js layer first (before removing terrain source it may reference)
-      import("@/lib/map/three-layer").then(({ THREE_LAYER_ID }) => {
-        if (map.getLayer(THREE_LAYER_ID)) {
-          map.removeLayer(THREE_LAYER_ID);
-          console.log("[3D] Three.js marker layer removed");
-        }
-      }).catch(() => {});
+      // Only tear down if 3D layers were previously added
+      const has3D = map.getLayer("3d-buildings") || map.getSource("terrain-dem");
+      if (has3D) {
+        // Remove three.js layer first (before removing terrain source it may reference)
+        import("@/lib/map/three-layer").then(({ THREE_LAYER_ID }) => {
+          if (map.getLayer(THREE_LAYER_ID)) {
+            map.removeLayer(THREE_LAYER_ID);
+            console.log("[3D] Three.js marker layer removed");
+          }
+        }).catch(() => {});
 
-      remove3DLayers(map);
-      map.easeTo({ pitch: 0, duration: 1000 });
+        remove3DLayers(map);
+        map.easeTo({ pitch: 0, duration: 1000 });
+      }
     }
   }, [map, mode3D, isDark, styleLoaded, events]);
 
-  // Apply initial categories from onboarding quiz
+  // Fit map to highlighted events when they change
   useEffect(() => {
-    if (initialCategories && initialCategories.length > 0) {
-      setVisibleCategories(new Set(initialCategories));
+    if (!map || !highlightedEventIds?.length) return;
+    const highlighted = events.filter((e) => highlightedEventIds.includes(e.id));
+    if (highlighted.length === 0) return;
+    if (highlighted.length === 1) {
+      map.flyTo({ center: highlighted[0].coordinates, zoom: 14, duration: 1200 });
+      return;
     }
-  }, [initialCategories]);
-
-  const handleToggleCategory = useCallback((category: EventCategory) => {
-    setVisibleCategories((prev) => {
-      const next = new Set(prev);
-      if (next.has(category)) {
-        next.delete(category);
-      } else {
-        next.add(category);
-      }
-      return next;
-    });
-  }, []);
+    const bounds = new maplibregl.LngLatBounds();
+    for (const e of highlighted) {
+      bounds.extend(e.coordinates as [number, number]);
+    }
+    map.fitBounds(bounds, { padding: 100, duration: 1200 });
+  }, [map, highlightedEventIds, events]);
 
   const handleToggle3D = useCallback(() => {
     setMode3D((prev) => !prev);
@@ -244,6 +307,10 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
         console.warn("[Flyover] Map not ready, cannot start tour");
         return;
       }
+
+      // Stop ambient orbit if running
+      ambientStoppedRef.current = true;
+      cancelAnimationFrame(ambientOrbitRef.current);
 
       // Find events by ID
       const tourEvents = eventIds
@@ -346,7 +413,6 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
 
   // Register flyover handler with parent - use a stable callback wrapper
   useEffect(() => {
-    // Create a stable wrapper that always calls the latest handler
     const wrapper = (eventIds: string[], theme?: string) => {
       handleStartFlyover(eventIds, theme);
     };
@@ -531,6 +597,29 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
     [directionsProfile, fetchDirections, map],
   );
 
+  // Register directions handler with parent
+  useEffect(() => {
+    onDirectionsRequest?.(handleGetDirections);
+  }, [onDirectionsRequest, handleGetDirections]);
+
+  // Handle AI-driven filter changes (preset and/or category)
+  const handleFilterChange = useCallback(
+    (preset?: DatePreset) => {
+      if (preset) {
+        setActivePreset(preset);
+      }
+      // Category filtering can be extended here in the future
+      // For now, clear AI highlights so the preset filter takes effect
+      onClearHighlights?.();
+    },
+    [onClearHighlights],
+  );
+
+  // Register filter change handler with parent
+  useEffect(() => {
+    onFilterChangeRequest?.(handleFilterChange);
+  }, [onFilterChangeRequest, handleFilterChange]);
+
   const handleDirectionsProfileChange = useCallback(
     (profile: TravelProfile) => {
       setDirectionsProfile(profile);
@@ -603,18 +692,21 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
 
         <MapControls
           open={controlsOpen}
-          visibleCategories={visibleCategories}
-          onToggleCategory={handleToggleCategory}
           events={events}
           eventCount={events.length}
+          highlightedEventIds={highlightedEventIds}
+          effectiveEventIds={effectiveEventIds}
+          aiResultsActive={aiResultsActive}
+          activePreset={activePreset}
+          onPresetChange={setActivePreset}
           onAskAbout={onAskAbout}
         />
 
-        <MapMarkers events={events} visibleCategories={visibleCategories} styleLoaded={styleLoaded} isDark={isDark} />
+        <MapMarkers events={events} styleLoaded={styleLoaded} isDark={isDark} visibleEventIds={effectiveEventIds} highlightedEventIds={highlightedEventIds} />
         <MapHotspots events={events} styleLoaded={styleLoaded} isDark={isDark} />
         <MapPopups onAskAbout={onAskAbout} onGetDirections={handleGetDirections} />
         <MapDirections route={directionsRoute} origin={directionsOrigin} destination={directionsDestination} />
-        <MapIsochrone result={isochroneResult} events={events} visibleCategories={visibleCategories} />
+        <MapIsochrone result={isochroneResult} events={events} />
         <MapStatusBar
           mode3D={mode3D}
           onToggle3D={handleToggle3D}
@@ -622,6 +714,10 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
           isochroneActive={isochroneActive}
           isochroneLoading={isochroneLoading}
           onToggleIsochrone={handleToggleIsochrone}
+          activePreset={activePreset}
+          onPresetChange={setActivePreset}
+          aiResultsActive={aiResultsActive}
+          onClearAiResults={onClearHighlights}
         />
 
         {/* Directions panel */}
@@ -661,7 +757,8 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onStartPers
  * @param isDark - Whether dark theme is active.
  */
 function add3DLayers(map: maplibregl.Map, isDark: boolean) {
-  if (!map.isStyleLoaded()) return;
+  // Guard: ensure style object is available (callers already gate on React styleLoaded state)
+  if (!map.getStyle()) return;
 
   const style = map.getStyle();
   const sourceNames = Object.keys(style?.sources || {});
@@ -688,7 +785,7 @@ function add3DLayers(map: maplibregl.Map, isDark: boolean) {
           "hillshade-illumination-direction": TERRAIN_CONFIG.hillshadeDirection,
           "hillshade-exaggeration": 0.3,
           "hillshade-shadow-color": isDark ? "#000000" : "#3a3a3a",
-          "hillshade-highlight-color": isDark ? "#222244" : "#ffffff",
+          "hillshade-highlight-color": isDark ? "#2a2a2a" : "#f0f0f0",
         },
       });
     }
@@ -758,18 +855,18 @@ function add3DLayers(map: maplibregl.Map, isDark: boolean) {
           "fill-extrusion-color": isDark
             ? [
                 "interpolate", ["linear"], heightExpr,
-                0, "#2a2a50", 50, "#3d3d7a", 100, "#5858b8", 200, "#7070e0",
+                0, "#1a1a1a", 50, "#2a2a2a", 100, "#383838", 200, "#484848",
               ]
             : [
                 "interpolate", ["linear"], heightExpr,
-                0, "#9090a0", 50, "#7070a0", 100, "#5050a0", 200, "#3030a0",
+                0, "#b0b0b0", 50, "#c0c0c0", 100, "#cccccc", 200, "#d8d8d8",
               ],
           "fill-extrusion-height": [
             "interpolate", ["linear"], ["zoom"],
-            13, 0, 14.5, heightExpr,
+            13, 0, 14.5, ["*", heightExpr, 2.5],
           ],
           "fill-extrusion-base": ["get", "render_min_height"],
-          "fill-extrusion-opacity": isDark ? 0.9 : 0.85,
+          "fill-extrusion-opacity": isDark ? 0.9 : 0.88,
           "fill-extrusion-vertical-gradient": true,
         },
       },
@@ -779,20 +876,7 @@ function add3DLayers(map: maplibregl.Map, isDark: boolean) {
     console.log("[3D] Buildings layer added successfully");
   }
 
-  // --- Sky / Atmosphere ---
-  // Sky layer type exists at runtime but not in the TS type definitions
-  if (!map.getLayer("sky-layer")) {
-    map.addLayer({
-      id: "sky-layer",
-      type: "sky",
-      paint: {
-        "sky-type": "atmosphere",
-        "sky-atmosphere-sun": [0, 0],
-        "sky-atmosphere-sun-intensity": 15,
-      },
-    } as unknown as maplibregl.LayerSpecification);
-    console.log("[3D] Sky atmosphere layer added");
-  }
+  // Sky / atmosphere layer removed — CartoDB styles do not support the "sky" layer type.
 }
 
 /**
@@ -800,7 +884,7 @@ function add3DLayers(map: maplibregl.Map, isDark: boolean) {
  * @param map - The MapLibre GL map instance.
  */
 function remove3DLayers(map: maplibregl.Map) {
-  if (!map.isStyleLoaded()) return;
+  if (!map.getStyle()) return;
 
   // Remove terrain
   map.setTerrain(null);
@@ -816,10 +900,6 @@ function remove3DLayers(map: maplibregl.Map) {
     map.removeLayer("3d-buildings");
   }
 
-  // Remove sky
-  if (map.getLayer("sky-layer")) {
-    map.removeLayer("sky-layer");
-  }
   console.log("[3D] Layers removed");
 }
 
@@ -835,7 +915,7 @@ const HIGHLIGHT_GLOW_LAYER = "venue-highlight-glow";
  * @param coordinates - The venue coordinates [lng, lat].
  */
 function updateVenueHighlight(map: maplibregl.Map, coordinates: [number, number]) {
-  if (!map.isStyleLoaded()) return;
+  if (!map.getStyle()) return;
 
   const geojson: GeoJSON.FeatureCollection = {
     type: "FeatureCollection",
@@ -890,7 +970,7 @@ function updateVenueHighlight(map: maplibregl.Map, coordinates: [number, number]
  * @param map - The MapLibre GL map instance.
  */
 function removeVenueHighlight(map: maplibregl.Map) {
-  if (!map.isStyleLoaded()) return;
+  if (!map.getStyle()) return;
 
   if (map.getLayer(HIGHLIGHT_PULSE_LAYER)) {
     map.removeLayer(HIGHLIGHT_PULSE_LAYER);
@@ -902,3 +982,61 @@ function removeVenueHighlight(map: maplibregl.Map) {
     map.removeSource(HIGHLIGHT_SOURCE);
   }
 }
+
+/**
+ * Shifts basemap layers toward a neutral grayscale palette.
+ * Light mode: Voyager warm tones → cool grays.
+ * Dark mode: Dark Matter blue-blacks → pure dark grays.
+ * Layer IDs match the CartoDB GL style specs.
+ * @param map - The MapLibre GL map instance.
+ * @param isDark - Whether dark theme is active.
+ */
+function tintMapGrayscale(map: maplibregl.Map, isDark: boolean) {
+  if (!map.isStyleLoaded()) return;
+
+  const set = (layerId: string, prop: string, value: unknown) => {
+    if (map.getLayer(layerId)) {
+      try { map.setPaintProperty(layerId, prop, value); } catch { /* skip */ }
+    }
+  };
+
+  if (!isDark) {
+    // --- Light mode (Positron): already grayscale, minor tweaks ---
+    // Slightly cooler background
+    set("background", "background-color", "#eaeaea");
+
+    // Desaturate any remaining green in parks/land
+    for (const id of ["landcover", "landuse", "park_national_park", "park_nature_reserve", "landcover-grass", "landcover-wood"]) {
+      set(id, "fill-color", "#dcdcdc");
+    }
+
+    // Water — muted cool gray instead of Positron's light blue
+    set("water", "fill-color", "#c0c8d0");
+    set("water_shadow", "fill-color", "rgba(180, 188, 196, 1)");
+
+    // Buildings
+    set("building", "fill-color", "#d4d4d4");
+    set("building-top", "fill-color", "#dadada");
+  } else {
+    // --- Dark mode: Dark Matter blue-blacks → neutral dark grays ---
+    set("background", "background-color", "#1a1a1a");
+
+    for (const id of ["landcover", "landuse"]) {
+      set(id, "fill-color", "#222222");
+    }
+
+    set("building", "fill-color", "#2a2a2a");
+    set("building-top", "fill-color", "#303030");
+
+    // Water — dark gray with slight coolness
+    set("water", "fill-color", "#252a30");
+    set("water_shadow", "fill-color", "rgba(30, 35, 42, 1)");
+
+    // Roads — subtle light grays
+    for (const id of ["road_trunk_primary", "road_secondary_tertiary", "road_minor"]) {
+      set(id, "line-color", "#3a3a3a");
+    }
+    set("road_major_motorway", "line-color", "#404040");
+  }
+}
+

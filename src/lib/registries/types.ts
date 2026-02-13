@@ -57,9 +57,11 @@ export type NewsletterCategory = (typeof NEWSLETTER_CATEGORIES)[number];
 export type EventSource =
   | { type: "manual"; addedBy: string }
   | { type: "ticketmaster"; fetchedAt: string }
+  | { type: "eventbrite"; fetchedAt: string }
   | { type: "overpass"; fetchedAt: string }
   | { type: "scraper"; site: string; fetchedAt: string }
-  | { type: "predicthq"; fetchedAt: string };
+  | { type: "predicthq"; fetchedAt: string }
+  | { type: "serpapi"; fetchedAt: string };
 
 /**
  * A single event in the registry.

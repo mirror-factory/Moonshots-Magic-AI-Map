@@ -226,7 +226,7 @@ export function EventDetail({ event, onBack, onShowOnMap, onAskAI }: EventDetail
               background: "var(--brand-primary)",
               color: "var(--brand-primary-foreground)",
             }}
-            onClick={() => onAskAI(event.title)}
+            onClick={() => onAskAI(`__EVENT__:${event.id}:${event.title}`)}
           >
             <MessageCircle className="mr-1.5 h-4 w-4 shrink-0" />
             <span className="truncate">Ask Ditto</span>

@@ -10,7 +10,7 @@ import { useEffect } from "react";
 import type maplibregl from "maplibre-gl";
 import { useMap } from "./use-map";
 import type { IsochroneResult } from "@/lib/map/isochrone";
-import type { EventEntry, EventCategory } from "@/lib/registries/types";
+import type { EventEntry } from "@/lib/registries/types";
 
 /** Source and layer IDs for isochrone overlays. */
 const ISO_SOURCE = "isochrone-source";
@@ -22,8 +22,6 @@ interface MapIsochroneProps {
   result: IsochroneResult | null;
   /** All events (for dimming those outside the polygon). */
   events: EventEntry[];
-  /** Currently visible categories. */
-  visibleCategories: Set<EventCategory>;
 }
 
 /** Renders isochrone travel-time polygons on the map. */

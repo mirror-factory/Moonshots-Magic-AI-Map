@@ -6,29 +6,21 @@
 
 "use client";
 
-import { EventCard } from "./event-card";
-import type { EventCategory } from "@/lib/registries/types";
-
-interface EventListEvent {
-  id: string;
-  title: string;
-  description: string;
-  category: EventCategory;
-  venue: string;
-  city: string;
-  startDate: string;
-  price?: { min: number; max: number; isFree: boolean };
-  tags: string[];
-  featured?: boolean;
-}
+import { EventCard, type EventCardEvent } from "./event-card";
 
 interface EventListProps {
-  events: EventListEvent[];
+  events: EventCardEvent[];
   ranked?: boolean;
+  /** Called when user taps "Show on Map" on a card. */
+  onShowOnMap?: (coordinates: [number, number], title: string) => void;
+  /** Called when user taps "Fly There" on a card. */
+  onFlyTo?: (coordinates: [number, number], title: string) => void;
+  /** Called when user taps "Directions" on a card. */
+  onGetDirections?: (coordinates: [number, number], title: string) => void;
 }
 
 /** Vertical list of event cards, optionally numbered for ranked results. */
-export function EventList({ events, ranked }: EventListProps) {
+export function EventList({ events, ranked, onShowOnMap, onFlyTo, onGetDirections }: EventListProps) {
   if (!events.length) {
     return (
       <p className="text-xs" style={{ color: "var(--text-dim)" }}>
@@ -53,7 +45,12 @@ export function EventList({ events, ranked }: EventListProps) {
             </span>
           )}
           <div className="flex-1">
-            <EventCard event={event} />
+            <EventCard
+              event={event}
+              onShowOnMap={onShowOnMap}
+              onFlyTo={onFlyTo}
+              onGetDirections={onGetDirections}
+            />
           </div>
         </div>
       ))}

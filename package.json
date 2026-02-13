@@ -21,7 +21,8 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "check-stories": "sh scripts/check-stories.sh"
+    "check-stories": "sh scripts/check-stories.sh",
+    "sync-events": "tsx --env-file=.env.local scripts/sync-events/index.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.32",
@@ -75,6 +76,7 @@
     "@types/uuid": "^11.0.0",
     "@vitest/coverage-v8": "^4.0.18",
     "babel-plugin-react-compiler": "1.0.0",
+    "cheerio": "^1.2.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "eslint-plugin-jsdoc": "^62.5.1",

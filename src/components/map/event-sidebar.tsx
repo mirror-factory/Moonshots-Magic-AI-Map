@@ -8,13 +8,12 @@
 
 import { useState, useMemo } from "react";
 import { Search } from "lucide-react";
-import type { EventEntry, EventCategory } from "@/lib/registries/types";
+import type { EventEntry } from "@/lib/registries/types";
 import { EventListItem } from "./event-list-item";
 
 interface EventSidebarProps {
   events: EventEntry[];
   onEventClick: (event: EventEntry) => void;
-  visibleCategories: Set<EventCategory>;
 }
 
 /** Scrollable event list with search. */
@@ -74,7 +73,7 @@ export function EventSidebar({
         {filteredEvents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <p className="text-sm" style={{ color: "var(--text-dim)" }}>
-              {searchQuery ? "No events match your search" : "No events in selected categories"}
+              {searchQuery ? "No events match your search" : "No events to show"}
             </p>
             {searchQuery && (
               <button

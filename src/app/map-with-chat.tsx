@@ -15,10 +15,13 @@ const MapContainer = dynamic(
   () => import("@/components/map/map-container").then((m) => m.MapContainer),
   { ssr: false }
 );
+import { AnimatePresence } from "motion/react";
 import { CenterChat } from "@/components/chat/center-chat";
+import { PresentationPanel } from "@/components/presentation/presentation-panel";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
 import { getAmbientContext, type AmbientContext } from "@/lib/context/ambient-context";
 import type { EventEntry, EventCategory } from "@/lib/registries/types";
+import type { DatePreset } from "@/lib/map/event-filters";
 
 const ONBOARDING_STORAGE_KEY = "moonshots_onboarding_complete";
 
@@ -44,6 +47,12 @@ interface MapWithChatProps {
 /** Type for the flyover start handler. */
 type FlyoverHandler = (eventIds: string[], theme?: string) => void;
 
+/** Type for the directions handler. */
+type DirectionsHandler = (coordinates: [number, number]) => void;
+
+/** Type for the filter change handler. */
+type FilterChangeHandler = (preset?: DatePreset, category?: EventCategory) => void;
+
 /** Composes the full-screen map with the center-stage chat bar. */
 export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
   const [chatInput, setChatInput] = useState<string | undefined>();
@@ -51,10 +60,13 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
     if (typeof window === "undefined") return false;
     return !localStorage.getItem(ONBOARDING_STORAGE_KEY);
   });
-  const [initialCategories, setInitialCategories] = useState<EventCategory[] | null>(null);
   const [ambientContext, setAmbientContext] = useState<AmbientContext | null>(null);
   const [liveEvents, setLiveEvents] = useState<EventEntry[]>([]);
   const flyoverHandlerRef = useRef<FlyoverHandler | null>(null);
+  const directionsHandlerRef = useRef<DirectionsHandler | null>(null);
+  const filterChangeHandlerRef = useRef<FilterChangeHandler | null>(null);
+  const [highlightedEventIds, setHighlightedEventIds] = useState<string[]>([]);
+  const [presentationActive, setPresentationActive] = useState(false);
 
   // Fetch ambient context on mount
   useEffect(() => {
@@ -82,8 +94,8 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
     return merged;
   })();
 
-  const handleOnboardingComplete = useCallback((categories: EventCategory[]) => {
-    setInitialCategories(categories);
+  const handleOnboardingComplete = useCallback((_categories: string[]) => {
+    void _categories; // Categories saved to profile; map uses query-driven markers
     setOnboardingOpen(false);
   }, []);
 
@@ -113,6 +125,38 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
     }
   }, []);
 
+  const handleDirectionsRequest = useCallback((handler: DirectionsHandler) => {
+    directionsHandlerRef.current = handler;
+  }, []);
+
+  const handleGetDirections = useCallback((coordinates: [number, number]) => {
+    if (directionsHandlerRef.current) {
+      directionsHandlerRef.current(coordinates);
+    }
+  }, []);
+
+  const handleFilterChangeRequest = useCallback((handler: FilterChangeHandler) => {
+    filterChangeHandlerRef.current = handler;
+  }, []);
+
+  const handleChangeFilter = useCallback((preset?: DatePreset, category?: EventCategory) => {
+    if (filterChangeHandlerRef.current) {
+      filterChangeHandlerRef.current(preset, category);
+    }
+  }, []);
+
+  const handleStartPresentation = useCallback(() => {
+    setPresentationActive(true);
+  }, []);
+
+  const handleEndPresentation = useCallback(() => {
+    setPresentationActive(false);
+  }, []);
+
+  const handleClearHighlights = useCallback(() => {
+    setHighlightedEventIds([]);
+  }, []);
+
   return (
     <IntroContext.Provider value={{ showIntro: handleShowIntro }}>
       <OnboardingFlow
@@ -125,15 +169,29 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
         events={events}
         onAskAbout={handleAskAbout}
         onFlyoverRequest={handleFlyoverRequest}
+        onDirectionsRequest={handleDirectionsRequest}
+        onFilterChangeRequest={handleFilterChangeRequest}
         onStartPersonalization={handleStartPersonalization}
-        initialCategories={initialCategories ?? undefined}
+        highlightedEventIds={highlightedEventIds}
+        onClearHighlights={handleClearHighlights}
       >
-        <CenterChat
-          initialInput={chatInput}
-          onClearInitialInput={handleClearInput}
-          onStartFlyover={startFlyover}
-          ambientContext={ambientContext}
-        />
+        <AnimatePresence mode="wait">
+          {presentationActive ? (
+            <PresentationPanel key="presentation" onExit={handleEndPresentation} />
+          ) : (
+            <CenterChat
+              key="chat"
+              initialInput={chatInput}
+              onClearInitialInput={handleClearInput}
+              onStartFlyover={startFlyover}
+              onGetDirections={handleGetDirections}
+              onHighlightEvents={setHighlightedEventIds}
+              onStartPresentation={handleStartPresentation}
+              onChangeFilter={handleChangeFilter}
+              ambientContext={ambientContext}
+            />
+          )}
+        </AnimatePresence>
       </MapContainer>
     </IntroContext.Provider>
   );

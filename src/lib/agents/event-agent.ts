@@ -8,12 +8,16 @@
 import { ToolLoopAgent, stepCountIs } from "ai";
 import { searchEvents } from "./tools/search-events";
 import { getEventDetails } from "./tools/get-event-details";
-import { searchNewsletters } from "./tools/search-newsletters";
+
 import { rankEvents } from "./tools/rank-events";
 import { mapNavigate } from "./tools/map-navigate";
 import { getUserProfile } from "./tools/get-user-profile";
 import { updateUserProfile } from "./tools/update-user-profile";
 import { startFlyover } from "./tools/start-flyover";
+import { highlightEvents } from "./tools/highlight-events";
+import { getDirectionsTool } from "./tools/get-directions-tool";
+import { startPresentation } from "./tools/start-presentation";
+import { changeEventFilter } from "./tools/change-event-filter";
 import { DEFAULT_MODEL } from "@/lib/settings";
 
 /** Ambient context shape matching the client-side AmbientContext type. */
@@ -133,11 +137,44 @@ FLYOVER TOURS:
 - Select 3-6 geographically interesting events for the best tour experience
 - Add a theme that ties the events together when starting a flyover
 
+DIRECTIONS:
+- Use getDirectionsTool when users ask "how do I get to", "directions to", or "how far is" an event
+- After recommending a single event, mention that directions are available
+- Proactively offer "Want directions there?" for single event discussions
+- Always include the event's coordinates and title when calling getDirectionsTool
+
+PRESENTATION MODE:
+- When users ask for a "presentation", "story of Orlando", "tell me about Orlando's history", or "show me a presentation", use startPresentation
+- This launches a cinematic narrated tour of Orlando's key landmarks with the Moonshots & Magic story
+- After calling startPresentation, briefly confirm it's starting — no need for a long explanation
+
+MAP FILTERS:
+- Use changeEventFilter to change the persistent date filter on the map
+- When users ask "show me today's events" → call changeEventFilter({ preset: "today" })
+- When users ask "what's happening this weekend" → call changeEventFilter({ preset: "weekend" })
+- When users ask "show me everything" or "all events" → call changeEventFilter({ preset: "all" })
+- When users ask "show me music events" → call changeEventFilter({ category: "music" })
+- You can combine preset and category: changeEventFilter({ preset: "weekend", category: "music" })
+- This changes the map filter chips — different from highlightEvents which shows specific search results
+
+MAP HIGHLIGHTING:
+- Call highlightEvents in the SAME step as your text response — do NOT do a separate step just for highlighting
+- After getting searchEvents or rankEvents results, include highlightEvents in the same tool batch
+- Call highlightEvents([]) to clear highlights when changing topics
+- NEVER re-call searchEvents with the same query — if you already have results, use them
+
+INLINE ACTIONS:
+- Use ACTION format for tappable buttons in your text responses:
+  ACTION: Start Flyover Tour | type: flyover | eventIds: ["id1","id2"] | theme: "theme text"
+  ACTION: Get Directions | type: directions | coordinates: [lng,lat] | title: "venue name"
+  ACTION: Show on Map | type: showOnMap | coordinates: [lng,lat] | title: "venue name"
+- Include relevant actions after event recommendations to make responses interactive
+
 GUIDELINES:
+- NEVER call the same tool twice with identical or very similar parameters in one conversation turn
 - When recommending events, explain WHY each one matches the user's criteria
 - When showing events, always include date, venue, and category
 - Use the mapNavigate tool to show events on the map when relevant
-- Search newsletters for additional context and recent news
 - If no events match, suggest broadening the search criteria
 - For "top N" requests, use rankEvents to provide reasoned rankings
 - Keep responses concise but informative
@@ -148,12 +185,15 @@ Today's date is ${new Date().toISOString().split("T")[0]}${contextBlock}`,
     tools: {
       searchEvents,
       getEventDetails,
-      searchNewsletters,
       rankEvents,
       mapNavigate,
       getUserProfile,
       updateUserProfile,
       startFlyover,
+      highlightEvents,
+      getDirectionsTool,
+      startPresentation,
+      changeEventFilter,
     },
 
     stopWhen: stepCountIs(10),

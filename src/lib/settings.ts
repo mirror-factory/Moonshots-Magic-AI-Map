@@ -59,6 +59,7 @@ export const DEFAULT_MODEL: ModelId = "anthropic/claude-sonnet-4.5";
 const STORAGE_KEYS = {
   selectedModel: "moonshots_selected_model",
   apiKey: "moonshots_api_key",
+  chatPinned: "moonshots_chat_pinned",
 } as const;
 
 /**
@@ -126,4 +127,22 @@ export function maskApiKey(apiKey: string): string {
  */
 export function getModelById(modelId: string) {
   return AVAILABLE_MODELS.find((m) => m.id === modelId);
+}
+
+/**
+ * Retrieves the stored chat-pinned preference.
+ * @returns True if chat is pinned open, false otherwise.
+ */
+export function getChatPinned(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(STORAGE_KEYS.chatPinned) === "true";
+}
+
+/**
+ * Stores the chat-pinned preference.
+ * @param pinned - Whether the chat should stay open.
+ */
+export function setChatPinned(pinned: boolean): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEYS.chatPinned, String(pinned));
 }

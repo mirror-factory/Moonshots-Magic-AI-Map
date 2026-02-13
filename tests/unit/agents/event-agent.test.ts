@@ -26,17 +26,20 @@ describe("createEventAgent", () => {
     const expectedToolNames = [
       "searchEvents",
       "getEventDetails",
-      "searchNewsletters",
       "rankEvents",
       "mapNavigate",
       "getUserProfile",
       "updateUserProfile",
       "startFlyover",
+      "highlightEvents",
+      "getDirectionsTool",
+      "startPresentation",
+      "changeEventFilter",
     ];
 
-    it("contains all 8 expected tools", () => {
+    it("contains all 11 expected tools", () => {
       const toolNames = Object.keys(agent.tools);
-      expect(toolNames).toHaveLength(8);
+      expect(toolNames).toHaveLength(11);
       expectedToolNames.forEach((name) => {
         expect(toolNames).toContain(name);
       });
@@ -59,7 +62,6 @@ describe("createEventAgent", () => {
       const serverTools = [
         "searchEvents",
         "getEventDetails",
-        "searchNewsletters",
         "rankEvents",
       ];
       serverTools.forEach((name) => {
@@ -73,6 +75,10 @@ describe("createEventAgent", () => {
         "getUserProfile",
         "updateUserProfile",
         "startFlyover",
+        "highlightEvents",
+        "getDirectionsTool",
+        "startPresentation",
+        "changeEventFilter",
       ];
       clientTools.forEach((name) => {
         expect(agent.tools[name].execute).toBeUndefined();

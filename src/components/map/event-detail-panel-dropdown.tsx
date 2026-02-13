@@ -237,7 +237,7 @@ export function EventDetailPanelDropdown({
 
           {/* Ask Ditto - Primary Action */}
           <Button
-            onClick={() => onAskDitto(event.title)}
+            onClick={() => onAskDitto(`__EVENT__:${event.id}:${event.title}`)}
             className="w-full justify-start gap-3 h-auto py-3"
             style={{
               background: "var(--brand-primary)",

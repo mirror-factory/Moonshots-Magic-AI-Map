@@ -1,7 +1,8 @@
 /**
  * @module components/map/map-markers
  * Renders event data as a GeoJSON multi-layer neon orb stack on the map.
- * Manages the MapLibre source/layer lifecycle and applies category visibility filters.
+ * Shows events matching the active date filter by default (today/weekend/week).
+ * AI highlights override the filter when active.
  *
  * Layer stack (bottom → top):
  * 1. `events-outer-glow` — Large radius, heavy blur, very low opacity (ambient halo)
@@ -16,7 +17,7 @@ import { useEffect } from "react";
 import { useMap } from "./use-map";
 import { eventsToGeoJSON } from "@/lib/map/geojson";
 import { CATEGORY_COLORS } from "@/lib/map/config";
-import type { EventEntry, EventCategory } from "@/lib/registries/types";
+import type { EventEntry } from "@/lib/registries/types";
 import type maplibregl from "maplibre-gl";
 
 /** All marker layer IDs in render order. */
@@ -30,15 +31,24 @@ const MARKER_LAYERS = [
 /** Featured-event extra glow layer ID. */
 const FEATURED_GLOW = "featured-glow-layer";
 
+/** Highlight pulse layer ID. */
+const HIGHLIGHT_PULSE = "events-highlight-pulse";
+
+/** Filter that matches nothing — hides all markers when no events match. */
+const HIDE_ALL_FILTER: maplibregl.ExpressionFilterSpecification = ["==", ["get", "id"], ""];
+
 interface MapMarkersProps {
   events: EventEntry[];
-  visibleCategories: Set<EventCategory>;
   styleLoaded: boolean;
   isDark?: boolean;
+  /** Event IDs currently visible on the map (from date filter or AI highlights). */
+  visibleEventIds?: string[];
+  /** Event IDs currently highlighted by the AI chat (for glow effect). */
+  highlightedEventIds?: string[];
 }
 
-/** Renders events as a 4-layer neon orb stack with category-based colors. */
-export function MapMarkers({ events, visibleCategories, styleLoaded }: MapMarkersProps) {
+/** Renders events as a 4-layer neon orb stack, filtered by visibleEventIds. */
+export function MapMarkers({ events, styleLoaded, isDark, visibleEventIds, highlightedEventIds }: MapMarkersProps) {
   const map = useMap();
 
   // Track hovered feature for featureState-based glow
@@ -76,6 +86,51 @@ export function MapMarkers({ events, visibleCategories, styleLoaded }: MapMarker
     };
   }, [map, styleLoaded]);
 
+  // AI-controlled highlighting: set featureState + pulse layer for highlighted markers
+  useEffect(() => {
+    if (!map || !styleLoaded || !map.getSource("events")) return;
+
+    const isActive = highlightedEventIds && highlightedEventIds.length > 0;
+    const highlightSet = new Set(highlightedEventIds ?? []);
+
+    // Set feature state for highlighted events (for glow brightness)
+    for (const event of events) {
+      const isHighlighted = highlightSet.has(event.id);
+      map.setFeatureState(
+        { source: "events", id: event.id },
+        {
+          highlighted: isActive && isHighlighted,
+          dimmed: false,
+        },
+      );
+    }
+
+    // Add or remove the highlight pulse layer
+    if (isActive) {
+      if (!map.getLayer(HIGHLIGHT_PULSE)) {
+        const colorEntries = Object.entries(CATEGORY_COLORS).flatMap(([cat, color]) => [cat, color]);
+        const colorExpr = ["match", ["get", "category"], ...colorEntries, "#888888"] as unknown as maplibregl.ExpressionSpecification;
+
+        map.addLayer({
+          id: HIGHLIGHT_PULSE,
+          type: "circle",
+          source: "events",
+          filter: ["in", ["get", "id"], ["literal", highlightedEventIds!]],
+          paint: {
+            "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 14, 12, 24, 16, 34],
+            "circle-color": colorExpr,
+            "circle-opacity": 0.2,
+            "circle-blur": 1.0,
+          },
+        });
+      } else {
+        map.setFilter(HIGHLIGHT_PULSE, ["in", ["get", "id"], ["literal", highlightedEventIds!]]);
+      }
+    } else if (map.getLayer(HIGHLIGHT_PULSE)) {
+      map.removeLayer(HIGHLIGHT_PULSE);
+    }
+  }, [map, styleLoaded, highlightedEventIds, events]);
+
   useEffect(() => {
     if (!map || !styleLoaded) return;
 
@@ -104,40 +159,65 @@ export function MapMarkers({ events, visibleCategories, styleLoaded }: MapMarker
         "#888888",
       ] as unknown as maplibregl.ExpressionSpecification;
 
-      // Hover-aware radius/opacity expressions
+      // Hover and highlight aware expressions
       const hoverState = ["boolean", ["feature-state", "hover"], false] as unknown as maplibregl.ExpressionSpecification;
+      const highlightedState = ["boolean", ["feature-state", "highlighted"], false] as unknown as maplibregl.ExpressionSpecification;
 
-      // 1. Outer glow — ambient halo (expands on hover)
+      // Compact glow — smaller, uniform radii so markers don't balloon.
+      const outerRadius: maplibregl.ExpressionSpecification = isDark
+        ? ["interpolate", ["linear"], ["zoom"], 8, 14, 12, 22, 16, 32]
+        : ["interpolate", ["linear"], ["zoom"], 8, 10, 12, 18, 16, 26];
+      const outerBlurBase = isDark ? 1.0 : 1.5;
+      const outerBlurHover = isDark ? 0.8 : 1.2;
+      const outerBase = isDark ? 0.25 : 0.1;
+      const outerHover = isDark ? 0.45 : 0.25;
+      const outerHighlight = isDark ? 0.55 : 0.35;
+
+      const glowRadius: maplibregl.ExpressionSpecification = isDark
+        ? ["interpolate", ["linear"], ["zoom"], 8, 8, 12, 14, 16, 20]
+        : ["interpolate", ["linear"], ["zoom"], 8, 6, 12, 11, 16, 16];
+      const glowBlurBase = isDark ? 0.5 : 0.8;
+      const glowBlurHover = isDark ? 0.3 : 0.5;
+      const glowBase = isDark ? 0.55 : 0.3;
+      const glowHover = isDark ? 0.75 : 0.5;
+      const glowHighlight = isDark ? 0.85 : 0.6;
+
+      const featuredOpacity = isDark ? 0.3 : 0.15;
+      const featuredBlur = isDark ? 1.0 : 1.3;
+
+      // 1. Outer glow — ambient halo (brightens on hover/highlight)
       map.addLayer({
         id: "events-outer-glow",
         type: "circle",
         source: "events",
         paint: {
-          "circle-radius": [
-            "case", hoverState,
-            ["interpolate", ["linear"], ["zoom"], 8, 28, 12, 48, 16, 70],
-            ["interpolate", ["linear"], ["zoom"], 8, 18, 12, 32, 16, 50],
-          ] as unknown as maplibregl.ExpressionSpecification,
+          "circle-radius": outerRadius,
           "circle-color": colorExpr,
-          "circle-opacity": ["case", hoverState, 0.25, 0.12] as unknown as maplibregl.ExpressionSpecification,
-          "circle-blur": 1.5,
+          "circle-opacity": [
+            "case",
+            highlightedState, outerHighlight,
+            hoverState, outerHover,
+            outerBase,
+          ] as unknown as maplibregl.ExpressionSpecification,
+          "circle-blur": ["case", hoverState, outerBlurHover, outerBlurBase] as unknown as maplibregl.ExpressionSpecification,
         },
       });
 
-      // 2. Visible glow (brightens on hover)
+      // 2. Visible glow (brightens on hover/highlight)
       map.addLayer({
         id: "events-glow-layer",
         type: "circle",
         source: "events",
         paint: {
-          "circle-radius": [
-            "case", hoverState,
-            ["interpolate", ["linear"], ["zoom"], 8, 16, 12, 26, 16, 40],
-            ["interpolate", ["linear"], ["zoom"], 8, 10, 12, 18, 16, 28],
-          ] as unknown as maplibregl.ExpressionSpecification,
+          "circle-radius": glowRadius,
           "circle-color": colorExpr,
-          "circle-opacity": ["case", hoverState, 0.55, 0.35] as unknown as maplibregl.ExpressionSpecification,
-          "circle-blur": 0.8,
+          "circle-opacity": [
+            "case",
+            highlightedState, glowHighlight,
+            hoverState, glowHover,
+            glowBase,
+          ] as unknown as maplibregl.ExpressionSpecification,
+          "circle-blur": ["case", hoverState, glowBlurHover, glowBlurBase] as unknown as maplibregl.ExpressionSpecification,
         },
       });
 
@@ -148,10 +228,10 @@ export function MapMarkers({ events, visibleCategories, styleLoaded }: MapMarker
         source: "events",
         filter: ["==", ["get", "featured"], true],
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 28, 12, 48, 16, 70],
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 16, 12, 26, 16, 36],
           "circle-color": colorExpr,
-          "circle-opacity": 0.25,
-          "circle-blur": 1.2,
+          "circle-opacity": featuredOpacity,
+          "circle-blur": featuredBlur,
         },
       });
 
@@ -184,11 +264,10 @@ export function MapMarkers({ events, visibleCategories, styleLoaded }: MapMarker
     };
 
     const applyFilters = () => {
-      const filterExpr: maplibregl.ExpressionFilterSpecification = [
-        "in",
-        ["get", "category"],
-        ["literal", [...visibleCategories]],
-      ];
+      const ids = visibleEventIds ?? [];
+      const filterExpr: maplibregl.ExpressionFilterSpecification = ids.length > 0
+        ? ["in", ["get", "id"], ["literal", ids]] as unknown as maplibregl.ExpressionFilterSpecification
+        : HIDE_ALL_FILTER;
 
       for (const layerId of MARKER_LAYERS) {
         if (map.getLayer(layerId)) {
@@ -197,11 +276,12 @@ export function MapMarkers({ events, visibleCategories, styleLoaded }: MapMarker
       }
 
       if (map.getLayer(FEATURED_GLOW)) {
-        map.setFilter(FEATURED_GLOW, [
-          "all",
-          ["==", ["get", "featured"], true],
-          filterExpr,
-        ] as unknown as maplibregl.ExpressionFilterSpecification);
+        map.setFilter(
+          FEATURED_GLOW,
+          ids.length > 0
+            ? ["all", ["==", ["get", "featured"], true], filterExpr] as unknown as maplibregl.ExpressionFilterSpecification
+            : HIDE_ALL_FILTER,
+        );
       }
     };
 
@@ -212,7 +292,7 @@ export function MapMarkers({ events, visibleCategories, styleLoaded }: MapMarker
     return () => {
       map.off("style.load", addLayers);
     };
-  }, [map, events, visibleCategories, styleLoaded]);
+  }, [map, events, visibleEventIds, styleLoaded, isDark]);
 
   return null;
 }

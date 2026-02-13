@@ -7,8 +7,9 @@
 
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { motion } from "motion/react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { AmbientContext } from "@/lib/context/ambient-context";
 
 interface SuggestionTile {
@@ -103,37 +104,97 @@ export function SuggestionTiles({ onSelect, context = null }: SuggestionTilesPro
     );
   }, [context]);
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollState = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateScrollState();
+    el.addEventListener("scroll", updateScrollState, { passive: true });
+    return () => el.removeEventListener("scroll", updateScrollState);
+  }, [updateScrollState, sortedTiles]);
+
+  const scroll = useCallback((dir: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const amount = el.clientWidth * 0.6;
+    el.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" });
+  }, []);
+
   return (
-    <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-      {sortedTiles.map((tile, i) => (
-        <motion.button
-          key={tile.label}
-          onClick={() => onSelect(tile.query)}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          initial={{ opacity: 0, x: 12 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: i * 0.05 }}
-          className="flex shrink-0 items-start gap-2.5 rounded-xl px-4 py-3 text-left transition-colors"
-          style={{
-            width: "calc(50% - 4px)",
-            background: "var(--glass-bg)",
-            border: "1px solid var(--glass-border)",
-            backdropFilter: "blur(var(--glass-blur))",
-            fontFamily: "var(--font-chakra-petch)",
-          }}
+    <div className="relative">
+      {/* Fade edge — left */}
+      {canScrollLeft && (
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 rounded-l-xl bg-gradient-to-r from-black/20 to-transparent" />
+      )}
+      {/* Fade edge — right */}
+      {canScrollRight && (
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 rounded-r-xl bg-gradient-to-l from-black/20 to-transparent" />
+      )}
+
+      {/* Left arrow */}
+      {canScrollLeft && (
+        <button
+          onClick={() => scroll("left")}
+          className="absolute left-0 top-1/2 z-20 -translate-y-1/2 rounded-full p-1 backdrop-blur-sm transition-opacity hover:opacity-80"
+          style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}
+          aria-label="Scroll left"
         >
-          <span className="text-lg leading-none">{tile.emoji}</span>
-          <div className="min-w-0">
-            <span className="text-sm font-medium" style={{ color: "var(--text)" }}>
-              {tile.label}
-            </span>
-            <p className="mt-0.5 text-[10px] leading-snug" style={{ color: "var(--text-dim)" }}>
-              {tile.subtitle}
-            </p>
-          </div>
-        </motion.button>
-      ))}
+          <ChevronLeft className="h-3.5 w-3.5" style={{ color: "var(--text-dim)" }} />
+        </button>
+      )}
+      {/* Right arrow */}
+      {canScrollRight && (
+        <button
+          onClick={() => scroll("right")}
+          className="absolute right-0 top-1/2 z-20 -translate-y-1/2 rounded-full p-1 backdrop-blur-sm transition-opacity hover:opacity-80"
+          style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}
+          aria-label="Scroll right"
+        >
+          <ChevronRight className="h-3.5 w-3.5" style={{ color: "var(--text-dim)" }} />
+        </button>
+      )}
+
+      <div ref={scrollRef} className="flex gap-2 overflow-x-auto scrollbar-hide">
+        {sortedTiles.map((tile, i) => (
+          <motion.button
+            key={tile.label}
+            onClick={() => onSelect(tile.query)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            initial={{ opacity: 0, x: 12 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: i * 0.05 }}
+            className="flex shrink-0 items-start gap-2.5 rounded-xl px-4 py-3 text-left transition-colors"
+            style={{
+              width: "calc(50% - 4px)",
+              background: "var(--glass-bg)",
+              border: "1px solid var(--glass-border)",
+              backdropFilter: "blur(var(--glass-blur))",
+              fontFamily: "var(--font-chakra-petch)",
+            }}
+          >
+            <span className="text-lg leading-none">{tile.emoji}</span>
+            <div className="min-w-0">
+              <span className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                {tile.label}
+              </span>
+              <p className="mt-0.5 text-[10px] leading-snug" style={{ color: "var(--text-dim)" }}>
+                {tile.subtitle}
+              </p>
+            </div>
+          </motion.button>
+        ))}
+      </div>
     </div>
   );
 }

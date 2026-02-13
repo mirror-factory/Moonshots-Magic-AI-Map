@@ -97,6 +97,15 @@ export function getEvents(filters?: EventFilters): EventEntry[] {
     (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime(),
   );
 
+  // Deduplicate recurring events — keep only the next upcoming occurrence per title
+  const seen = new Set<string>();
+  events = events.filter((e) => {
+    const key = e.title.toLowerCase().trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
   if (filters.offset) {
     events = events.slice(filters.offset);
   }
@@ -195,4 +204,56 @@ export function getEventCategories(): { category: EventCategory; count: number }
  */
 export function getAllEvents(): EventEntry[] {
   return registry.events;
+}
+
+/** Aggregate source statistics for the Event Sources info panel. */
+export interface SourceStats {
+  /** Human-readable label for the source. */
+  label: string;
+  /** Number of events from this source. */
+  count: number;
+  /** Source type key. */
+  type: string;
+}
+
+/** Human-readable labels for each source type. */
+const SOURCE_LABELS: Record<string, string> = {
+  manual: "Seed / Manual",
+  ticketmaster: "Ticketmaster",
+  eventbrite: "Eventbrite",
+  serpapi: "SerpApi (Google Events)",
+  scraper: "Web Scrapers",
+  overpass: "Overpass API",
+  predicthq: "PredictHQ",
+};
+
+/**
+ * Compute event counts grouped by source type, plus registry metadata.
+ *
+ * @returns Object with source breakdown, total count, and last sync timestamp.
+ */
+export function getEventSourceStats(): {
+  sources: SourceStats[];
+  total: number;
+  lastSynced: string;
+} {
+  const counts = new Map<string, number>();
+  for (const event of registry.events) {
+    const type = event.source.type;
+    counts.set(type, (counts.get(type) ?? 0) + 1);
+  }
+
+  const sources = Array.from(counts.entries())
+    .map(([type, count]) => ({
+      label: SOURCE_LABELS[type] ?? type,
+      count,
+      type,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    sources,
+    total: registry.events.length,
+    lastSynced: registry.lastSynced,
+  };
 }

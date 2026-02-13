@@ -8,24 +8,23 @@ import type { EventCategory } from "@/lib/registries/types";
 
 /**
  * Map style URLs by theme.
- * Light: OpenFreeMap Liberty (has 3D building height data via OpenMapTiles schema).
+ * Light: CartoDB Positron GL (clean grayscale, same OpenMapTiles schema — `render_height` works).
  * Dark: CartoDB Dark Matter GL (uses same OpenMapTiles schema — `render_height` works).
- * @see https://openfreemap.org
  * @see https://github.com/CartoDB/basemap-styles
  */
 export const MAP_STYLES_BY_THEME = {
-  light: "https://tiles.openfreemap.org/styles/liberty",
+  light: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
   dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
 } as const;
 
-/** Default map center as `[longitude, latitude]` (Orlando, FL). */
-export const DEFAULT_CENTER: [number, number] = [-81.3792, 28.5383];
+/** Default map center as `[longitude, latitude]` (West of Lake Eola, Downtown Orlando). */
+export const DEFAULT_CENTER: [number, number] = [-81.3780, 28.5431];
 /** Default zoom level on initial load. */
-export const DEFAULT_ZOOM = 10;
-/** Default camera pitch in degrees (flat for performance). */
-export const DEFAULT_PITCH = 0;
-/** Default camera bearing in degrees. */
-export const DEFAULT_BEARING = 0;
+export const DEFAULT_ZOOM = 15;
+/** Default camera pitch in degrees (tilted for 3D buildings). */
+export const DEFAULT_PITCH = 55;
+/** Default camera bearing in degrees (angled for cinematic entry). */
+export const DEFAULT_BEARING = -30;
 
 /** Named locations for the "Quick Navigate" UI. Each has a center and zoom. */
 export const PRESET_LOCATIONS: Record<string, { center: [number, number]; zoom: number }> = {
@@ -43,19 +42,19 @@ export const PRESET_LOCATIONS: Record<string, { center: [number, number]; zoom: 
  * `--category-*` CSS variables defined in `globals.css`.
  */
 export const CATEGORY_COLORS: Record<EventCategory, string> = {
-  music: "#ff6b6b",
-  arts: "#b197fc",
-  sports: "#74c0fc",
-  food: "#ffa94d",
-  tech: "#69db7c",
-  community: "#ffd43b",
-  family: "#f783ac",
-  nightlife: "#b197fc",
-  outdoor: "#69db7c",
-  education: "#74c0fc",
-  festival: "#ff6b6b",
-  market: "#ffa94d",
-  other: "#888888",
+  music: "#5b8def",
+  arts: "#7c9cf0",
+  sports: "#4a90e8",
+  food: "#6a9ff5",
+  tech: "#3d82e6",
+  community: "#88adf4",
+  family: "#7b9eef",
+  nightlife: "#5570d9",
+  outdoor: "#4d95ea",
+  education: "#6089e8",
+  festival: "#6b8ff0",
+  market: "#5e9ae8",
+  other: "#7090c8",
 };
 
 /**

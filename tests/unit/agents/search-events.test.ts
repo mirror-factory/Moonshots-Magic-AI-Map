@@ -30,7 +30,7 @@ describe("searchEvents tool", () => {
       const result = await searchEvents.execute!({
         limit: 50,
       });
-      // All 50 events in the dataset are active, so we should get all of them
+      // Limit caps the result to 50 events
       expect(result.count).toBe(50);
     });
 
@@ -39,7 +39,8 @@ describe("searchEvents tool", () => {
         category: "music",
         limit: 50,
       });
-      expect(result.count).toBe(6);
+      expect(result.count).toBeGreaterThan(0);
+      expect(result.count).toBeLessThanOrEqual(50);
       result.events.forEach((event) => {
         expect(event.category).toBe("music");
       });
@@ -50,9 +51,10 @@ describe("searchEvents tool", () => {
         isFree: true,
         limit: 50,
       });
-      expect(result.count).toBe(21);
+      expect(result.count).toBeGreaterThan(0);
+      expect(result.count).toBeLessThanOrEqual(50);
       result.events.forEach((event) => {
-        expect(event).toHaveProperty("price");
+        expect(event.price?.isFree).toBe(true);
       });
     });
 
@@ -125,17 +127,26 @@ describe("searchEvents tool", () => {
     });
 
     it("combines multiple filters", async () => {
-      const result = await searchEvents.execute!({
+      const musicResult = await searchEvents.execute!({
+        category: "music",
+        limit: 200,
+      });
+      const freeResult = await searchEvents.execute!({
+        isFree: true,
+        limit: 200,
+      });
+      const combined = await searchEvents.execute!({
         category: "music",
         isFree: true,
-        limit: 50,
+        limit: 200,
       });
-      result.events.forEach((event) => {
+      combined.events.forEach((event) => {
         expect(event.category).toBe("music");
+        expect(event.price?.isFree).toBe(true);
       });
       // Free music events should be a subset of both groups
-      expect(result.count).toBeLessThanOrEqual(6); // <= total music
-      expect(result.count).toBeLessThanOrEqual(21); // <= total free
+      expect(combined.count).toBeLessThanOrEqual(musicResult.count);
+      expect(combined.count).toBeLessThanOrEqual(freeResult.count);
     });
   });
 
