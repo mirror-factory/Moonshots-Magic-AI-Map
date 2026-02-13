@@ -192,6 +192,7 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
   const introContext = useIntro();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [hasLocation, setHasLocation] = useState(false);
   const userCoordsRef = useRef<[number, number] | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const [status, setStatus] = useState<MapStatus>({
@@ -228,6 +229,7 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
     const onPosition = (pos: GeolocationPosition) => {
       const coords: [number, number] = [pos.coords.longitude, pos.coords.latitude];
       userCoordsRef.current = coords;
+      setHasLocation(true);
 
       // Wait for style to load before adding marker
       if (map.isStyleLoaded()) {
@@ -282,6 +284,7 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
       (pos) => {
         const coords: [number, number] = [pos.coords.longitude, pos.coords.latitude];
         userCoordsRef.current = coords;
+        setHasLocation(true);
         updateUserLocationMarker(map, coords);
         map.flyTo({
           center: coords,
@@ -369,11 +372,25 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
         </div>
       )}
 
-      {/* ─── TOP RIGHT: Toolbar ─── */}
+      {/* ─── BOTTOM LEFT: Vertical Toolbar ─── */}
       <div
-        className="absolute right-4 top-6 z-20 flex items-center gap-1 rounded-full px-1.5 py-1"
+        className="absolute bottom-4 left-4 z-20 flex flex-col gap-1 rounded-full px-1 py-1.5"
         style={glassPill}
       >
+        {/* My Location (always first) */}
+        <ToolbarButton
+          onClick={flyToCurrentLocation}
+          active={hasLocation}
+          activeColor="#3560FF"
+          mutedColor={iconMuted}
+          label="My location"
+        >
+          {locating ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <LocateFixed className="h-4 w-4" />
+          )}
+        </ToolbarButton>
         {/* 3D Toggle */}
         {onToggle3D && (
           <ToolbarButton
@@ -386,14 +403,14 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
             <Box className="h-4 w-4" />
           </ToolbarButton>
         )}
-        {/* Isochrone Toggle */}
+        {/* Travel Zones (Isochrone) */}
         {onToggleIsochrone && (
           <ToolbarButton
             onClick={onToggleIsochrone}
             active={isochroneActive ?? false}
             activeColor={iconActive}
             mutedColor={iconMuted}
-            label={isochroneActive ? "Hide travel zones" : "Travel zones"}
+            label={isochroneActive ? "Hide travel zones" : "Show travel zones"}
           >
             {isochroneLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -438,26 +455,6 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
         >
           <Settings className="h-4 w-4" />
         </ToolbarButton>
-      </div>
-
-      {/* ─── BOTTOM LEFT: My Location ─── */}
-      <div className="absolute bottom-4 left-4 z-20">
-        <button
-          onClick={flyToCurrentLocation}
-          className="flex h-10 w-10 items-center justify-center rounded-full shadow-lg transition-all hover:scale-105"
-          style={{
-            ...glassPill,
-            color: locating ? "#3560FF" : iconMuted,
-          }}
-          aria-label="Go to my location"
-          title="My location"
-        >
-          {locating ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
-            <LocateFixed className="h-5 w-5" />
-          )}
-        </button>
       </div>
 
       {/* ─── BOTTOM CENTER: Coordinate readout ─── */}

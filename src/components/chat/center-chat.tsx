@@ -11,7 +11,20 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useChat } from "@ai-sdk/react";
 import { lastAssistantMessageIsCompleteWithToolCalls } from "ai";
-import { ChevronDown, Pin, PinOff, Sparkles } from "lucide-react";
+import {
+  ChevronDown,
+  Pin,
+  PinOff,
+  Sparkles,
+  Search,
+  Rocket,
+  Compass,
+  Clapperboard,
+  Lightbulb,
+  Gift,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -81,16 +94,16 @@ interface CenterChatProps {
 }
 
 /** Quick action items for the dropdown menu. */
-const QUICK_ACTIONS = [
-  { id: "search", label: "Find Events", desc: "Search by date, category, vibe", icon: "🔍", color: "#3560FF", prompt: "What events are happening this weekend in Orlando?" },
-  { id: "personalize", label: "Personalize", desc: "Set your preferences", icon: "✨", color: "#8B5CF6", prompt: "" },
-  { id: "flyover", label: "Flyover Tour", desc: "3D cinematic event tour", icon: "🚀", color: "#0EA5E9", prompt: "Take me on a flyover tour of the best events this week" },
-  { id: "directions", label: "Get Directions", desc: "Walking or driving routes", icon: "🧭", color: "#10B981", prompt: "How do I get to the nearest event from downtown Orlando?" },
-  { id: "presentation", label: "Orlando Tour", desc: "Narrated landmarks tour", icon: "🎬", color: "#F59E0B", prompt: "" },
-  { id: "recommend", label: "Recommendations", desc: "Personalized event picks", icon: "💡", color: "#EC4899", prompt: "What events would you recommend for me based on my profile?" },
-  { id: "free", label: "Free Events", desc: "No-cost things to do", icon: "🆓", color: "#14B8A6", prompt: "Show me free events happening this month in Orlando" },
-  { id: "family", label: "Family Friendly", desc: "Kid-friendly activities", icon: "👨‍👩‍👧", color: "#F97316", prompt: "What family-friendly events are happening this week?" },
-] as const;
+const QUICK_ACTIONS: { id: string; label: string; desc: string; Icon: LucideIcon; color: string; prompt: string }[] = [
+  { id: "search", label: "Find Events", desc: "Search by date, category, vibe", Icon: Search, color: "#3560FF", prompt: "What events are happening this weekend in Orlando?" },
+  { id: "personalize", label: "Personalize", desc: "Set your preferences", Icon: Sparkles, color: "#8B5CF6", prompt: "" },
+  { id: "flyover", label: "Flyover Tour", desc: "3D cinematic event tour", Icon: Rocket, color: "#0EA5E9", prompt: "Take me on a flyover tour of the best events this week" },
+  { id: "directions", label: "Get Directions", desc: "Walking or driving routes", Icon: Compass, color: "#10B981", prompt: "How do I get to the nearest event from downtown Orlando?" },
+  { id: "presentation", label: "Orlando Tour", desc: "Narrated landmarks tour", Icon: Clapperboard, color: "#F59E0B", prompt: "" },
+  { id: "recommend", label: "Recommendations", desc: "Personalized event picks", Icon: Lightbulb, color: "#EC4899", prompt: "What events would you recommend for me based on my profile?" },
+  { id: "free", label: "Free Events", desc: "No-cost things to do", Icon: Gift, color: "#14B8A6", prompt: "Show me free events happening this month in Orlando" },
+  { id: "family", label: "Family Friendly", desc: "Kid-friendly activities", Icon: Users, color: "#F97316", prompt: "What family-friendly events are happening this week?" },
+];
 
 /** Center-stage chat bar with expand-upward conversation panel. */
 export function CenterChat({
@@ -526,8 +539,8 @@ export function CenterChat({
                                 }}
                                 className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-xs transition-colors hover:bg-black/5 dark:hover:bg-white/5"
                               >
-                                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-sm" style={{ background: action.color, color: "#fff" }}>
-                                  {action.icon}
+                                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md" style={{ background: action.color, color: "#fff" }}>
+                                  <action.Icon className="h-3.5 w-3.5" />
                                 </span>
                                 <div className="min-w-0">
                                   <div className="font-medium" style={{ color: "var(--text)" }}>{action.label}</div>

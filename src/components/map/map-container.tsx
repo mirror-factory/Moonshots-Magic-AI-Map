@@ -314,12 +314,14 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
       ambientStoppedRef.current = true;
       cancelAnimationFrame(ambientOrbitRef.current);
 
-      // Find events by ID
+      // Find events by ID, cap at 5 to keep flyover concise and avoid TTS overload
+      const MAX_FLYOVER_EVENTS = 5;
       const tourEvents = eventIds
         .map((id) => events.find((e) => e.id === id))
-        .filter((e): e is EventEntry => e !== undefined);
+        .filter((e): e is EventEntry => e !== undefined)
+        .slice(0, MAX_FLYOVER_EVENTS);
 
-      console.log("[Flyover] Found events:", tourEvents.length, "of", eventIds.length);
+      console.log("[Flyover] Found events:", tourEvents.length, "of", eventIds.length, "(max:", MAX_FLYOVER_EVENTS, ")");
 
       if (tourEvents.length < 2) {
         console.warn("[Flyover] Need at least 2 events for a tour, found:", tourEvents.length);
