@@ -37,6 +37,7 @@ export const rankEvents = tool({
         price: e.price,
         tags: e.tags,
         coordinates: e.coordinates,
+        imageUrl: e.imageUrl,
       })),
       criteria,
       requestedLimit: limit,

@@ -58,6 +58,7 @@ export const searchEvents = tool({
         tags: e.tags,
         coordinates: e.coordinates,
         featured: e.featured,
+        imageUrl: e.imageUrl,
       })),
     };
   },

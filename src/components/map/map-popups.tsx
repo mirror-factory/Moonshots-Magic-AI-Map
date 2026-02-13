@@ -37,8 +37,12 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopu
 
   /** Whether a selection (click) is currently active. */
   const isSelectedRef = useRef(false);
-  /** The DOM marker with the X dismiss button. */
-  const dismissMarkerRef = useRef<maplibregl.Marker | null>(null);
+  /** The dismiss button DOM element (screen-space positioned). */
+  const dismissElRef = useRef<HTMLButtonElement | null>(null);
+  /** Coordinates of the currently selected event (for screen projection). */
+  const selectedCoordsRef = useRef<[number, number] | null>(null);
+  /** Stored render handler for cleanup. */
+  const renderHandlerRef = useRef<(() => void) | null>(null);
   /** Animation frame ID for the orbit loop. */
   const orbitFrameRef = useRef<number>(0);
   /** Track selected event ID to prevent re-selecting same event. */
@@ -50,21 +54,26 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopu
     orbitFrameRef.current = 0;
   }, []);
 
-  /** Removes the dismiss (X) marker from the map. */
-  const removeDismissMarker = useCallback(() => {
-    dismissMarkerRef.current?.remove();
-    dismissMarkerRef.current = null;
-  }, []);
+  /** Removes the dismiss (X) button from the DOM and cleans up render listener. */
+  const removeDismissButton = useCallback(() => {
+    if (renderHandlerRef.current && map) {
+      map.off("render", renderHandlerRef.current);
+      renderHandlerRef.current = null;
+    }
+    dismissElRef.current?.remove();
+    dismissElRef.current = null;
+    selectedCoordsRef.current = null;
+  }, [map]);
 
-  /** Clears the entire selection: card, pulse, orbit, X marker. */
+  /** Clears the entire selection: card, pulse, orbit, X button. */
   const clearSelection = useCallback(() => {
     if (!map) return;
     stopOrbit();
     deselectEventHighlight(map);
-    removeDismissMarker();
+    removeDismissButton();
     isSelectedRef.current = false;
     selectedEventIdRef.current = null;
-  }, [map, stopOrbit, removeDismissMarker]);
+  }, [map, stopOrbit, removeDismissButton]);
 
   useEffect(() => {
     if (!map) return;
@@ -144,16 +153,19 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopu
         onOpenDetail(eventId);
       }
 
-      // Add X dismiss marker at the event location
+      // Add screen-space X dismiss button (positioned via map.project())
+      selectedCoordsRef.current = coords;
       const dismissEl = document.createElement("button");
       dismissEl.className = "venue-dismiss-btn";
-      dismissEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+      dismissEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
       dismissEl.style.cssText = `
+        position: absolute;
+        z-index: 10;
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 26px;
-        height: 26px;
+        width: 22px;
+        height: 22px;
         border-radius: 50%;
         background: rgba(0, 0, 0, 0.75);
         border: 1.5px solid rgba(255, 255, 255, 0.3);
@@ -161,25 +173,35 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopu
         cursor: pointer;
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
-        transition: background 0.15s, transform 0.15s;
+        transition: background 0.15s;
+        pointer-events: auto;
       `;
       dismissEl.addEventListener("mouseenter", () => {
         dismissEl.style.background = "rgba(220, 50, 50, 0.85)";
-        dismissEl.style.transform = "scale(1.1)";
       });
       dismissEl.addEventListener("mouseleave", () => {
         dismissEl.style.background = "rgba(0, 0, 0, 0.75)";
-        dismissEl.style.transform = "scale(1)";
       });
       dismissEl.addEventListener("click", (evt) => {
         evt.stopPropagation();
         clearSelection();
       });
+      dismissElRef.current = dismissEl;
 
-      dismissMarkerRef.current = new maplibregl.Marker({ element: dismissEl, anchor: "center" })
-        .setLngLat(coords)
-        .setOffset([0, 0])
-        .addTo(map);
+      // Position helper: projects geo coords to screen and places the X at card top-right
+      const positionDismiss = () => {
+        if (!dismissElRef.current || !selectedCoordsRef.current) return;
+        const pt = map.project(selectedCoordsRef.current);
+        // The canvas card (340×120 at 1× dpr) renders at natural/dpr size.
+        // Position X to the right of center, well above the point.
+        dismissElRef.current.style.left = `${pt.x + 60}px`;
+        dismissElRef.current.style.top = `${pt.y - 100}px`;
+      };
+
+      renderHandlerRef.current = positionDismiss;
+      map.getCanvasContainer().appendChild(dismissEl);
+      positionDismiss();
+      map.on("render", positionDismiss);
 
       // Fly to the event with cinematic pitch
       map.flyTo({
@@ -245,9 +267,9 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopu
       stopOrbit();
       removeHoverCard(map);
       deselectEventHighlight(map);
-      removeDismissMarker();
+      removeDismissButton();
     };
-  }, [map, onAskAbout, onGetDirections, onOpenDetail, clearSelection, stopOrbit, removeDismissMarker]);
+  }, [map, onAskAbout, onGetDirections, onOpenDetail, clearSelection, stopOrbit, removeDismissButton]);
 
   return null;
 }

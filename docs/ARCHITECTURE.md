@@ -84,8 +84,8 @@ src/
 │   │   └── [slug]/page.tsx        # Dynamic capability detail pages
 │   ├── roadmap/page.tsx           # Project roadmap page
 │   ├── globals.css                # CSS variables, light/dark theme
-│   ├── layout.tsx                 # Root layout with ThemeProvider
-│   ├── map-with-chat.tsx          # Client shell: map + chat + theme toggle
+│   ├── layout.tsx                 # Root layout with forced dark ThemeProvider
+│   ├── map-with-chat.tsx          # Client shell: map + chat + event detail bridge
 │   └── page.tsx                   # Home page (RSC, loads events)
 │
 ├── components/
@@ -112,16 +112,20 @@ src/
 │   ├── intro/
 │   │   └── intro-modal.tsx        # First-visit intro modal
 │   ├── map/
-│   │   ├── map-hotspots.tsx       # Heatmap layer from event coordinates
+│   │   ├── directions-panel.tsx   # Turn-by-turn directions panel
 │   │   ├── event-detail.tsx       # Event detail panel (sidebar)
 │   │   ├── event-list-item.tsx    # Event row in sidebar list
 │   │   ├── event-sidebar.tsx      # Collapsible event sidebar
+│   │   ├── events-dropdown.tsx    # Logo-triggered dropdown with event list
 │   │   ├── flyover-overlay.tsx    # Flyover tour HUD overlay
 │   │   ├── map-container.tsx      # MapLibre GL + 3D terrain/buildings
-│   │   ├── map-controls.tsx       # Category filters + quick nav
-│   │   ├── map-markers.tsx        # GeoJSON circle layer management
-│   │   ├── map-popups.tsx         # Click-to-popup with "Ask about this"
-│   │   ├── map-status-bar.tsx     # Viewport coordinate display
+│   │   ├── map-controls.tsx       # Logo dropdown + slide-out sidebar
+│   │   ├── map-directions.tsx     # Route line rendering layer
+│   │   ├── map-hotspots.tsx       # Heatmap layer from event coordinates
+│   │   ├── map-isochrone.tsx      # Travel time zone rendering layer
+│   │   ├── map-markers.tsx        # GeoJSON neon orb circle layer
+│   │   ├── map-popups.tsx         # Canvas card hover/click + persistent selection
+│   │   ├── map-status-bar.tsx     # Filter chips, toolbar, coordinates
 │   │   └── use-map.ts             # MapContext + useMap hook
 │   ├── settings/
 │   │   ├── model-selector.tsx     # AI model picker dropdown
@@ -129,12 +133,16 @@ src/
 │   ├── onboarding/
 │   │   ├── onboarding-flow.tsx    # 5-card conversational onboarding
 │   │   └── vibe-tile-large.tsx    # Large category selection tiles
-│   ├── theme-toggle.tsx           # Light/dark theme switcher
+│   ├── presentation/
+│   │   └── presentation-panel.tsx # Cinematic presentation mode overlay
 │   └── ui/                        # shadcn/ui primitives
 │
 ├── data/
+│   ├── changelog.json             # Version history (feat/fix/chore items)
 │   ├── events.json                # Static event registry data (50 events)
-│   └── newsletters.json           # Static newsletter registry data
+│   ├── newsletters.json           # Static newsletter registry data
+│   ├── presentation-landmarks.ts  # Landmark data for presentation mode
+│   └── roadmap.json               # Project roadmap items
 │
 ├── instrumentation.ts             # AI Gateway provider registration
 │
@@ -142,13 +150,16 @@ src/
     ├── agents/
     │   ├── event-agent.ts         # ToolLoopAgent configuration (8 tools, context-aware)
     │   └── tools/
+    │       ├── get-directions-tool.ts # Client-side (no execute)
     │       ├── get-event-details.ts
-    │       ├── get-user-profile.ts   # Client-side (no execute)
-    │       ├── map-navigate.ts       # Client-side (no execute)
+    │       ├── get-user-profile.ts    # Client-side (no execute)
+    │       ├── highlight-events.ts    # Client-side (no execute)
+    │       ├── map-navigate.ts        # Client-side (no execute)
     │       ├── rank-events.ts
     │       ├── search-events.ts
     │       ├── search-newsletters.ts
-    │       ├── start-flyover.ts      # Client-side (no execute)
+    │       ├── start-flyover.ts       # Client-side (no execute)
+    │       ├── start-presentation.ts  # Client-side (no execute)
     │       └── update-user-profile.ts # Client-side (no execute)
     ├── calendar/
     │   ├── calendar-links.ts      # Google/Apple/Outlook calendar URL builders
@@ -161,7 +172,12 @@ src/
     │   └── flyover-engine.ts      # Flyover state machine (idle→preparing→flying→paused→complete)
     ├── map/
     │   ├── config.ts              # Styles, 3D terrain, colors, labels
-    │   └── geojson.ts             # EventEntry → GeoJSON conversion
+    │   ├── event-filters.ts       # Date preset filters (today, weekend, week, month)
+    │   ├── geojson.ts             # EventEntry → GeoJSON conversion
+    │   ├── isochrone.ts           # Travel time isochrone API client
+    │   ├── routing.ts             # Directions API (OpenRouteService)
+    │   ├── three-layer.ts         # Three.js 3D marker layer
+    │   └── venue-highlight.ts     # Shared canvas card + golden pulse system
     ├── profile.ts                 # User profile types and helpers
     ├── profile-storage.ts         # localStorage profile persistence
     ├── context/
@@ -219,7 +235,14 @@ docs/
 └── TEAM-INFRASTRUCTURE.md         # Hooks, skills, Storybook, CI setup
 
 scripts/
-└── check-stories.sh               # Story coverage check (warning, not blocker)
+├── check-stories.sh               # Story coverage check (warning, not blocker)
+├── download-presentation-images.ts # Download images for presentation mode
+├── generate-presentation-audio.ts  # Generate TTS audio for presentations
+└── sync-events/                    # Multi-source event sync pipeline
+    ├── index.ts                    # Sync orchestrator
+    ├── fetchers/                   # Source fetchers (Ticketmaster, Eventbrite, etc.)
+    ├── normalizers/                # Data normalizers
+    └── utils/                      # Category mapper, dedup, rate limiter
 
 .storybook/
 ├── main.ts                        # Stories glob, react-vite framework, addons
@@ -248,11 +271,14 @@ All theme colors are defined as CSS custom properties in `globals.css`:
 MapLibre GL cannot use CSS variables in expressions. The `CATEGORY_COLORS` map in `config.ts` contains literal hex values that **must** stay synchronized with the `--category-*` CSS variables. If you change a color in one place, update the other.
 
 ### Client-Side Tools
-Four tools have no `execute` function — they are schema-only, streamed to the client:
+Seven tools have no `execute` function — they are schema-only, streamed to the client:
 - `mapNavigate` → rendered by `MapAction` (map flyTo/highlight/fitBounds)
 - `getUserProfile` → reads user preferences from localStorage
 - `updateUserProfile` → saves user preferences to localStorage
 - `startFlyover` → launches a flyover tour via the flyover engine
+- `getDirections` → triggers route line display between two points
+- `highlightEvents` → highlights specific events on the map by ID
+- `startPresentation` → launches a cinematic presentation mode
 
 This pattern allows the LLM to control browser-side features without server access.
 
@@ -268,21 +294,24 @@ The `AmbientContext` engine (`src/lib/context/ambient-context.ts`) gathers time,
 ## Component Architecture
 
 ### Map Layer
-- **MapContainer** → provides `MapContext` (the MapLibre instance)
-  - **MapMarkers** → manages the GeoJSON source and circle layer
-  - **MapPopups** → click handler, popup rendering, "Ask about this" bridge
-  - **MapControls** → category toggles, preset location navigation, legend
-  - **MapStatusBar** → live viewport coordinates
+- **MapContainer** → provides `MapContext` (the MapLibre instance), 3D terrain/buildings
+  - **MapMarkers** → GeoJSON source + neon orb circle layer with filter-based visibility
+  - **MapPopups** → canvas card hover/click with persistent selection + golden pulse orbit
+  - **MapControls** → logo dropdown + slide-out sidebar with event list
+  - **MapStatusBar** → filter chips (Today/Weekend/Week), toolbar, coordinates
+  - **MapDirections** → route line rendering from OpenRouteService
+  - **MapIsochrone** → travel time zone polygon rendering
+  - **MapHotspots** → heatmap layer from event coordinates
 
 ### Chat Layer
-- **ChatPanel** → `useChat` hook, message rendering, tool output routing
-  - **EventCard** / **EventList** → display search and ranking results
-  - **NewsletterCard** → display newsletter search results
+- **CenterChat** → center-stage chat panel with context-aware suggestions
+  - **EventCard** / **EventList** → carousel display with blurred image backgrounds
+  - **NewsletterCard** → newsletter search result card
   - **MapAction** → execute client-side map commands
-  - **ChatTrigger** → FAB shown when chat is closed
+  - **SuggestionTiles** → 2×3 context-aware suggestion grid
 
 ### Bridge
-`MapWithChat` manages the `chatInput` state that connects popup "Ask about this" clicks to the chat panel's input.
+`MapWithChat` manages `chatInput` (popup → chat prefill), `highlightedEventIds` (AI → map filter), and `openDetailHandler` (chat "Learn More" → events dropdown detail view).
 
 ## Adding New Features
 
@@ -337,11 +366,11 @@ See **[docs/FEATURES.md](docs/FEATURES.md)** for a complete registry of all 35 f
 
 ## Completed Milestones
 
-1. ~~Theme system with light/dark toggle~~ ✅
+1. ~~Theme system (forced dark mode)~~ ✅
 2. ~~3D map with terrain and buildings~~ ✅
 3. ~~AI capabilities documentation page at `/docs/ai`~~ ✅
 4. ~~GitHub Action for automated doc generation~~ ✅
-5. ~~Test suite (323 tests, 87% coverage, Vitest + Playwright)~~ ✅
+5. ~~Test suite (406 tests, Vitest + Playwright)~~ ✅
 6. ~~Storybook foundation (6 stories, 18 variants)~~ ✅
 7. ~~Git hooks (commitlint, pre-push typecheck + coverage + docs)~~ ✅
 8. ~~Claude skills (ai-team, feature-testing, commit-docs)~~ ✅
@@ -354,6 +383,12 @@ See **[docs/FEATURES.md](docs/FEATURES.md)** for a complete registry of all 35 f
 15. ~~Map hotspots heatmap layer~~ ✅
 16. ~~Live data adapter pattern (static + Eventbrite multi-source)~~ ✅
 17. ~~Supabase database (4 tables, RLS, full-text search)~~ ✅
+18. ~~Canvas card popups (hover + click with persistent selection + golden pulse)~~ ✅
+19. ~~Venue highlight system (shared module for flyover + popups)~~ ✅
+20. ~~Directions + isochrone layers (OpenRouteService integration)~~ ✅
+21. ~~Date filter chips (Today / Weekend / This Week)~~ ✅
+22. ~~Events dropdown with detail view + sidebar~~ ✅
+23. ~~Chat event card redesign (blurred image backgrounds, "Learn More" → detail)~~ ✅
 
 ## Quality Infrastructure
 
