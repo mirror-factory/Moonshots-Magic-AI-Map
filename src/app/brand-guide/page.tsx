@@ -203,7 +203,7 @@ export default function BrandGuidePage() {
       // Sticky nav fade in on scroll - starts near end of hero, fully visible by color palette
       ScrollTrigger.create({
         trigger: heroRef.current,
-        start: "75% top",
+        start: "40% top",
         end: "bottom top",
         scrub: 0.5,
         onUpdate: (self) => {
@@ -1565,6 +1565,7 @@ export default function BrandGuidePage() {
             {PRESENTATION_LANDMARKS.map((landmark, idx) => (
               <ScrollTimelineItem
                 key={landmark.id}
+                index={idx}
                 year={landmark.year}
                 title={landmark.title}
                 subtitle={landmark.subtitle}
@@ -1920,17 +1921,19 @@ function ScrollTimelineItem({
   subtitle,
   narrative,
   isLast,
+  index,
 }: {
   year: string;
   title: string;
   subtitle: string;
   narrative: string;
   isLast: boolean;
+  index: number;
 }) {
   const itemRef = useRef<HTMLDivElement>(null);
   const dotRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const [isHovered, setIsHovered] = useState(false);
+  const [isActive, setIsActive] = useState(false);
 
   useEffect(() => {
     if (!itemRef.current || !dotRef.current) return;
@@ -1942,6 +1945,7 @@ function ScrollTimelineItem({
         start: "top 70%",
         end: "bottom 30%",
         onEnter: () => {
+          setIsActive(true);
           // Scale the entire item slightly
           gsap.to(itemRef.current, {
             scale: 1.02,
@@ -1960,6 +1964,7 @@ function ScrollTimelineItem({
           });
         },
         onLeave: () => {
+          setIsActive(false);
           gsap.to(itemRef.current, { scale: 1, duration: 0.3 });
           gsap.killTweensOf(dotRef.current);
           gsap.to(dotRef.current, {
@@ -1969,6 +1974,7 @@ function ScrollTimelineItem({
           });
         },
         onEnterBack: () => {
+          setIsActive(true);
           gsap.to(itemRef.current, { scale: 1.02, duration: 0.3, ease: "back.out" });
           gsap.to(dotRef.current, {
             scale: 1.3,
@@ -1980,6 +1986,7 @@ function ScrollTimelineItem({
           });
         },
         onLeaveBack: () => {
+          setIsActive(false);
           gsap.to(itemRef.current, { scale: 1, duration: 0.3 });
           gsap.killTweensOf(dotRef.current);
           gsap.to(dotRef.current, {
@@ -2012,15 +2019,13 @@ function ScrollTimelineItem({
       <div
         ref={contentRef}
         className="relative flex-1 overflow-hidden rounded-xl pb-10 transition-all duration-300"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
         style={{
-          backgroundColor: isHovered ? "rgba(0, 99, 205, 0.08)" : "transparent",
-          padding: isHovered ? "1rem" : "0",
+          backgroundColor: isActive ? "rgba(0, 99, 205, 0.08)" : "transparent",
+          padding: isActive ? "1rem" : "0",
         }}
       >
-        {/* Sparkles on hover */}
-        {isHovered && <Sparkles count={15} />}
+        {/* Sparkles on scroll for second item */}
+        {isActive && index === 1 && <Sparkles count={15} />}
 
         <div
           className="mb-3 inline-block rounded-lg px-4 py-2"
