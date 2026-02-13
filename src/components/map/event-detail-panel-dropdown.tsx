@@ -187,7 +187,7 @@ export function EventDetailPanelDropdown({
         {/* Event Header */}
         <div className="space-y-2 px-6">
           <h2
-            className="oswald-h2 text-sm text-balance leading-tight"
+            className="oswald-h2 text-[11px] text-balance leading-tight"
             style={{ color: "var(--text)" }}
           >
             {event.title}
