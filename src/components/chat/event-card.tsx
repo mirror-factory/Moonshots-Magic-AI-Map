@@ -108,7 +108,7 @@ export function EventCard({ event, onShowOnMap, onOpenDetail }: EventCardProps) 
       <div className="relative z-10 flex h-full flex-col justify-between">
         {/* Title */}
         <h4
-          className="oswald-h4 line-clamp-2 text-xs leading-tight"
+          className="oswald-h4 line-clamp-2 text-[10px] leading-tight"
           style={{ color: "#ffffff" }}
         >
           {event.title}
