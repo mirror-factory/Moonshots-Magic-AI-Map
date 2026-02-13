@@ -165,14 +165,17 @@ interface MapStatusBarProps {
   aiResultsActive?: boolean;
   /** Callback to clear AI search results and restore the date filter. */
   onClearAiResults?: () => void;
+  /** Callback when location is enabled/disabled. True = location available. */
+  onLocationChange?: (enabled: boolean) => void;
 }
 
 /** Map overlay controls — filter chips, toolbar, location button, and coordinate readout. */
-export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalization, isochroneActive, isochroneLoading, onToggleIsochrone, activePreset, onPresetChange, aiResultsActive, onClearAiResults }: MapStatusBarProps) {
+export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalization, isochroneActive, isochroneLoading, onToggleIsochrone, activePreset, onPresetChange, aiResultsActive, onClearAiResults, onLocationChange }: MapStatusBarProps) {
   const map = useMap();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [locating, setLocating] = useState(false);
   const [hasLocation, setHasLocation] = useState(false);
+  const [locationEnabled, setLocationEnabled] = useState(true);
   const [autoRotating, setAutoRotating] = useState(false);
   const autoRotateRef = useRef<number>(0);
   const userCoordsRef = useRef<[number, number] | null>(null);
@@ -244,12 +247,25 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
     };
   }, [map]);
 
-  /** Fly to the user's current location (or request it). */
-  const flyToCurrentLocation = useCallback(() => {
+  /** Toggle location on/off. When on: show marker + fly there. When off: hide marker + notify parent. */
+  const toggleLocation = useCallback(() => {
     if (!map) return;
 
-    // If we already have coordinates, fly there immediately
+    // If location is currently enabled, turn it off
+    if (locationEnabled && hasLocation) {
+      setLocationEnabled(false);
+      removeUserLocationMarker(map);
+      onLocationChange?.(false);
+      return;
+    }
+
+    // Enable location
+    setLocationEnabled(true);
+    onLocationChange?.(true);
+
+    // If we already have coordinates, show marker and fly there
     if (userCoordsRef.current) {
+      updateUserLocationMarker(map, userCoordsRef.current);
       map.flyTo({
         center: userCoordsRef.current,
         zoom: 16,
@@ -281,7 +297,7 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
-  }, [map]);
+  }, [map, locationEnabled, hasLocation, onLocationChange]);
 
   // Auto-rotate animation
   useEffect(() => {
@@ -424,13 +440,13 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
         {/* Divider */}
         <div className="mx-auto h-px w-5" style={{ background: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)" }} />
 
-        {/* My Location */}
+        {/* My Location (toggle) */}
         <ToolbarButton
-          onClick={flyToCurrentLocation}
-          active={hasLocation}
+          onClick={toggleLocation}
+          active={hasLocation && locationEnabled}
           activeColor="#3560FF"
           mutedColor={iconMuted}
-          label="My location"
+          label={locationEnabled ? "Hide my location" : "Show my location"}
         >
           {locating ? (
             <Loader2 className="h-4 w-4 animate-spin" />

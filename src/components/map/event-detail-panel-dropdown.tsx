@@ -25,7 +25,23 @@ import { Separator } from "@/components/ui/separator";
 import { AddToCalendarButton } from "@/components/calendar/add-to-calendar-button";
 import { useToast } from "@/hooks/use-toast";
 import { CATEGORY_LABELS } from "@/lib/map/config";
-import type { EventEntry } from "@/lib/registries/types";
+import type { EventEntry, EventSource } from "@/lib/registries/types";
+
+/** Display labels for event source providers. */
+const SOURCE_LABELS: Record<string, string> = {
+  manual: "Curated",
+  ticketmaster: "Ticketmaster",
+  eventbrite: "Eventbrite",
+  serpapi: "Google Events",
+  scraper: "TKX",
+  predicthq: "PredictHQ",
+  overpass: "OpenStreetMap",
+};
+
+/** Resolves the source type string from an EventSource. */
+function getSourceType(source: EventSource): string {
+  return source.type;
+}
 
 /** Props for the {@link EventDetailPanelDropdown} component. */
 export interface EventDetailPanelDropdownProps {
@@ -222,6 +238,24 @@ export function EventDetailPanelDropdown({
               </div>
             </div>
           </div>
+
+          {/* Source Provider */}
+          {SOURCE_LABELS[getSourceType(event.source)] && (
+            <div className="flex items-center gap-3">
+              <span
+                className="h-5 w-5 flex-shrink-0 flex items-center justify-center text-[10px] font-medium"
+                style={{ color: "var(--text-muted)" }}
+              >
+                ↗
+              </span>
+              <div
+                className="text-xs font-medium"
+                style={{ color: "var(--text-dim)" }}
+              >
+                via {SOURCE_LABELS[getSourceType(event.source)]}
+              </div>
+            </div>
+          )}
 
           {/* Price */}
           {event.price && (

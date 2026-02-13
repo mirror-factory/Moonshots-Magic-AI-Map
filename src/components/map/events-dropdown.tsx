@@ -206,6 +206,11 @@ function VirtualEventList({ events, searchQuery, onEventClick, onShowOnMap }: Vi
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <MapPin className="h-3 w-3 shrink-0" />
                     <span className="truncate">{event.venue}</span>
+                    {SOURCE_LABELS[event.source.type] && (
+                      <span className="ml-auto shrink-0 text-[10px] opacity-50">
+                        {SOURCE_LABELS[event.source.type]}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
@@ -284,6 +289,9 @@ export function EventsDropdown({
   const [sourceFilterOpen, setSourceFilterOpen] = useState(false);
   const [selectedVenues, setSelectedVenues] = useState<Set<string>>(new Set());
   const [venueFilterOpen, setVenueFilterOpen] = useState(false);
+  const [categorySearchQuery, setCategorySearchQuery] = useState("");
+  const [sourceSearchQuery, setSourceSearchQuery] = useState("");
+  const [venueSearchQuery, setVenueSearchQuery] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -632,8 +640,18 @@ export function EventsDropdown({
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-[280px] p-1" align="start" sideOffset={4}>
+                        <div className="p-1.5 pb-1">
+                          <Input
+                            placeholder="Search categories..."
+                            value={categorySearchQuery}
+                            onChange={(e) => setCategorySearchQuery(e.target.value)}
+                            className="h-7 text-xs"
+                          />
+                        </div>
                         <div className="max-h-56 overflow-y-auto">
-                          {availableCategories.map(({ category, count }) => {
+                          {availableCategories.filter(({ category }) =>
+                            CATEGORY_LABELS[category].toLowerCase().includes(categorySearchQuery.toLowerCase())
+                          ).map(({ category, count }) => {
                             const isSelected = selectedCategories.has(category);
                             return (
                               <button
@@ -687,8 +705,18 @@ export function EventsDropdown({
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-[240px] p-1" align="start" sideOffset={4}>
+                          <div className="p-1.5 pb-1">
+                            <Input
+                              placeholder="Search sources..."
+                              value={sourceSearchQuery}
+                              onChange={(e) => setSourceSearchQuery(e.target.value)}
+                              className="h-7 text-xs"
+                            />
+                          </div>
                           <div className="max-h-48 overflow-y-auto">
-                            {availableSources.map(({ source, count }) => {
+                            {availableSources.filter(({ source }) =>
+                              (SOURCE_LABELS[source] ?? source).toLowerCase().includes(sourceSearchQuery.toLowerCase())
+                            ).map(({ source, count }) => {
                               const isSelected = selectedSources.has(source);
                               return (
                                 <button
@@ -743,8 +771,18 @@ export function EventsDropdown({
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-[280px] p-1" align="start" sideOffset={4}>
+                          <div className="p-1.5 pb-1">
+                            <Input
+                              placeholder="Search venues..."
+                              value={venueSearchQuery}
+                              onChange={(e) => setVenueSearchQuery(e.target.value)}
+                              className="h-7 text-xs"
+                            />
+                          </div>
                           <div className="max-h-56 overflow-y-auto">
-                            {availableVenues.map(({ venue, count }) => {
+                            {availableVenues.filter(({ venue }) =>
+                              venue.toLowerCase().includes(venueSearchQuery.toLowerCase())
+                            ).map(({ venue, count }) => {
                               const isSelected = selectedVenues.has(venue);
                               return (
                                 <button

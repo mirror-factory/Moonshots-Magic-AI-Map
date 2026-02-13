@@ -38,6 +38,7 @@ export const rankEvents = tool({
         tags: e.tags,
         coordinates: e.coordinates,
         imageUrl: e.imageUrl,
+        source: e.source,
       })),
       criteria,
       requestedLimit: limit,

@@ -76,11 +76,13 @@ interface MapContainerProps {
   highlightedEventIds?: string[];
   /** Callback to clear AI-highlighted events and restore the date filter. */
   onClearHighlights?: () => void;
+  /** Callback when location is toggled on/off. */
+  onLocationChange?: (enabled: boolean) => void;
   children?: ReactNode;
 }
 
 /** Renders the root map with MapLibre GL and composes child layers. */
-export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirectionsRequest, onFilterChangeRequest, onOpenDetailRequest, onShowOnMapRequest, onStartPersonalization, highlightedEventIds, onClearHighlights, children }: MapContainerProps) {
+export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirectionsRequest, onFilterChangeRequest, onOpenDetailRequest, onShowOnMapRequest, onStartPersonalization, highlightedEventIds, onClearHighlights, onLocationChange, children }: MapContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<maplibregl.Map | null>(null);
   const [styleLoaded, setStyleLoaded] = useState(false);
@@ -844,6 +846,33 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
   return (
     <MapContext value={map}>
       <div className="relative h-full w-full">
+        {/* Corner vignette effect */}
+        <div className="pointer-events-none absolute inset-0 z-10" style={{
+          background: `
+            radial-gradient(ellipse 800px 800px at top left, rgba(0, 0, 0, 0.4) 0%, transparent 50%),
+            radial-gradient(ellipse 800px 800px at top right, rgba(0, 0, 0, 0.4) 0%, transparent 50%),
+            radial-gradient(ellipse 800px 800px at bottom left, rgba(0, 0, 0, 0.4) 0%, transparent 50%),
+            radial-gradient(ellipse 800px 800px at bottom right, rgba(0, 0, 0, 0.4) 0%, transparent 50%)
+          `,
+        }} />
+        {/* Corner blue glows */}
+        <div className="pointer-events-none absolute left-0 top-0 z-10 h-96 w-96 opacity-40" style={{
+          background: "radial-gradient(circle at top left, rgba(0, 99, 205, 0.3) 0%, transparent 60%)",
+          filter: "blur(60px)"
+        }} />
+        <div className="pointer-events-none absolute right-0 top-0 z-10 h-96 w-96 opacity-40" style={{
+          background: "radial-gradient(circle at top right, rgba(0, 99, 205, 0.3) 0%, transparent 60%)",
+          filter: "blur(60px)"
+        }} />
+        <div className="pointer-events-none absolute bottom-0 left-0 z-10 h-96 w-96 opacity-40" style={{
+          background: "radial-gradient(circle at bottom left, rgba(0, 99, 205, 0.3) 0%, transparent 60%)",
+          filter: "blur(60px)"
+        }} />
+        <div className="pointer-events-none absolute bottom-0 right-0 z-10 h-96 w-96 opacity-40" style={{
+          background: "radial-gradient(circle at bottom right, rgba(0, 99, 205, 0.3) 0%, transparent 60%)",
+          filter: "blur(60px)"
+        }} />
+
         <div
           ref={containerRef}
           style={{ position: "absolute", inset: 0 }}
@@ -880,6 +909,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
           onPresetChange={setActivePreset}
           aiResultsActive={aiResultsActive}
           onClearAiResults={onClearHighlights}
+          onLocationChange={onLocationChange}
         />
 
         {/* Directions panel */}

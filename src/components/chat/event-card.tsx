@@ -13,6 +13,17 @@ import type { EventCategory } from "@/lib/registries/types";
 /** Brand primary blue color. */
 const BRAND_BLUE = "#3560FF";
 
+/** Source label mapping for display. */
+const SOURCE_LABELS: Record<string, string> = {
+  manual: "Curated",
+  ticketmaster: "Ticketmaster",
+  eventbrite: "Eventbrite",
+  serpapi: "Google Events",
+  scraper: "TKX",
+  predicthq: "PredictHQ",
+  overpass: "OpenStreetMap",
+};
+
 /** Shape of an event passed to the card. */
 export interface EventCardEvent {
   id: string;
@@ -27,6 +38,7 @@ export interface EventCardEvent {
   tags: string[];
   featured?: boolean;
   imageUrl?: string;
+  source?: { type: string } | string;
 }
 
 /** Props for {@link EventCard}. */
@@ -41,7 +53,7 @@ interface EventCardProps {
 }
 
 /** Fixed-height event card for carousel display. */
-export function EventCard({ event, onOpenDetail }: EventCardProps) {
+export function EventCard({ event, onShowOnMap, onOpenDetail }: EventCardProps) {
   const date = new Date(event.startDate);
   const dateStr = date.toLocaleDateString("en-US", {
     weekday: "short",
@@ -58,6 +70,11 @@ export function EventCard({ event, onOpenDetail }: EventCardProps) {
     : event.price
       ? `$${event.price.min}${event.price.max > event.price.min ? `–$${event.price.max}` : ""}`
       : "";
+
+  const sourceType = typeof event.source === "object" && event.source
+    ? event.source.type
+    : typeof event.source === "string" ? event.source : "";
+  const sourceLabel = SOURCE_LABELS[sourceType] ?? "";
 
   /** Dark blurred background — event image or branded placeholder gradient. */
   const bgImage = event.imageUrl
@@ -78,7 +95,7 @@ export function EventCard({ event, onOpenDetail }: EventCardProps) {
           backgroundImage: bgImage,
           backgroundSize: "cover",
           backgroundPosition: "center",
-          filter: event.imageUrl ? "blur(8px) brightness(0.3)" : "none",
+          filter: event.imageUrl ? "blur(4px) brightness(0.55)" : "none",
           transform: event.imageUrl ? "scale(1.15)" : undefined,
         }}
       />
@@ -87,7 +104,7 @@ export function EventCard({ event, onOpenDetail }: EventCardProps) {
         className="absolute inset-0"
         style={{
           background: event.imageUrl
-            ? "linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.7) 100%)"
+            ? "linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.55) 100%)"
             : "rgba(10, 10, 15, 0.55)",
         }}
       />
@@ -107,6 +124,14 @@ export function EventCard({ event, onOpenDetail }: EventCardProps) {
           <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "rgba(255,255,255,0.6)" }}>
             <MapPin className="h-3 w-3 shrink-0" style={{ color: "rgba(255,255,255,0.4)" }} />
             <span className="truncate">{event.venue}</span>
+            {sourceLabel && (
+              <span
+                className="ml-auto shrink-0 rounded px-1 py-0.5 text-[9px] font-medium"
+                style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}
+              >
+                {sourceLabel}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "rgba(255,255,255,0.6)" }}>
             <Calendar className="h-3 w-3 shrink-0" style={{ color: "rgba(255,255,255,0.4)" }} />
@@ -122,10 +147,15 @@ export function EventCard({ event, onOpenDetail }: EventCardProps) {
           )}
         </div>
 
-        {/* Learn More button — opens event detail in the dropdown */}
-        {onOpenDetail && (
+        {/* Learn More button — opens detail + cinematic show-on-map */}
+        {(onOpenDetail || onShowOnMap) && (
           <button
-            onClick={() => onOpenDetail(event.id)}
+            onClick={() => {
+              if (onOpenDetail) onOpenDetail(event.id);
+              if (onShowOnMap && event.coordinates) {
+                onShowOnMap(event.coordinates, event.title, event.id);
+              }
+            }}
             className="mt-2 w-full rounded-lg py-1.5 text-[11px] font-medium transition-colors hover:opacity-90"
             style={{
               background: BRAND_BLUE,

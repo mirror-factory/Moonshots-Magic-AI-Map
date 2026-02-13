@@ -8,7 +8,7 @@
 
 "use client";
 
-import { useState, useCallback, useRef, useEffect, createContext, useContext } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo, createContext, useContext } from "react";
 import dynamic from "next/dynamic";
 
 const MapContainer = dynamic(
@@ -67,6 +67,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
   const filterChangeHandlerRef = useRef<FilterChangeHandler | null>(null);
   const [highlightedEventIds, setHighlightedEventIds] = useState<string[]>([]);
   const [presentationActive, setPresentationActive] = useState(false);
+  const [locationEnabled, setLocationEnabled] = useState(true);
   const openDetailHandlerRef = useRef<((eventId: string) => void) | null>(null);
   const showOnMapHandlerRef = useRef<((eventId: string) => void) | null>(null);
 
@@ -159,6 +160,10 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
     setHighlightedEventIds([]);
   }, []);
 
+  const handleLocationChange = useCallback((enabled: boolean) => {
+    setLocationEnabled(enabled);
+  }, []);
+
   const handleOpenDetailRequest = useCallback((handler: (eventId: string) => void) => {
     openDetailHandlerRef.current = handler;
   }, []);
@@ -176,6 +181,13 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
   const handleOpenDetail = useCallback((eventId: string) => {
     openDetailHandlerRef.current?.(eventId);
   }, []);
+
+  /** Gate location out of ambient context when user disables it. */
+  const effectiveContext = useMemo<AmbientContext | null>(() => {
+    if (!ambientContext) return null;
+    if (locationEnabled) return ambientContext;
+    return { ...ambientContext, location: null };
+  }, [ambientContext, locationEnabled]);
 
   return (
     <IntroContext.Provider value={{ showIntro: handleShowIntro }}>
@@ -197,6 +209,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
         onShowOnMapRequest={handleShowOnMapRequest}
         highlightedEventIds={highlightedEventIds}
         onClearHighlights={handleClearHighlights}
+        onLocationChange={handleLocationChange}
       >
         <AnimatePresence mode="wait">
           {presentationActive ? (
@@ -220,7 +233,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
               onChangeFilter={handleChangeFilter}
               onShowEventOnMap={handleShowEventOnMap}
               onOpenDetail={handleOpenDetail}
-              ambientContext={ambientContext}
+              ambientContext={effectiveContext}
             />
           )}
         </AnimatePresence>
