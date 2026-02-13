@@ -445,8 +445,8 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
       }
 
       if (state === "flying" && waypoint) {
-        // Update venue highlight to current waypoint
-        updateVenueHighlight(map, waypoint.center);
+        // Update venue highlight to current waypoint with floating image
+        updateVenueHighlight(map, waypoint.center, waypoint.event.imageUrl);
 
         // Fly to waypoint
         await animateToWaypoint(map, waypoint);
@@ -915,14 +915,138 @@ function remove3DLayers(map: maplibregl.Map) {
 const HIGHLIGHT_SOURCE = "venue-highlight-source";
 const HIGHLIGHT_PULSE_LAYER = "venue-highlight-pulse";
 const HIGHLIGHT_GLOW_LAYER = "venue-highlight-glow";
+const HIGHLIGHT_IMAGE_LAYER = "venue-highlight-image";
+const HIGHLIGHT_IMAGE_ID = "venue-highlight-img";
+const HIGHLIGHT_IMG_WIDTH = 140;
+
+/** Module-level animation frame ID for the pulse loop. */
+let pulseAnimFrame: number | null = null;
 
 /**
- * Adds or updates a venue highlight on the map.
- * Creates a pulsing glow effect around the venue location.
+ * Starts a continuous pulsation animation on the venue highlight layers.
+ * Uses requestAnimationFrame for smooth sinusoidal oscillation.
+ * @param map - The MapLibre GL map instance.
+ */
+function startPulseAnimation(map: maplibregl.Map) {
+  stopPulseAnimation();
+
+  const startTime = performance.now();
+
+  const animate = () => {
+    if (!map.getStyle()) { pulseAnimFrame = null; return; }
+
+    const t = (performance.now() - startTime) / 1000;
+    const pulse = Math.sin(t * 2.5) * 0.5 + 0.5; // 0→1 at ~1.25 Hz
+
+    if (map.getLayer(HIGHLIGHT_GLOW_LAYER)) {
+      map.setPaintProperty(HIGHLIGHT_GLOW_LAYER, "circle-radius", 40 + pulse * 40);
+      map.setPaintProperty(HIGHLIGHT_GLOW_LAYER, "circle-opacity", 0.08 + pulse * 0.18);
+    }
+
+    if (map.getLayer(HIGHLIGHT_PULSE_LAYER)) {
+      map.setPaintProperty(HIGHLIGHT_PULSE_LAYER, "circle-radius", 14 + pulse * 14);
+      map.setPaintProperty(HIGHLIGHT_PULSE_LAYER, "circle-opacity", 0.3 + pulse * 0.35);
+      map.setPaintProperty(HIGHLIGHT_PULSE_LAYER, "circle-stroke-opacity", 0.5 + pulse * 0.4);
+    }
+
+    pulseAnimFrame = requestAnimationFrame(animate);
+  };
+
+  pulseAnimFrame = requestAnimationFrame(animate);
+}
+
+/** Stops the venue highlight pulse animation. */
+function stopPulseAnimation() {
+  if (pulseAnimFrame !== null) {
+    cancelAnimationFrame(pulseAnimFrame);
+    pulseAnimFrame = null;
+  }
+}
+
+/**
+ * Loads an event image, clips it to a rounded rectangle with a small stem
+ * pointing downward, and registers it with the MapLibre map instance.
+ * @param map - MapLibre map instance.
+ * @param url - Image URL to load.
+ * @param imageId - ID to register the processed image under.
+ * @returns Promise resolving to true if the image was loaded successfully.
+ */
+async function loadHighlightImage(
+  map: maplibregl.Map,
+  url: string,
+  imageId: string,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const scale = HIGHLIGHT_IMG_WIDTH / img.naturalWidth;
+      const w = HIGHLIGHT_IMG_WIDTH;
+      const h = Math.round(img.naturalHeight * scale);
+      const stemH = 10;
+      const totalH = h + stemH;
+      const radius = 12;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = totalH;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { resolve(false); return; }
+
+      // Draw rounded image
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(0, 0, w, h, radius);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(img, 0, 0, w, h);
+      ctx.restore();
+
+      // Stem connector triangle pointing down toward the dot
+      ctx.beginPath();
+      ctx.moveTo(w / 2 - 7, h - 1);
+      ctx.lineTo(w / 2, h + stemH);
+      ctx.lineTo(w / 2 + 7, h - 1);
+      ctx.closePath();
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.fill();
+
+      // Border around the rounded image
+      ctx.beginPath();
+      ctx.roundRect(0.5, 0.5, w - 1, h - 1, radius);
+      ctx.closePath();
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      const imageData = ctx.getImageData(0, 0, w, totalH);
+
+      if (map.hasImage(imageId)) map.removeImage(imageId);
+      map.addImage(imageId, {
+        width: w,
+        height: totalH,
+        data: new Uint8Array(imageData.data.buffer),
+      });
+
+      resolve(true);
+    };
+    img.onerror = () => resolve(false);
+    img.src = url;
+  });
+}
+
+/**
+ * Adds or updates a venue highlight on the map with a pulsating glow
+ * and an optional floating event image above the orb.
  * @param map - The MapLibre GL map instance.
  * @param coordinates - The venue coordinates [lng, lat].
+ * @param imageUrl - Optional event image URL to float above the marker.
  */
-function updateVenueHighlight(map: maplibregl.Map, coordinates: [number, number]) {
+function updateVenueHighlight(
+  map: maplibregl.Map,
+  coordinates: [number, number],
+  imageUrl?: string,
+) {
   if (!map.getStyle()) return;
 
   const geojson: GeoJSON.FeatureCollection = {
@@ -943,7 +1067,7 @@ function updateVenueHighlight(map: maplibregl.Map, coordinates: [number, number]
   } else {
     map.addSource(HIGHLIGHT_SOURCE, { type: "geojson", data: geojson });
 
-    // Add outer glow layer
+    // Outer glow layer (animated via pulse)
     map.addLayer({
       id: HIGHLIGHT_GLOW_LAYER,
       type: "circle",
@@ -956,30 +1080,69 @@ function updateVenueHighlight(map: maplibregl.Map, coordinates: [number, number]
       },
     });
 
-    // Add pulsing center layer
+    // Center pulse layer (animated via pulse)
     map.addLayer({
       id: HIGHLIGHT_PULSE_LAYER,
       type: "circle",
       source: HIGHLIGHT_SOURCE,
       paint: {
-        "circle-radius": 25,
+        "circle-radius": 20,
         "circle-color": "#FFD700",
-        "circle-opacity": 0.4,
+        "circle-opacity": 0.5,
         "circle-stroke-width": 3,
         "circle-stroke-color": "#FFD700",
         "circle-stroke-opacity": 0.8,
       },
     });
+
+    // Start continuous pulse animation
+    startPulseAnimation(map);
+  }
+
+  // Load event image and add floating image layer above the orb
+  if (imageUrl) {
+    // Remove previous image layer while new one loads
+    if (map.getLayer(HIGHLIGHT_IMAGE_LAYER)) {
+      map.removeLayer(HIGHLIGHT_IMAGE_LAYER);
+    }
+
+    loadHighlightImage(map, imageUrl, HIGHLIGHT_IMAGE_ID).then((ok) => {
+      if (!ok || !map.getStyle() || !map.getSource(HIGHLIGHT_SOURCE)) return;
+
+      // Remove stale layer if somehow re-added
+      if (map.getLayer(HIGHLIGHT_IMAGE_LAYER)) return;
+
+      map.addLayer({
+        id: HIGHLIGHT_IMAGE_LAYER,
+        type: "symbol",
+        source: HIGHLIGHT_SOURCE,
+        layout: {
+          "icon-image": HIGHLIGHT_IMAGE_ID,
+          "icon-size": 1.0,
+          "icon-anchor": "bottom",
+          "icon-offset": [0, -24] as [number, number],
+          "icon-allow-overlap": true,
+        },
+        paint: {
+          "icon-opacity": 0.95,
+        },
+      });
+    });
   }
 }
 
 /**
- * Removes the venue highlight from the map.
+ * Removes the venue highlight (orb, pulse, image) from the map.
  * @param map - The MapLibre GL map instance.
  */
 function removeVenueHighlight(map: maplibregl.Map) {
   if (!map.getStyle()) return;
 
+  stopPulseAnimation();
+
+  if (map.getLayer(HIGHLIGHT_IMAGE_LAYER)) {
+    map.removeLayer(HIGHLIGHT_IMAGE_LAYER);
+  }
   if (map.getLayer(HIGHLIGHT_PULSE_LAYER)) {
     map.removeLayer(HIGHLIGHT_PULSE_LAYER);
   }
@@ -988,6 +1151,9 @@ function removeVenueHighlight(map: maplibregl.Map) {
   }
   if (map.getSource(HIGHLIGHT_SOURCE)) {
     map.removeSource(HIGHLIGHT_SOURCE);
+  }
+  if (map.hasImage(HIGHLIGHT_IMAGE_ID)) {
+    map.removeImage(HIGHLIGHT_IMAGE_ID);
   }
 }
 

@@ -31,6 +31,47 @@ const STORY_BG_LAYER = "presentation-markers-bg";
 const STORY_LABEL_LAYER = "presentation-markers-label";
 const STORY_IMAGE_LAYER = "presentation-markers-image";
 
+/** Module-level animation frame ID for the story marker pulse loop. */
+let storyPulseFrame: number | null = null;
+
+/**
+ * Starts a continuous pulse animation on the story marker glow and dot layers.
+ * @param map - The MapLibre GL map instance.
+ */
+function startStoryPulse(map: maplibregl.Map) {
+  stopStoryPulse();
+  const t0 = performance.now();
+
+  const animate = () => {
+    if (!map.getStyle()) { storyPulseFrame = null; return; }
+
+    const t = (performance.now() - t0) / 1000;
+    const p = Math.sin(t * 2.5) * 0.5 + 0.5; // 0→1 ~1.25 Hz
+
+    if (map.getLayer(STORY_GLOW_LAYER)) {
+      map.setPaintProperty(STORY_GLOW_LAYER, "circle-radius", 16 + p * 16);
+      map.setPaintProperty(STORY_GLOW_LAYER, "circle-opacity", 0.15 + p * 0.2);
+    }
+
+    if (map.getLayer(STORY_DOT_LAYER)) {
+      map.setPaintProperty(STORY_DOT_LAYER, "circle-radius", 6 + p * 3);
+      map.setPaintProperty(STORY_DOT_LAYER, "circle-opacity", 0.75 + p * 0.2);
+    }
+
+    storyPulseFrame = requestAnimationFrame(animate);
+  };
+
+  storyPulseFrame = requestAnimationFrame(animate);
+}
+
+/** Stops the story marker pulse animation. */
+function stopStoryPulse() {
+  if (storyPulseFrame !== null) {
+    cancelAnimationFrame(storyPulseFrame);
+    storyPulseFrame = null;
+  }
+}
+
 /** Orbital angles vary per chapter for visual interest. */
 const ORBITAL_CONFIGS = [
   { degrees: 25, direction: 1 },
@@ -269,6 +310,9 @@ export function PresentationPanel({ onExit }: PresentationPanelProps) {
         "icon-opacity": 0.85,
       },
     });
+
+    // Start pulsation on glow and dot layers
+    startStoryPulse(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map]);
 
@@ -296,6 +340,7 @@ export function PresentationPanel({ onExit }: PresentationPanelProps) {
   /** Remove story markers, image layer, and loaded images from the map. */
   const cleanupStoryMarkers = useCallback(() => {
     if (!map) return;
+    stopStoryPulse();
     [STORY_IMAGE_LAYER, STORY_LABEL_LAYER, STORY_BG_LAYER, STORY_DOT_LAYER, STORY_GLOW_LAYER].forEach((id) => {
       if (map.getLayer(id)) map.removeLayer(id);
     });
