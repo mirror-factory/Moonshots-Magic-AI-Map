@@ -19,10 +19,12 @@ interface EventListProps {
   onShowOnMap?: (coordinates: [number, number], title: string, eventId: string) => void;
   /** Called when user taps "Directions" on a card. */
   onGetDirections?: (coordinates: [number, number], title: string) => void;
+  /** Called when user taps "Learn More" — opens event detail in dropdown. */
+  onOpenDetail?: (eventId: string) => void;
 }
 
 /** Horizontal carousel of event cards with arrows and count indicator. */
-export function EventList({ events, ranked, onShowOnMap, onGetDirections }: EventListProps) {
+export function EventList({ events, ranked, onShowOnMap, onGetDirections, onOpenDetail }: EventListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -119,6 +121,7 @@ export function EventList({ events, ranked, onShowOnMap, onGetDirections }: Even
               event={event}
               onShowOnMap={onShowOnMap}
               onGetDirections={onGetDirections}
+              onOpenDetail={onOpenDetail}
             />
           </div>
         ))}

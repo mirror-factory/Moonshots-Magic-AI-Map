@@ -95,16 +95,14 @@ describe("EventCard", () => {
     expect(screen.queryByText("Featured")).not.toBeInTheDocument();
   });
 
-  it("renders Learn More button when coordinates and onShowOnMap provided", () => {
-    const event = { ...baseEvent, coordinates: [-81.37, 28.54] as [number, number] };
-    const onShowOnMap = vi.fn();
-    render(<EventCard event={event} onShowOnMap={onShowOnMap} />);
+  it("renders Learn More button when onOpenDetail provided", () => {
+    const onOpenDetail = vi.fn();
+    render(<EventCard event={baseEvent} onOpenDetail={onOpenDetail} />);
     expect(screen.getByText("Learn More")).toBeInTheDocument();
   });
 
-  it("does NOT render Learn More button without coordinates", () => {
-    const onShowOnMap = vi.fn();
-    render(<EventCard event={baseEvent} onShowOnMap={onShowOnMap} />);
+  it("does NOT render Learn More button without onOpenDetail", () => {
+    render(<EventCard event={baseEvent} />);
     expect(screen.queryByText("Learn More")).not.toBeInTheDocument();
   });
 });

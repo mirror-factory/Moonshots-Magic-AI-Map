@@ -172,6 +172,11 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
     showOnMapHandlerRef.current?.(eventId);
   }, []);
 
+  /** Open event detail in the events dropdown. */
+  const handleOpenDetail = useCallback((eventId: string) => {
+    openDetailHandlerRef.current?.(eventId);
+  }, []);
+
   return (
     <IntroContext.Provider value={{ showIntro: handleShowIntro }}>
       <OnboardingFlow
@@ -214,6 +219,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
               onStartPresentation={handleStartPresentation}
               onChangeFilter={handleChangeFilter}
               onShowEventOnMap={handleShowEventOnMap}
+              onOpenDetail={handleOpenDetail}
               ambientContext={ambientContext}
             />
           )}

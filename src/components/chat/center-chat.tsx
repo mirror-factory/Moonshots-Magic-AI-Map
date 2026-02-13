@@ -89,6 +89,8 @@ interface CenterChatProps {
   onChangeFilter?: (preset?: DatePreset, category?: EventCategory) => void;
   /** Called for cinematic show-on-map: fly + card + rotation. */
   onShowEventOnMap?: (eventId: string) => void;
+  /** Called to open event detail in the events dropdown. */
+  onOpenDetail?: (eventId: string) => void;
   /** Ambient context for personalization. */
   ambientContext?: AmbientContext | null;
 }
@@ -115,6 +117,7 @@ export function CenterChat({
   onStartPresentation,
   onChangeFilter,
   onShowEventOnMap,
+  onOpenDetail,
   ambientContext = null,
 }: CenterChatProps) {
   const [expanded, setExpanded] = useState(false);
@@ -712,7 +715,7 @@ export function CenterChat({
                                     key={key}
                                     events={output.events as never[]}
                                     onShowOnMap={handleShowOnMap}
-
+                                    onOpenDetail={onOpenDetail}
                                     onGetDirections={handleCardDirections}
                                   />
                                 );
@@ -731,7 +734,7 @@ export function CenterChat({
                                     key={key}
                                     event={part.output as never}
                                     onShowOnMap={handleShowOnMap}
-
+                                    onOpenDetail={onOpenDetail}
                                     onGetDirections={handleCardDirections}
                                   />
                                 );
@@ -764,7 +767,7 @@ export function CenterChat({
                                     events={output.events as never[]}
                                     ranked
                                     onShowOnMap={handleShowOnMap}
-
+                                    onOpenDetail={onOpenDetail}
                                     onGetDirections={handleCardDirections}
                                   />
                                 );

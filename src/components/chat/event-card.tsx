@@ -36,11 +36,12 @@ interface EventCardProps {
   onShowOnMap?: (coordinates: [number, number], title: string, eventId: string) => void;
   /** Called when user taps "Directions". */
   onGetDirections?: (coordinates: [number, number], title: string) => void;
+  /** Called when user taps "Learn More" — opens event detail in dropdown. */
+  onOpenDetail?: (eventId: string) => void;
 }
 
 /** Fixed-height event card for carousel display. */
-export function EventCard({ event, onShowOnMap }: EventCardProps) {
-  const hasCoords = !!event.coordinates;
+export function EventCard({ event, onOpenDetail }: EventCardProps) {
   const date = new Date(event.startDate);
   const dateStr = date.toLocaleDateString("en-US", {
     weekday: "short",
@@ -121,10 +122,10 @@ export function EventCard({ event, onShowOnMap }: EventCardProps) {
           )}
         </div>
 
-        {/* Learn More button */}
-        {hasCoords && onShowOnMap && (
+        {/* Learn More button — opens event detail in the dropdown */}
+        {onOpenDetail && (
           <button
-            onClick={() => onShowOnMap(event.coordinates!, event.title, event.id)}
+            onClick={() => onOpenDetail(event.id)}
             className="mt-2 w-full rounded-lg py-1.5 text-[11px] font-medium transition-colors hover:opacity-90"
             style={{
               background: BRAND_BLUE,

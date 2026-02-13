@@ -168,9 +168,11 @@ export async function loadHighlightImage(
         ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
         ctx.fillText(truncateText(ctx, info.source, textMaxW), textX, 78);
 
-        ctx.font = "bold 13px sans-serif";
-        ctx.fillStyle = info.price === "Free" ? "#00D4AA" : "#66AAF0";
-        ctx.fillText(info.price, textX, 98);
+        if (info.price) {
+          ctx.font = "bold 13px sans-serif";
+          ctx.fillStyle = info.price === "Free" ? "#00D4AA" : "#66AAF0";
+          ctx.fillText(info.price, textX, 98);
+        }
       }
 
       // Stem connector triangle
@@ -394,7 +396,7 @@ export function buildCardInfo(props: {
     ? "Free"
     : props.price
       ? `$${props.price.min}${props.price.max > props.price.min ? `–$${props.price.max}` : ""}`
-      : "See details";
+      : "";
 
   return {
     title: props.title ?? "",
