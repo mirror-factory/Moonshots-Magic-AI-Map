@@ -188,14 +188,13 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopu
       });
       dismissElRef.current = dismissEl;
 
-      // Position helper: projects geo coords to screen and places the X at card top-right
+      // Position helper: projects geo coords to screen and places the X at the golden orb
       const positionDismiss = () => {
         if (!dismissElRef.current || !selectedCoordsRef.current) return;
         const pt = map.project(selectedCoordsRef.current);
-        // The canvas card (340×120 at 1× dpr) renders at natural/dpr size.
-        // Position X to the right of center, well above the point.
-        dismissElRef.current.style.left = `${pt.x + 60}px`;
-        dismissElRef.current.style.top = `${pt.y - 100}px`;
+        // Place X at the top-right edge of the golden pulse orb (radius ~20px)
+        dismissElRef.current.style.left = `${pt.x + 5}px`;
+        dismissElRef.current.style.top = `${pt.y - 27}px`;
       };
 
       renderHandlerRef.current = positionDismiss;
