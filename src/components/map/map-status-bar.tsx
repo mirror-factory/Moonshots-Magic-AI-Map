@@ -9,9 +9,10 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
+import maplibregl from "maplibre-gl";
 import { Sun, Moon, Settings, Play, Box, Clock, Loader2, X, LocateFixed } from "lucide-react";
 import { useMap } from "./use-map";
 import { useIntro } from "@/app/map-with-chat";
@@ -37,6 +38,132 @@ function useMounted() {
     () => true,
     () => false
   );
+}
+
+// ── User Location Marker ──────────────────────────────────────────────
+const USER_LOC_SOURCE = "user-location-source";
+const USER_LOC_GLOW = "user-location-glow";
+const USER_LOC_DOT = "user-location-dot";
+const USER_LOC_LABEL = "user-location-label";
+
+/** Color for the user location marker — teal to distinguish from event markers. */
+const USER_LOC_COLOR = "#00D4AA";
+
+/** Module-level animation frame ID for the user location pulse. */
+let userLocPulseFrame: number | null = null;
+
+/** Starts a continuous pulse animation on the user location marker. */
+function startUserLocPulse(map: maplibregl.Map) {
+  stopUserLocPulse();
+  const t0 = performance.now();
+
+  const animate = () => {
+    if (!map.getStyle()) { userLocPulseFrame = null; return; }
+    const t = (performance.now() - t0) / 1000;
+    const p = Math.sin(t * 2) * 0.5 + 0.5;
+
+    if (map.getLayer(USER_LOC_GLOW)) {
+      map.setPaintProperty(USER_LOC_GLOW, "circle-radius", 20 + p * 20);
+      map.setPaintProperty(USER_LOC_GLOW, "circle-opacity", 0.1 + p * 0.15);
+    }
+    if (map.getLayer(USER_LOC_DOT)) {
+      map.setPaintProperty(USER_LOC_DOT, "circle-radius", 6 + p * 2);
+    }
+
+    userLocPulseFrame = requestAnimationFrame(animate);
+  };
+
+  userLocPulseFrame = requestAnimationFrame(animate);
+}
+
+/** Stops the user location pulse animation. */
+function stopUserLocPulse() {
+  if (userLocPulseFrame !== null) {
+    cancelAnimationFrame(userLocPulseFrame);
+    userLocPulseFrame = null;
+  }
+}
+
+/**
+ * Creates or updates the user location marker on the map.
+ * @param map - MapLibre map instance.
+ * @param coords - [lng, lat] coordinates.
+ */
+function updateUserLocationMarker(map: maplibregl.Map, coords: [number, number]) {
+  if (!map.getStyle()) return;
+
+  const geojson: GeoJSON.FeatureCollection = {
+    type: "FeatureCollection",
+    features: [{
+      type: "Feature",
+      geometry: { type: "Point", coordinates: coords },
+      properties: { label: "You are here" },
+    }],
+  };
+
+  const source = map.getSource(USER_LOC_SOURCE) as maplibregl.GeoJSONSource | undefined;
+  if (source) {
+    source.setData(geojson);
+    return;
+  }
+
+  map.addSource(USER_LOC_SOURCE, { type: "geojson", data: geojson });
+
+  map.addLayer({
+    id: USER_LOC_GLOW,
+    type: "circle",
+    source: USER_LOC_SOURCE,
+    paint: {
+      "circle-radius": 30,
+      "circle-color": USER_LOC_COLOR,
+      "circle-opacity": 0.15,
+      "circle-blur": 1,
+    },
+  });
+
+  map.addLayer({
+    id: USER_LOC_DOT,
+    type: "circle",
+    source: USER_LOC_SOURCE,
+    paint: {
+      "circle-radius": 7,
+      "circle-color": USER_LOC_COLOR,
+      "circle-opacity": 0.95,
+      "circle-stroke-width": 2.5,
+      "circle-stroke-color": "#FFFFFF",
+      "circle-stroke-opacity": 1,
+    },
+  });
+
+  map.addLayer({
+    id: USER_LOC_LABEL,
+    type: "symbol",
+    source: USER_LOC_SOURCE,
+    layout: {
+      "text-field": ["get", "label"],
+      "text-size": 11,
+      "text-offset": [0, 1.6],
+      "text-anchor": "top",
+      "text-font": ["Open Sans Bold"],
+    },
+    paint: {
+      "text-color": USER_LOC_COLOR,
+      "text-halo-color": "rgba(0, 0, 0, 0.7)",
+      "text-halo-width": 2,
+    },
+  });
+
+  startUserLocPulse(map);
+}
+
+/** Removes all user location marker layers and source from the map. */
+function removeUserLocationMarker(map: maplibregl.Map) {
+  if (!map.getStyle()) return;
+  stopUserLocPulse();
+  for (const id of [USER_LOC_LABEL, USER_LOC_DOT, USER_LOC_GLOW]) {
+    if (map.getLayer(id)) map.removeLayer(id);
+  }
+  if (map.getSource(USER_LOC_SOURCE)) map.removeSource(USER_LOC_SOURCE);
 }
 
 /** Props for {@link MapStatusBar}. */
@@ -65,6 +192,8 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
   const introContext = useIntro();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [locating, setLocating] = useState(false);
+  const userCoordsRef = useRef<[number, number] | null>(null);
+  const watchIdRef = useRef<number | null>(null);
   const [status, setStatus] = useState<MapStatus>({
     lat: 28.5383,
     lng: -81.3792,
@@ -92,16 +221,73 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
     };
   }, [map]);
 
-  /** Fly the map to the user's current GPS location. */
-  const flyToCurrentLocation = () => {
+  // Persistent geolocation tracking — always show "You are here" marker
+  useEffect(() => {
     if (!map || !navigator.geolocation) return;
+
+    const onPosition = (pos: GeolocationPosition) => {
+      const coords: [number, number] = [pos.coords.longitude, pos.coords.latitude];
+      userCoordsRef.current = coords;
+
+      // Wait for style to load before adding marker
+      if (map.isStyleLoaded()) {
+        updateUserLocationMarker(map, coords);
+      } else {
+        map.once("load", () => updateUserLocationMarker(map, coords));
+      }
+    };
+
+    const onError = () => {
+      // Geolocation unavailable — no marker
+    };
+
+    // Get initial position, then watch for updates
+    navigator.geolocation.getCurrentPosition(onPosition, onError, {
+      enableHighAccuracy: true,
+      timeout: 15000,
+    });
+
+    watchIdRef.current = navigator.geolocation.watchPosition(onPosition, onError, {
+      enableHighAccuracy: true,
+      maximumAge: 30000,
+    });
+
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+      removeUserLocationMarker(map);
+    };
+  }, [map]);
+
+  /** Fly to the user's current location (or request it). */
+  const flyToCurrentLocation = useCallback(() => {
+    if (!map) return;
+
+    // If we already have coordinates, fly there immediately
+    if (userCoordsRef.current) {
+      map.flyTo({
+        center: userCoordsRef.current,
+        zoom: 16,
+        pitch: 50,
+        duration: 1800,
+      });
+      return;
+    }
+
+    // Otherwise request fresh position
+    if (!navigator.geolocation) return;
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        const coords: [number, number] = [pos.coords.longitude, pos.coords.latitude];
+        userCoordsRef.current = coords;
+        updateUserLocationMarker(map, coords);
         map.flyTo({
-          center: [pos.coords.longitude, pos.coords.latitude],
-          zoom: 15,
-          duration: 2000,
+          center: coords,
+          zoom: 16,
+          pitch: 50,
+          duration: 1800,
         });
         setLocating(false);
       },
@@ -110,7 +296,7 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
-  };
+  }, [map]);
 
   const isDark = mounted && resolvedTheme === "dark";
 

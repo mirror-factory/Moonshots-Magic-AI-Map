@@ -346,9 +346,43 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
           console.log("[Flyover] Intro audio finished");
         });
 
-      // Prepare AI-generated narratives and audio in parallel
+      // OPTIMIZATION: Generate audio from basic narratives IMMEDIATELY
+      // so buffers are ready by the time the camera reaches each waypoint.
+      // AI-narrated audio (generated in parallel) replaces these when ready.
+      console.log("[Flyover] Starting immediate audio generation for", started.waypoints.length, "waypoints");
+      const basicAudioPromise = Promise.all(
+        started.waypoints.map(async (wp) => {
+          try {
+            const audioBuffer = await generateAudioBuffer(wp.narrative);
+            return { eventId: wp.eventId, narrative: wp.narrative, audioBuffer };
+          } catch {
+            return { eventId: wp.eventId, narrative: wp.narrative, audioBuffer: null as ArrayBuffer | null };
+          }
+        }),
+      );
+
+      // Update waypoints when basic audio is ready
+      basicAudioPromise.then((results) => {
+        if (flyoverAbortRef.current) return;
+        setFlyoverProgress((prev) => {
+          if (!prev) return null;
+          // Only update waypoints that don't already have audio (AI may have beaten us)
+          const updates = results
+            .filter((r) => r.audioBuffer)
+            .map((r) => ({
+              index: prev.waypoints.findIndex((w) => w.eventId === r.eventId),
+              narrative: r.narrative,
+              audioBuffer: r.audioBuffer!,
+            }))
+            .filter((u) => u.index >= 0 && !prev.waypoints[u.index].audioBuffer);
+          if (updates.length === 0) return prev;
+          console.log("[Flyover] Basic audio ready for", updates.length, "waypoints");
+          return updateWaypointAudio(prev, updates);
+        });
+      });
+
+      // In parallel, prepare AI-generated narratives for higher quality audio
       try {
-        // Call narration API for AI-generated narratives
         const narrateResponse = await fetch("/api/flyover/narrate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -371,9 +405,9 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
             narratives: Array<{ eventId: string; narrative: string }>;
           };
 
-          console.log("[Flyover] Received", narratives.length, "AI narratives");
+          console.log("[Flyover] Received", narratives.length, "AI narratives, generating audio");
 
-          // Generate audio for all narratives in parallel
+          // Generate audio for AI narratives in parallel (replaces basic audio)
           const audioPromises = narratives.map(async ({ eventId, narrative }) => {
             const audioBuffer = await generateAudioBuffer(narrative);
             return { eventId, narrative, audioBuffer };
@@ -381,14 +415,14 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
 
           const audioResults = await Promise.all(audioPromises);
 
-          // Update waypoints with new narratives and audio
+          // Replace with AI-narrated audio
           if (!flyoverAbortRef.current) {
             setFlyoverProgress((prev) => {
               if (!prev) return null;
 
               const updates = audioResults.map((result) => {
                 const waypointIndex = prev.waypoints.findIndex(
-                  (w) => w.eventId === result.eventId
+                  (w) => w.eventId === result.eventId,
                 );
                 return {
                   index: waypointIndex,
@@ -400,12 +434,12 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
               return updateWaypointAudio(prev, updates);
             });
 
-            console.log("[Flyover] Audio pipeline ready");
+            console.log("[Flyover] AI audio pipeline ready");
           }
         }
       } catch (error) {
-        console.error("[Flyover] Failed to prepare audio:", error);
-        // Continue with basic narratives - the tour will still work
+        console.error("[Flyover] AI narrative generation failed:", error);
+        // Basic audio is already generating — tour continues with fallback
       }
     },
     [map, styleLoaded, events, mode3D],
