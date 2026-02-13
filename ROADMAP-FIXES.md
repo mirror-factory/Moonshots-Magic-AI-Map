@@ -2,21 +2,21 @@
 
 ## Flyover & Map Markers
 
-- [ ] **F1** — Redesign flyover floating card: image on left, title/venue/date/source/price on right (replace current image-only card above orb)
-- [ ] **F2** — Fix flyover audio: all events generate audio in parallel immediately, cap flyover at 5 events max
+- [x] **F1** — Redesign flyover floating card: image on left, title/venue/date/source/price on right (replace current image-only card above orb)
+- [x] **F2** — Fix flyover audio: all events generate audio in parallel immediately, cap flyover at 5 events max
 - [ ] **F3** — Handle Cartesia "too many concurrent requests" — add retry/queue for TTS
 - [ ] **F4** — Fix flyover sometimes stuck on keyhole and not moving to events
-- [ ] **F5** — Make flyover card above dot bigger overall with text info
+- [x] **F5** — Make flyover card above dot bigger overall with text info
 
 ## Filters & Top Bar
 
-- [ ] **T1** — Add venue filter dropdown (multi-select with checkmarks, like categories)
+- [x] **T1** — Add venue filter dropdown (multi-select with checkmarks, like categories)
 - [ ] **T2** — Redesign top bar into segmented filter groups: Dates (All/Today/Weekend/Week/Month/Custom) | Event Types | Venues | Distance radius
 - [ ] **T3** — Quick actions visible by default on right side of chat input (not hidden behind icon)
-- [ ] **T4** — Replace emojis with Lucide icons in Quick Actions menu (still showing emojis)
-- [ ] **T5** — Move toolbar (3D/theme/play/etc.) to bottom-left, vertical layout, add location button, tooltips on hover
+- [x] **T4** — Replace emojis with Lucide icons in Quick Actions menu (still showing emojis)
+- [x] **T5** — Move toolbar (3D/theme/play/etc.) to bottom-left, vertical layout, add location button, tooltips on hover
 - [ ] **T6** — Explain/improve clock icon (isochrone) — currently confusing UI
-- [ ] **T7** — Location button turns blue when active/permissioned
+- [x] **T7** — Location button turns blue when active/permissioned
 
 ## Data Quality & Links
 
@@ -38,7 +38,7 @@
 
 ## Onboarding
 
-- [ ] **O1** — Replace all emojis with Lucide icons in onboarding flow
-- [ ] **O2** — Preserve pre-existing context (name, preferences) when reopening onboarding
-- [ ] **O3** — Add "Clear Preferences" button below "Let's Go" with confirmation modal
-- [ ] **O4** — Add X button in top-right corner to skip/close onboarding
+- [x] **O1** — Replace all emojis with Lucide icons in onboarding flow
+- [x] **O2** — Preserve pre-existing context (name, preferences) when reopening onboarding
+- [x] **O3** — Add "Clear Preferences" button below "Let's Go" with confirmation modal
+- [x] **O4** — Add X button in top-right corner to skip/close onboarding

@@ -10,7 +10,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import Image from "next/image";
-import { Play, Pause, SkipForward, X, Volume2, VolumeX } from "lucide-react";
+import { Play, Pause, SkipForward, X, Volume2, VolumeX, Sparkles } from "lucide-react";
 import type maplibregl from "maplibre-gl";
 import { useMap } from "@/components/map/use-map";
 import {
@@ -142,6 +142,8 @@ async function loadRoundedGrayscaleImage(
 interface PresentationPanelProps {
   /** Callback to exit presentation mode. */
   onExit: () => void;
+  /** Callback to open Ditto chat with presentation context. */
+  onAskDitto?: (context: string) => void;
 }
 
 /**
@@ -185,7 +187,7 @@ function playPreGeneratedAudio(landmarkId: string): {
  * Full-height right panel with chronological timeline, TTS narration,
  * and map story markers that build up as chapters progress.
  */
-export function PresentationPanel({ onExit }: PresentationPanelProps) {
+export function PresentationPanel({ onExit, onAskDitto }: PresentationPanelProps) {
   const map = useMap();
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [state, setState] = useState<PresentationState>("idle");
@@ -848,6 +850,23 @@ export function PresentationPanel({ onExit }: PresentationPanelProps) {
               >
                 <SkipForward className="h-3.5 w-3.5" />
               </button>
+              <div className="mx-0.5 h-4 w-px bg-white/15" />
+              {onAskDitto && (
+                <button
+                  onClick={() => {
+                    const ctx = landmark
+                      ? `I'm viewing "${landmark.title}" (${landmark.year}) in the Orlando presentation. ${landmark.narrative.slice(0, 200)}`
+                      : "I'm watching the Orlando history presentation.";
+                    onAskDitto(ctx);
+                  }}
+                  className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-80"
+                  style={{ background: "var(--brand-primary, #3560FF)" }}
+                  title="Ask Ditto about this topic"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Ask Ditto
+                </button>
+              )}
               <div className="mx-0.5 h-4 w-px bg-white/15" />
               <button
                 onClick={handleExit}

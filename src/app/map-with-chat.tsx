@@ -188,7 +188,14 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
       >
         <AnimatePresence mode="wait">
           {presentationActive ? (
-            <PresentationPanel key="presentation" onExit={handleEndPresentation} />
+            <PresentationPanel
+              key="presentation"
+              onExit={handleEndPresentation}
+              onAskDitto={(context) => {
+                handleEndPresentation();
+                setChatInput(context);
+              }}
+            />
           ) : (
             <CenterChat
               key="chat"

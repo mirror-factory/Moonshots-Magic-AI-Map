@@ -52,10 +52,15 @@ function buildContextBlock(context?: AgentAmbientContext | null): string {
     lines.push(`- Weather: ${context.weather.temp}°F, ${context.weather.condition}`);
   }
 
+  if (context.location) {
+    lines.push(`- User Location: ${context.location.lat.toFixed(4)}, ${context.location.lng.toFixed(4)}`);
+  }
+
   lines.push("");
   lines.push("DELIGHT TRIGGERS (Power of Moments):");
   lines.push("- Event starts within 2 hours → mention urgency");
   lines.push("- Great weather + outdoor events → highlight them");
+  lines.push("- User location available → mention nearby events and proximity");
   lines.push("- First interaction of the day → lead with something unexpected");
   lines.push("- Occasionally suggest outside usual preferences to spark discovery");
 
