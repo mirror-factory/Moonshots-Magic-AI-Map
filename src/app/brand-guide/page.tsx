@@ -585,7 +585,7 @@ export default function BrandGuidePage() {
       </div>
 
       {/* TALLER Hero Section with Planets */}
-      <section className="relative flex min-h-[95vh] flex-col justify-center overflow-hidden px-6 py-16 md:py-20">
+      <section className="relative flex min-h-[50vh] flex-col justify-center overflow-hidden px-6 py-16 sm:min-h-[60vh] md:min-h-[95vh] md:py-20">
         {/* Three-column Background with Independent Motion */}
         {showBackgroundImages && (
           <div className="background-images absolute inset-0 z-0 flex flex-col md:flex-row">
