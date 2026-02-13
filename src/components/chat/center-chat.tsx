@@ -23,6 +23,7 @@ import {
   Lightbulb,
   Gift,
   Users,
+  Loader2,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -845,6 +846,18 @@ export function CenterChat({
                             }
 
                             if (part.type === "tool-getDirectionsTool") {
+                              if (part.state === "call" || part.state === "partial-call") {
+                                return (
+                                  <div
+                                    key={key}
+                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
+                                    style={{ background: "var(--surface-2)", color: "var(--text-dim)" }}
+                                  >
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: "var(--brand-primary)" }} />
+                                    Locating you and finding route...
+                                  </div>
+                                );
+                              }
                               if (part.state === "output-available") {
                                 const output = part.output as { destination: string };
                                 return (

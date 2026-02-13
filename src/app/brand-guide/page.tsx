@@ -618,8 +618,8 @@ export default function BrandGuidePage() {
             <div
               className="absolute inset-y-0 right-0 w-48 md:w-64 lg:w-80"
               style={{
-                background: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 70%, rgba(0,0,0,0.6) 100%)",
-                filter: "blur(40px)",
+                background: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.3) 70%, rgba(0,0,0,0.4) 100%)",
+                filter: "blur(60px)",
                 pointerEvents: "none",
               }}
             />
@@ -654,8 +654,8 @@ export default function BrandGuidePage() {
             <div
               className="absolute inset-y-0 left-0 w-48 md:w-64 lg:w-80"
               style={{
-                background: "linear-gradient(to left, transparent 0%, rgba(0,0,0,0.4) 70%, rgba(0,0,0,0.6) 100%)",
-                filter: "blur(40px)",
+                background: "linear-gradient(to left, transparent 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.3) 70%, rgba(0,0,0,0.4) 100%)",
+                filter: "blur(60px)",
                 pointerEvents: "none",
               }}
             />
@@ -663,8 +663,8 @@ export default function BrandGuidePage() {
             <div
               className="absolute inset-y-0 right-0 w-48 md:w-64 lg:w-80"
               style={{
-                background: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 70%, rgba(0,0,0,0.6) 100%)",
-                filter: "blur(40px)",
+                background: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.3) 70%, rgba(0,0,0,0.4) 100%)",
+                filter: "blur(60px)",
                 pointerEvents: "none",
               }}
             />
@@ -699,8 +699,8 @@ export default function BrandGuidePage() {
             <div
               className="absolute inset-y-0 left-0 w-48 md:w-64 lg:w-80"
               style={{
-                background: "linear-gradient(to left, transparent 0%, rgba(0,0,0,0.4) 70%, rgba(0,0,0,0.6) 100%)",
-                filter: "blur(40px)",
+                background: "linear-gradient(to left, transparent 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.3) 70%, rgba(0,0,0,0.4) 100%)",
+                filter: "blur(60px)",
                 pointerEvents: "none",
               }}
             />

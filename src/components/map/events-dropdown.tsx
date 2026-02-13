@@ -498,6 +498,8 @@ export function EventsDropdown({
         </PopoverTrigger>
 
         <PopoverContent
+          onInteractOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
           className="grain-texture w-[440px] border-border/40 bg-card/95 p-0 shadow-2xl backdrop-blur-xl"
           align="start"
           sideOffset={12}
