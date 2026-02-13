@@ -519,7 +519,7 @@ export function EventsDropdown({
               <div className="border-b border-border/40 px-6 py-5">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h2 className="mb-1 text-lg font-semibold text-foreground">
+                    <h2 className="oswald-h2 mb-1 text-lg text-foreground">
                       {aiResultsActive
                         ? "Search Results"
                         : activePreset === "today"
@@ -616,7 +616,7 @@ export function EventsDropdown({
                   {/* Category multi-select dropdown */}
                   <div>
                     <div className="mb-2 flex items-center justify-between">
-                      <span className="text-xs font-medium text-muted-foreground">Category</span>
+                      <span className="oswald-h4 text-xs text-muted-foreground">Category</span>
                       {activeFilterCount > 0 && (
                         <button
                           onClick={clearAllFilters}
@@ -690,7 +690,7 @@ export function EventsDropdown({
                   {/* Source/provider multi-select dropdown */}
                   {availableSources.length > 1 && (
                     <div>
-                      <span className="mb-2 block text-xs font-medium text-muted-foreground">Source</span>
+                      <span className="oswald-h4 mb-2 block text-xs text-muted-foreground">Source</span>
                       <Popover open={sourceFilterOpen} onOpenChange={setSourceFilterOpen}>
                         <PopoverTrigger asChild>
                           <Button
@@ -756,7 +756,7 @@ export function EventsDropdown({
                   {/* Venue multi-select dropdown */}
                   {availableVenues.length > 1 && (
                     <div>
-                      <span className="mb-2 block text-xs font-medium text-muted-foreground">Venue</span>
+                      <span className="oswald-h4 mb-2 block text-xs text-muted-foreground">Venue</span>
                       <Popover open={venueFilterOpen} onOpenChange={setVenueFilterOpen}>
                         <PopoverTrigger asChild>
                           <Button
@@ -821,7 +821,7 @@ export function EventsDropdown({
 
                   {/* Custom date range */}
                   <div>
-                    <span className="mb-2 block text-xs font-medium text-muted-foreground">
+                    <span className="oswald-h4 mb-2 block text-xs text-muted-foreground">
                       Custom Date Range
                     </span>
                     <div className="flex items-center gap-2">

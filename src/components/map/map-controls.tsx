@@ -171,7 +171,7 @@ export function MapControls({
             <div className="p-4">
               <div className="mb-3">
                 <h3
-                  className="text-xs font-medium uppercase tracking-wider"
+                  className="oswald-h4 text-xs uppercase tracking-wider"
                   style={{ color: "var(--text-muted)" }}
                 >
                   Quick Navigate

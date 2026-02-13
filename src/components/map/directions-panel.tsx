@@ -54,7 +54,7 @@ export function DirectionsPanel({
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border-color)" }}>
         <div className="flex items-center gap-2">
           <Navigation className="h-4 w-4" style={{ color: "var(--brand-primary)" }} />
-          <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+          <span className="oswald-h4 text-sm" style={{ color: "var(--text)" }}>
             Directions
           </span>
         </div>

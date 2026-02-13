@@ -187,7 +187,7 @@ export function EventDetailPanelDropdown({
         {/* Event Header */}
         <div className="space-y-2 px-6">
           <h2
-            className="text-xl font-bold text-balance leading-tight"
+            className="oswald-h2 text-xl text-balance leading-tight"
             style={{ color: "var(--text)" }}
           >
             {event.title}
@@ -264,7 +264,7 @@ export function EventDetailPanelDropdown({
               <Separator />
             </div>
             <div className="space-y-2 px-6">
-              <h3 className="font-semibold text-sm" style={{ color: "var(--text)" }}>
+              <h3 className="oswald-h4 text-sm" style={{ color: "var(--text)" }}>
                 About this event
               </h3>
               <p
@@ -284,7 +284,7 @@ export function EventDetailPanelDropdown({
         style={{ borderColor: "var(--border-color)" }}
       >
         <span
-          className="text-xs font-semibold mr-auto"
+          className="oswald-h4 text-xs mr-auto"
           style={{ color: "var(--text-muted)" }}
         >
           Quick Actions
@@ -318,13 +318,12 @@ export function EventDetailPanelDropdown({
         )}
 
         {/* Add to Calendar */}
-        <div className="[&_button]:h-8 [&_button]:w-8 [&_button]:p-0">
-          <AddToCalendarButton
-            event={event}
-            variant="outline"
-            size="icon"
-          />
-        </div>
+        <AddToCalendarButton
+          event={event}
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 bg-transparent"
+        />
 
         {/* Share Event */}
         <Button

@@ -132,7 +132,7 @@ export function EventDetail({ event, onBack, onShowOnMap, onAskAI }: EventDetail
         <div className="space-y-4 p-4">
           {/* Title */}
           <h2
-            className="text-lg font-semibold leading-tight"
+            className="oswald-h2 text-lg leading-tight"
             style={{ color: "var(--text)" }}
           >
             {event.title}

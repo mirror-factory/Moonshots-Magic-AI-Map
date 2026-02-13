@@ -65,7 +65,7 @@ export function EventListItem({ event, onClick }: EventListItemProps) {
       {/* Title and Category */}
       <div className="flex items-start justify-between gap-2">
         <h4
-          className="line-clamp-2 text-sm font-medium leading-tight"
+          className="oswald-h4 line-clamp-2 text-sm leading-tight"
           style={{ color: "var(--text)" }}
         >
           {event.title}
