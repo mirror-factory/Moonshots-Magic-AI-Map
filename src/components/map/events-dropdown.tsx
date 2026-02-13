@@ -18,6 +18,7 @@ import {
   Sparkles,
   Filter,
   ExternalLink,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +32,17 @@ import type { EventEntry, EventCategory } from "@/lib/registries/types";
 import { CATEGORY_LABELS } from "@/lib/map/config";
 import { EventDetailPanelDropdown } from "./event-detail-panel-dropdown";
 import { type DatePreset, DATE_PRESET_LABELS } from "@/lib/map/event-filters";
+
+/** Display labels for event source providers. */
+const SOURCE_LABELS: Record<string, string> = {
+  manual: "Curated",
+  ticketmaster: "Ticketmaster",
+  eventbrite: "Eventbrite",
+  serpapi: "Google Events",
+  scraper: "Web Scraper",
+  predicthq: "PredictHQ",
+  overpass: "OpenStreetMap",
+};
 
 // ---------------------------------------------------------------------------
 // Props
@@ -266,7 +278,10 @@ export function EventsDropdown({
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<EventEntry | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<EventCategory | null>(null);
+  const [selectedCategories, setSelectedCategories] = useState<Set<EventCategory>>(new Set());
+  const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
+  const [selectedSources, setSelectedSources] = useState<Set<string>>(new Set());
+  const [sourceFilterOpen, setSourceFilterOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -284,9 +299,14 @@ export function EventsDropdown({
   const filteredEvents = useMemo(() => {
     let filtered = baseEvents;
 
-    // Category filter
-    if (selectedCategory) {
-      filtered = filtered.filter((e) => e.category === selectedCategory);
+    // Category filter (multi-select)
+    if (selectedCategories.size > 0) {
+      filtered = filtered.filter((e) => selectedCategories.has(e.category));
+    }
+
+    // Source/provider filter (multi-select)
+    if (selectedSources.size > 0) {
+      filtered = filtered.filter((e) => selectedSources.has(e.source.type));
     }
 
     // Custom date range filter
@@ -311,10 +331,10 @@ export function EventsDropdown({
     }
 
     return filtered;
-  }, [baseEvents, searchQuery, selectedCategory, dateFrom, dateTo]);
+  }, [baseEvents, searchQuery, selectedCategories, selectedSources, dateFrom, dateTo]);
 
   const activeFilterCount =
-    (selectedCategory ? 1 : 0) + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0);
+    selectedCategories.size + selectedSources.size + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0);
 
   /** Available categories derived from the base events. */
   const availableCategories = useMemo(() => {
@@ -325,6 +345,17 @@ export function EventsDropdown({
     return Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1])
       .map(([cat, count]) => ({ category: cat, count }));
+  }, [baseEvents]);
+
+  /** Available source providers derived from the base events. */
+  const availableSources = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of baseEvents) {
+      counts.set(e.source.type, (counts.get(e.source.type) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([source, count]) => ({ source, count }));
   }, [baseEvents]);
 
   // ---- Handlers ----
@@ -341,14 +372,16 @@ export function EventsDropdown({
     setOpen(false);
     setSelectedEvent(null);
     setSearchQuery("");
-    setSelectedCategory(null);
+    setSelectedCategories(new Set());
+    setSelectedSources(new Set());
     setDateFrom("");
     setDateTo("");
     setShowFilters(false);
   }, []);
 
   const clearAllFilters = useCallback(() => {
-    setSelectedCategory(null);
+    setSelectedCategories(new Set());
+    setSelectedSources(new Set());
     setDateFrom("");
     setDateTo("");
   }, []);
@@ -552,7 +585,7 @@ export function EventsDropdown({
               {/* Expandable filter panel */}
               {showFilters && (
                 <div className="space-y-3 border-b border-border/40 px-6 py-3">
-                  {/* Category chips */}
+                  {/* Category multi-select dropdown */}
                   <div>
                     <div className="mb-2 flex items-center justify-between">
                       <span className="text-xs font-medium text-muted-foreground">Category</span>
@@ -565,36 +598,112 @@ export function EventsDropdown({
                         </button>
                       )}
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {availableCategories.map(({ category, count }) => (
-                        <button
-                          key={category}
-                          onClick={() =>
-                            setSelectedCategory((prev) =>
-                              prev === category ? null : category,
-                            )
-                          }
-                          className="rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-all hover:opacity-80"
-                          style={{
-                            background:
-                              selectedCategory === category
-                                ? "hsl(var(--primary))"
-                                : "transparent",
-                            color:
-                              selectedCategory === category
-                                ? "hsl(var(--primary-foreground))"
-                                : "hsl(var(--muted-foreground))",
-                            border:
-                              selectedCategory === category
-                                ? "1px solid transparent"
-                                : "1px solid hsl(var(--border) / 0.5)",
-                          }}
+                    <Popover open={categoryFilterOpen} onOpenChange={setCategoryFilterOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full justify-between gap-2 bg-background/50 text-xs"
                         >
-                          {CATEGORY_LABELS[category]} ({count})
-                        </button>
-                      ))}
-                    </div>
+                          {selectedCategories.size > 0
+                            ? `${selectedCategories.size} selected`
+                            : "All categories"}
+                          <ChevronDown className={`h-3 w-3 transition-transform ${categoryFilterOpen ? "rotate-180" : ""}`} />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[280px] p-1" align="start" sideOffset={4}>
+                        <div className="max-h-56 overflow-y-auto">
+                          {availableCategories.map(({ category, count }) => {
+                            const isSelected = selectedCategories.has(category);
+                            return (
+                              <button
+                                key={category}
+                                onClick={() => {
+                                  setSelectedCategories((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(category)) next.delete(category);
+                                    else next.add(category);
+                                    return next;
+                                  });
+                                }}
+                                className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs transition-colors hover:bg-accent/50"
+                              >
+                                <span
+                                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded border"
+                                  style={{
+                                    background: isSelected ? "hsl(var(--primary))" : "transparent",
+                                    borderColor: isSelected ? "hsl(var(--primary))" : "hsl(var(--border))",
+                                  }}
+                                >
+                                  {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                                </span>
+                                <span className="flex-1 font-medium" style={{ color: "hsl(var(--foreground))" }}>
+                                  {CATEGORY_LABELS[category]}
+                                </span>
+                                <span className="text-muted-foreground">{count}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
+
+                  {/* Source/provider multi-select dropdown */}
+                  {availableSources.length > 1 && (
+                    <div>
+                      <span className="mb-2 block text-xs font-medium text-muted-foreground">Source</span>
+                      <Popover open={sourceFilterOpen} onOpenChange={setSourceFilterOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full justify-between gap-2 bg-background/50 text-xs"
+                          >
+                            {selectedSources.size > 0
+                              ? `${selectedSources.size} selected`
+                              : "All sources"}
+                            <ChevronDown className={`h-3 w-3 transition-transform ${sourceFilterOpen ? "rotate-180" : ""}`} />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[240px] p-1" align="start" sideOffset={4}>
+                          <div className="max-h-48 overflow-y-auto">
+                            {availableSources.map(({ source, count }) => {
+                              const isSelected = selectedSources.has(source);
+                              return (
+                                <button
+                                  key={source}
+                                  onClick={() => {
+                                    setSelectedSources((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(source)) next.delete(source);
+                                      else next.add(source);
+                                      return next;
+                                    });
+                                  }}
+                                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs transition-colors hover:bg-accent/50"
+                                >
+                                  <span
+                                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded border"
+                                    style={{
+                                      background: isSelected ? "hsl(var(--primary))" : "transparent",
+                                      borderColor: isSelected ? "hsl(var(--primary))" : "hsl(var(--border))",
+                                    }}
+                                  >
+                                    {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                                  </span>
+                                  <span className="flex-1 font-medium" style={{ color: "hsl(var(--foreground))" }}>
+                                    {SOURCE_LABELS[source] ?? source}
+                                  </span>
+                                  <span className="text-muted-foreground">{count}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  )}
 
                   {/* Custom date range */}
                   <div>
