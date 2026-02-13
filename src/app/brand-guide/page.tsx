@@ -40,6 +40,112 @@ if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 }
 
+/** Generates complete brand guide as Markdown. */
+function generateBrandGuideMarkdown(): string {
+  return `# Moonshots & Magic — Brand Guide v1.0
+
+## Overview
+A narrative-driven event discovery platform that tells the story of a region built on ambition and wonder. From rockets to castles, from Fort Gatlin to Artemis, we help people experience Orlando through the lens of its impossible, improbable transformation.
+
+## Color Palette
+
+### Primary Colors
+- **Brand Primary**: #0063CD (Blue) - Kennedy Space Center blue, used for accents, CTAs, and highlights
+- **Background**: #050505 (Dark) / #FFFFFF (Light)
+- **Text**: #E5E5E5 (Light) / #1A1A1A (Dark)
+- **Text Dim**: #888888 - Secondary text, labels
+
+### UI Colors
+- **Surface**: rgba(255, 255, 255, 0.03) - Cards, panels
+- **Border**: rgba(255, 255, 255, 0.1) - Dividers, outlines
+- **Glass Background**: rgba(10, 10, 15, 0.6)
+- **Glass Border**: rgba(255, 255, 255, 0.08)
+
+## Typography
+
+### Fonts
+- **Display**: Oswald Black (900), ALL CAPS, letter-spacing: -0.03em
+- **Body**: Inter, weight 400-600
+- **Code**: Chakra Petch, monospace alternative
+
+### Scale
+- H1: 4rem (64px) - Page titles
+- H2: 3rem (48px) - Section headers
+- H3: 1.5rem (24px) - Subsections
+- Body: 1rem (16px)
+- Small: 0.875rem (14px)
+
+## Logo Usage
+- Primary: White text with blue ampersand
+- Dark mode: Blue text with white ampersand
+- Minimum size: 120px width
+- Clear space: 20px on all sides
+
+## UI Patterns
+
+### Glassmorphism
+- Background: rgba(10, 10, 15, 0.6)
+- Backdrop filter: blur(24px)
+- Border: 1px solid rgba(255, 255, 255, 0.08)
+- Border radius: 12px
+
+### Buttons
+- Primary: Blue (#0063CD) with white text
+- Secondary: Transparent with 5% white background
+- Border radius: 9999px (fully rounded)
+- Padding: 12px 20px
+
+## Animations
+
+### Timing
+- UI interactions: 300-800ms
+- Scroll animations: 0.6-1.5s
+- Easing: power2.out (general), back.out (scale effects)
+
+### Effects
+- Grain texture: 4-6% opacity
+- Sparkles: 15-50 count depending on context
+- Pulsating elements: 1.3x scale, sine.inOut easing
+
+## The Orlando Narrative
+
+**Moonshots**: Cape Canaveral, Kennedy Space Center, SpaceX — the engineering ambition that sent humans to the Moon and continues to push boundaries.
+
+**Magic**: Walt Disney World, Universal, EPCOT — the belief that wonder is engineered, not accidental.
+
+**Together**: A region that marries ambition with imagination.
+
+## Voice & Tone
+
+### Do
+✓ Use active voice and present tense
+✓ Reference the Orlando timeline when relevant
+✓ Connect events to the moonshots & magic narrative
+✓ Balance technical precision with storytelling warmth
+
+### Don't
+✗ Use corporate jargon or buzzwords
+✗ Oversimplify the science or engineering
+✗ Ignore the human side of the story
+✗ Be cynical or dismissive
+
+## Quick Reference
+- Primary Blue: #0063CD
+- Dark BG: #050505
+- Light BG: #FFFFFF
+- Font (Display): Oswald Black (900), ALL CAPS
+- Font (Body): Inter
+- Border Radius: 10-16px (default: 12px)
+- Blur Amount: 24px
+- Animation Duration: 300-800ms (UI), 0.6-1.5s (scroll)
+- Grain Opacity: 4% (light), 6% (dark)
+
+---
+
+**Maintained by Mirror Factory • 2026**
+`;
+}
+
 /** Animated logo component - lights up each letter/element sequentially. */
 function AnimatedLogo({ className, width = 750, height = 250 }: { className?: string; width?: number; height?: number }) {
   const logoRef = useRef<SVGSVGElement>(null);
@@ -121,6 +227,15 @@ export default function BrandGuidePage() {
     return saved !== null ? JSON.parse(saved) : true;
   });
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showToast, setShowToast] = useState(true);
+
+  // Auto-hide toast after 8 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowToast(false);
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Save preferences to localStorage
   const toggleBackgroundImages = () => {
@@ -1641,6 +1756,45 @@ export default function BrandGuidePage() {
               </tbody>
             </table>
           </div>
+
+          {/* Downloads */}
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
+            <a
+              href="/.claude/skills/brand-guide/SKILL.md"
+              download="moonshots-magic-brand-guide.md"
+              className="animate-card flex items-center gap-4 rounded-xl border border-border-color bg-surface p-6 transition-all hover:scale-105 hover:border-brand-primary"
+            >
+              <Download className="h-8 w-8" style={{ color: "var(--brand-primary)" }} />
+              <div className="text-left">
+                <h4 className="font-semibold" style={{ color: "var(--text)" }}>Brand Guide for AI</h4>
+                <p className="text-sm" style={{ color: "var(--text-dim)" }}>
+                  Upload to any AI agent or system
+                </p>
+              </div>
+            </a>
+
+            <button
+              onClick={() => {
+                const markdown = generateBrandGuideMarkdown();
+                const blob = new Blob([markdown], { type: "text/markdown" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "moonshots-magic-brand-guide-full.md";
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="animate-card flex items-center gap-4 rounded-xl border border-border-color bg-surface p-6 transition-all hover:scale-105 hover:border-brand-primary"
+            >
+              <Download className="h-8 w-8" style={{ color: "var(--brand-primary)" }} />
+              <div className="text-left">
+                <h4 className="font-semibold" style={{ color: "var(--text)" }}>Complete Brand Guide</h4>
+                <p className="text-sm" style={{ color: "var(--text-dim)" }}>
+                  Full Markdown documentation
+                </p>
+              </div>
+            </button>
+          </div>
         </Section>
       </div>
 
@@ -1683,6 +1837,34 @@ export default function BrandGuidePage() {
           </p>
         </div>
       </footer>
+
+      {/* Toast Notification */}
+      {showToast && (
+        <a
+          href="/.claude/skills/brand-guide/SKILL.md"
+          download="moonshots-magic-brand-guide.md"
+          onClick={() => setShowToast(false)}
+          className="fixed bottom-6 left-1/2 z-[200] -translate-x-1/2 animate-in slide-in-from-bottom-4 fade-in duration-500"
+          style={{
+            animation: showToast ? "slideUp 0.5s ease-out" : "slideDown 0.3s ease-in",
+          }}
+        >
+          <div
+            className="flex items-center gap-3 rounded-full px-6 py-3 shadow-2xl transition-all hover:scale-105"
+            style={{
+              background: "rgba(0, 99, 205, 0.95)",
+              backdropFilter: "blur(12px)",
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              boxShadow: "0 8px 32px rgba(0, 99, 205, 0.4)",
+            }}
+          >
+            <Download className="h-5 w-5 text-white" />
+            <span className="font-medium text-white">
+              Tap here to download brand guide for AI
+            </span>
+          </div>
+        </a>
+      )}
     </div>
   );
 }
