@@ -74,6 +74,8 @@ interface CenterChatProps {
   onStartPresentation?: () => void;
   /** Called to change the active date/category filter on the map. */
   onChangeFilter?: (preset?: DatePreset, category?: EventCategory) => void;
+  /** Called to open the event detail panel for a specific event. */
+  onOpenEventDetail?: (eventId: string) => void;
   /** Ambient context for personalization. */
   ambientContext?: AmbientContext | null;
 }
@@ -99,6 +101,7 @@ export function CenterChat({
   onHighlightEvents,
   onStartPresentation,
   onChangeFilter,
+  onOpenEventDetail,
   ambientContext = null,
 }: CenterChatProps) {
   const [expanded, setExpanded] = useState(false);
@@ -110,22 +113,14 @@ export function CenterChat({
   const greetingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const map = useMap();
 
-  /** Show an event on the map at standard zoom. */
+  /** Show an event on the map and open its detail card. */
   const handleShowOnMap = useCallback(
-    (coordinates: [number, number], _title?: string) => {
+    (coordinates: [number, number], _title?: string, eventId?: string) => {
       void _title;
-      map?.flyTo({ center: coordinates, zoom: 14, duration: 1500 });
+      map?.flyTo({ center: coordinates, zoom: 15, duration: 1500 });
+      if (eventId) onOpenEventDetail?.(eventId);
     },
-    [map],
-  );
-
-  /** Fly to an event at close zoom. */
-  const handleFlyTo = useCallback(
-    (coordinates: [number, number], _title?: string) => {
-      void _title;
-      map?.flyTo({ center: coordinates, zoom: 17, duration: 2000, pitch: 45 });
-    },
-    [map],
+    [map, onOpenEventDetail],
   );
 
   /** Trigger directions from the card. */
@@ -699,7 +694,7 @@ export function CenterChat({
                                     key={key}
                                     events={output.events as never[]}
                                     onShowOnMap={handleShowOnMap}
-                                    onFlyTo={handleFlyTo}
+
                                     onGetDirections={handleCardDirections}
                                   />
                                 );
@@ -718,7 +713,7 @@ export function CenterChat({
                                     key={key}
                                     event={part.output as never}
                                     onShowOnMap={handleShowOnMap}
-                                    onFlyTo={handleFlyTo}
+
                                     onGetDirections={handleCardDirections}
                                   />
                                 );
@@ -751,7 +746,7 @@ export function CenterChat({
                                     events={output.events as never[]}
                                     ranked
                                     onShowOnMap={handleShowOnMap}
-                                    onFlyTo={handleFlyTo}
+
                                     onGetDirections={handleCardDirections}
                                   />
                                 );

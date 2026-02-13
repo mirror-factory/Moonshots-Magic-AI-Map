@@ -18,6 +18,7 @@ export interface EventFeatureProperties {
   isFree: boolean;
   featured: boolean;
   imageUrl: string;
+  url: string;
 }
 
 /**
@@ -49,6 +50,7 @@ export function eventsToGeoJSON(
         isFree: event.price?.isFree ?? false,
         featured: event.featured ?? false,
         imageUrl: event.imageUrl ?? "",
+        url: event.url ?? "",
       },
     })),
   };

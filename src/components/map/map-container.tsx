@@ -61,6 +61,8 @@ interface MapContainerProps {
   onDirectionsRequest?: (handler: (coordinates: [number, number]) => void) => void;
   /** Registers a handler for AI-driven filter changes. */
   onFilterChangeRequest?: (handler: (preset?: DatePreset, category?: EventCategory) => void) => void;
+  /** Registers a handler that opens an event detail from external callers. */
+  onOpenDetailRequest?: (handler: (eventId: string) => void) => void;
   onStartPersonalization?: () => void;
   /** Event IDs currently highlighted by the AI chat. */
   highlightedEventIds?: string[];
@@ -70,7 +72,7 @@ interface MapContainerProps {
 }
 
 /** Renders the root map with MapLibre GL and composes child layers. */
-export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirectionsRequest, onFilterChangeRequest, onStartPersonalization, highlightedEventIds, onClearHighlights, children }: MapContainerProps) {
+export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirectionsRequest, onFilterChangeRequest, onOpenDetailRequest, onStartPersonalization, highlightedEventIds, onClearHighlights, children }: MapContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<maplibregl.Map | null>(null);
   const [styleLoaded, setStyleLoaded] = useState(false);
@@ -660,6 +662,11 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
     onFilterChangeRequest?.(handleFilterChange);
   }, [onFilterChangeRequest, handleFilterChange]);
 
+  // Register open-detail handler with parent
+  useEffect(() => {
+    onOpenDetailRequest?.(handleOpenDetail);
+  }, [onOpenDetailRequest, handleOpenDetail]);
+
   const handleDirectionsProfileChange = useCallback(
     (profile: TravelProfile) => {
       setDirectionsProfile(profile);
@@ -951,7 +958,9 @@ const HIGHLIGHT_PULSE_LAYER = "venue-highlight-pulse";
 const HIGHLIGHT_GLOW_LAYER = "venue-highlight-glow";
 const HIGHLIGHT_IMAGE_LAYER = "venue-highlight-image";
 const HIGHLIGHT_IMAGE_ID = "venue-highlight-img";
-const HIGHLIGHT_IMG_WIDTH = 140;
+const HIGHLIGHT_IMG_WIDTH = 180;
+const HIGHLIGHT_IMG_MAX_HEIGHT = 120;
+const HIGHLIGHT_IMG_MIN_HEIGHT = 80;
 
 /** Module-level animation frame ID for the pulse loop. */
 let pulseAnimFrame: number | null = null;
@@ -1014,12 +1023,13 @@ async function loadHighlightImage(
     const img = new window.Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      const scale = HIGHLIGHT_IMG_WIDTH / img.naturalWidth;
       const w = HIGHLIGHT_IMG_WIDTH;
-      const h = Math.round(img.naturalHeight * scale);
+      const scaledH = Math.round(img.naturalHeight * (w / img.naturalWidth));
+      // Clamp height to enforce landscape (wider-than-tall) card
+      const h = Math.min(Math.max(scaledH, HIGHLIGHT_IMG_MIN_HEIGHT), HIGHLIGHT_IMG_MAX_HEIGHT);
       const stemH = 10;
       const totalH = h + stemH;
-      const radius = 12;
+      const radius = 14;
 
       const canvas = document.createElement("canvas");
       canvas.width = w;
@@ -1027,13 +1037,18 @@ async function loadHighlightImage(
       const ctx = canvas.getContext("2d");
       if (!ctx) { resolve(false); return; }
 
-      // Draw rounded image
+      // Centre-crop source when the scaled image exceeds max height
+      const srcW = img.naturalWidth;
+      const srcH = Math.round(h * (img.naturalWidth / w));
+      const srcY = Math.max(0, Math.round((img.naturalHeight - srcH) / 2));
+
+      // Draw rounded image with centre-crop
       ctx.save();
       ctx.beginPath();
       ctx.roundRect(0, 0, w, h, radius);
       ctx.closePath();
       ctx.clip();
-      ctx.drawImage(img, 0, 0, w, h);
+      ctx.drawImage(img, 0, srcY, srcW, srcH, 0, 0, w, h);
       ctx.restore();
 
       // Stem connector triangle pointing down toward the dot
@@ -1049,9 +1064,14 @@ async function loadHighlightImage(
       ctx.beginPath();
       ctx.roundRect(0.5, 0.5, w - 1, h - 1, radius);
       ctx.closePath();
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
       ctx.lineWidth = 2;
       ctx.stroke();
+
+      // Subtle drop shadow glow beneath card
+      ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 3;
 
       const imageData = ctx.getImageData(0, 0, w, totalH);
 

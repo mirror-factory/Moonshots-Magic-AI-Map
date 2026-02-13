@@ -141,12 +141,34 @@ export function EventDetailPanelDropdown({
       {/* Content */}
       <div className="flex-1 overflow-y-auto space-y-6">
         {/* Hero Image */}
-        {event.imageUrl && (
-          <div
-            className="relative h-44 w-full bg-cover bg-center"
-            style={{ backgroundImage: `url(${event.imageUrl})` }}
-          >
+        {event.imageUrl ? (
+          <div className="relative h-44 w-full overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={event.imageUrl}
+              alt={event.title}
+              className="h-full w-full object-cover"
+              loading="eager"
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            <Badge
+              className="absolute bottom-3 left-4 text-xs"
+              style={{
+                background: "var(--brand-primary)",
+                color: "#fff",
+              }}
+            >
+              {CATEGORY_LABELS[event.category]}
+            </Badge>
+          </div>
+        ) : (
+          <div
+            className="relative h-32 w-full flex items-center justify-center"
+            style={{
+              background: "linear-gradient(135deg, rgba(0, 99, 205, 0.25) 0%, rgba(53, 96, 255, 0.1) 50%, rgba(0, 99, 205, 0.2) 100%)",
+            }}
+          >
+            <Sparkles className="h-8 w-8" style={{ color: "rgba(0, 99, 205, 0.35)" }} />
             <Badge
               className="absolute bottom-3 left-4 text-xs"
               style={{
@@ -161,20 +183,6 @@ export function EventDetailPanelDropdown({
 
         {/* Event Header */}
         <div className="space-y-3 px-6">
-          {!event.imageUrl && (
-            <Badge
-              variant="outline"
-              style={{
-                background:
-                  "color-mix(in srgb, var(--brand-primary) 10%, transparent)",
-                color: "var(--brand-primary)",
-                borderColor:
-                  "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
-              }}
-            >
-              {CATEGORY_LABELS[event.category]}
-            </Badge>
-          )}
           <h2
             className="text-2xl font-bold text-balance leading-tight"
             style={{ color: "var(--text)" }}

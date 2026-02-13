@@ -26,20 +26,19 @@ export interface EventCardEvent {
   price?: { min: number; max: number; isFree: boolean };
   tags: string[];
   featured?: boolean;
+  imageUrl?: string;
 }
 
 interface EventCardProps {
   event: EventCardEvent;
-  /** Called when user taps "Show on Map". */
-  onShowOnMap?: (coordinates: [number, number], title: string) => void;
-  /** Called when user taps "Fly There". */
-  onFlyTo?: (coordinates: [number, number], title: string) => void;
+  /** Called when user taps "Show on Map" — navigates + opens detail card. */
+  onShowOnMap?: (coordinates: [number, number], title: string, eventId: string) => void;
   /** Called when user taps "Directions". */
   onGetDirections?: (coordinates: [number, number], title: string) => void;
 }
 
 /** Compact card displaying a single event's details in the chat. */
-export function EventCard({ event, onShowOnMap, onFlyTo, onGetDirections }: EventCardProps) {
+export function EventCard({ event, onShowOnMap, onGetDirections }: EventCardProps) {
   const hasCoords = !!event.coordinates;
   const date = new Date(event.startDate);
   const dateStr = date.toLocaleDateString("en-US", {
@@ -66,6 +65,24 @@ export function EventCard({ event, onShowOnMap, onFlyTo, onGetDirections }: Even
         borderColor: "var(--border-color)",
       }}
     >
+      {/* Thumbnail or branded placeholder */}
+      {event.imageUrl ? (
+        <div className="mb-2 h-24 w-full overflow-hidden rounded-md">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={event.imageUrl} alt={event.title} className="h-full w-full object-cover" loading="lazy" />
+        </div>
+      ) : (
+        <div
+          className="mb-2 flex h-16 w-full items-center justify-center rounded-md"
+          style={{
+            background: "linear-gradient(135deg, rgba(0, 99, 205, 0.2) 0%, rgba(53, 96, 255, 0.08) 50%, rgba(0, 99, 205, 0.15) 100%)",
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(0, 99, 205, 0.3)" strokeWidth="1.5">
+            <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+          </svg>
+        </div>
+      )}
       <div className="mb-2 flex items-center gap-2">
         <Badge
           className="text-xs"
@@ -96,11 +113,11 @@ export function EventCard({ event, onShowOnMap, onFlyTo, onGetDirections }: Even
           {priceLabel}
         </span>
       </div>
-      {hasCoords && (onShowOnMap || onFlyTo || onGetDirections) && (
+      {hasCoords && (onShowOnMap || onGetDirections) && (
         <div className="mt-2 flex gap-1.5 border-t pt-2" style={{ borderColor: "var(--border-color)" }}>
           {onShowOnMap && (
             <button
-              onClick={() => onShowOnMap(event.coordinates!, event.title)}
+              onClick={() => onShowOnMap(event.coordinates!, event.title, event.id)}
               className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors hover:opacity-80"
               style={{ background: "var(--surface-3, var(--surface-2))", color: "var(--text-dim)" }}
             >
@@ -109,19 +126,6 @@ export function EventCard({ event, onShowOnMap, onFlyTo, onGetDirections }: Even
                 <circle cx="12" cy="10" r="3" />
               </svg>
               Show on Map
-            </button>
-          )}
-          {onFlyTo && (
-            <button
-              onClick={() => onFlyTo(event.coordinates!, event.title)}
-              className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors hover:opacity-80"
-              style={{ background: "var(--surface-3, var(--surface-2))", color: "var(--text-dim)" }}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 2L11 13" />
-                <path d="M22 2L15 22L11 13L2 9L22 2Z" />
-              </svg>
-              Fly There
             </button>
           )}
           {onGetDirections && (

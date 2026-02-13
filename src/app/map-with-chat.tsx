@@ -67,6 +67,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
   const filterChangeHandlerRef = useRef<FilterChangeHandler | null>(null);
   const [highlightedEventIds, setHighlightedEventIds] = useState<string[]>([]);
   const [presentationActive, setPresentationActive] = useState(false);
+  const openDetailHandlerRef = useRef<((eventId: string) => void) | null>(null);
 
   // Fetch ambient context on mount
   useEffect(() => {
@@ -157,6 +158,14 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
     setHighlightedEventIds([]);
   }, []);
 
+  const handleOpenDetailRequest = useCallback((handler: (eventId: string) => void) => {
+    openDetailHandlerRef.current = handler;
+  }, []);
+
+  const handleOpenEventDetail = useCallback((eventId: string) => {
+    openDetailHandlerRef.current?.(eventId);
+  }, []);
+
   return (
     <IntroContext.Provider value={{ showIntro: handleShowIntro }}>
       <OnboardingFlow
@@ -172,6 +181,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
         onDirectionsRequest={handleDirectionsRequest}
         onFilterChangeRequest={handleFilterChangeRequest}
         onStartPersonalization={handleStartPersonalization}
+        onOpenDetailRequest={handleOpenDetailRequest}
         highlightedEventIds={highlightedEventIds}
         onClearHighlights={handleClearHighlights}
       >
@@ -188,6 +198,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
               onHighlightEvents={setHighlightedEventIds}
               onStartPresentation={handleStartPresentation}
               onChangeFilter={handleChangeFilter}
+              onOpenEventDetail={handleOpenEventDetail}
               ambientContext={ambientContext}
             />
           )}

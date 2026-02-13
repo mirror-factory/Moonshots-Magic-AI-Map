@@ -50,6 +50,13 @@ const GLASS_BG = `
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 `;
 
+/** Branded placeholder gradient for events without images. */
+const PLACEHOLDER_BG = `
+  background: linear-gradient(135deg, rgba(0, 99, 205, 0.3) 0%, rgba(53, 96, 255, 0.15) 50%, rgba(0, 99, 205, 0.25) 100%);
+  backdrop-filter: blur(8px);
+  display:flex;align-items:center;justify-content:center;
+`;
+
 /**
  * Build hover tooltip HTML.
  * @param props - GeoJSON feature properties.
@@ -65,8 +72,10 @@ function hoverHTML(props: Record<string, unknown>): string {
   const color = String(props.color ?? "#888");
 
   const imgBlock = imageUrl
-    ? `<img src="${imageUrl}" style="width:100%;height:80px;object-fit:cover;border-radius:8px;margin-bottom:8px;" />`
-    : "";
+    ? `<img src="${imageUrl}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;margin-bottom:8px;" />`
+    : `<div style="width:100%;height:60px;border-radius:8px;margin-bottom:8px;${PLACEHOLDER_BG}">
+         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+       </div>`;
 
   return `
     <div style="${GLASS_BG} padding:10px; max-width:240px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
@@ -97,11 +106,14 @@ function clickHTML(props: Record<string, unknown>, coords: [number, number]): st
   const categoryLabel = CATEGORY_LABELS[category as EventCategory] ?? category;
   const color = String(props.color ?? "#888");
   const id = String(props.id ?? "");
+  const url = String(props.url ?? "");
   const safeTitle = title.replace(/"/g, "&quot;");
 
   const imgBlock = imageUrl
-    ? `<img src="${imageUrl}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;margin-bottom:10px;" />`
-    : "";
+    ? `<img src="${imageUrl}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:10px;" />`
+    : `<div style="width:100%;height:80px;border-radius:8px;margin-bottom:10px;${PLACEHOLDER_BG}">
+         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+       </div>`;
 
   const btnBase = `
     border:none;
@@ -122,7 +134,14 @@ function clickHTML(props: Record<string, unknown>, coords: [number, number]): st
   const sparkles = iconSvg(`<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>`);
   const compass = iconSvg(`<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>`);
   const info = iconSvg(`<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>`);
-  const zoomIn = iconSvg(`<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/>`);
+  const extLink = iconSvg(`<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>`);
+
+  const visitSiteBtn = url
+    ? `<a class="popup-visit-btn" href="${url}" target="_blank" rel="noopener noreferrer"
+         style="${btnBase} background:rgba(255,255,255,0.08);color:#e0e4ef;border:1px solid rgba(255,255,255,0.12);text-decoration:none;">
+         ${extLink} Visit Site
+       </a>`
+    : `<div></div>`;
 
   return `
     <div style="${GLASS_BG} padding:12px; max-width:280px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
@@ -147,10 +166,7 @@ function clickHTML(props: Record<string, unknown>, coords: [number, number]): st
           style="${btnBase} background:rgba(255,255,255,0.08);color:#e0e4ef;border:1px solid rgba(255,255,255,0.12);">
           ${info} More Detail
         </button>
-        <button class="popup-zoom-btn" data-lng="${coords[0]}" data-lat="${coords[1]}"
-          style="${btnBase} background:rgba(255,255,255,0.08);color:#e0e4ef;border:1px solid rgba(255,255,255,0.12);">
-          ${zoomIn} Zoom In
-        </button>
+        ${visitSiteBtn}
       </div>
     </div>
   `;
@@ -265,15 +281,7 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopu
           });
         }
 
-        const zoomBtn = document.querySelector(".popup-zoom-btn");
-        if (zoomBtn) {
-          zoomBtn.addEventListener("click", () => {
-            const lng = parseFloat(zoomBtn.getAttribute("data-lng") ?? "0");
-            const lat = parseFloat(zoomBtn.getAttribute("data-lat") ?? "0");
-            map.flyTo({ center: [lng, lat], zoom: 17, pitch: 60, duration: 1500 });
-            clickPopupRef.current?.remove();
-          });
-        }
+        // Visit Site is an <a> tag — no JS handler needed
       }, 50);
     };
 
