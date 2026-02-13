@@ -4,7 +4,7 @@
  */
 
 import type { Metadata } from "next";
-import { Inter, Geist_Mono, Bebas_Neue, Chakra_Petch, Rajdhani } from "next/font/google";
+import { Inter, Geist_Mono, Bebas_Neue, Chakra_Petch, Rajdhani, Oswald } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import "./globals.css";
 
@@ -36,6 +36,12 @@ const rajdhani = Rajdhani({
   weight: ["400", "500", "600", "700"],
 });
 
+const oswald = Oswald({
+  variable: "--font-oswald",
+  subsets: ["latin"],
+  weight: ["400", "700"],
+});
+
 export const metadata: Metadata = {
   title: "Moonshots & Magic",
   description: "Events discovery platform for Orlando & Central Florida",
@@ -50,7 +56,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${geistMono.variable} ${bebasNeue.variable} ${chakraPetch.variable} ${rajdhani.variable} antialiased`}
+        className={`${inter.variable} ${geistMono.variable} ${bebasNeue.variable} ${chakraPetch.variable} ${rajdhani.variable} ${oswald.variable} antialiased`}
       >
         <ThemeProvider attribute="class" forcedTheme="dark" enableSystem={false}>
           {children}

@@ -60,7 +60,7 @@ export function NewsletterCard({ items }: NewsletterCardProps) {
                 {item.source}
               </span>
             </div>
-            <h4 className="mb-1 text-sm font-semibold" style={{ color: "var(--text)" }}>
+            <h4 className="oswald-h4 mb-1 text-sm" style={{ color: "var(--text)" }}>
               {item.title}
             </h4>
             <p className="line-clamp-2 text-xs" style={{ color: "var(--text-dim)" }}>

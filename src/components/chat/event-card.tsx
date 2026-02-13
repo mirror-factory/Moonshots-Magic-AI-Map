@@ -90,7 +90,7 @@ export function EventCard({ event, onShowOnMap, onOpenDetail }: EventCardProps) 
           backgroundImage: bgImage,
           backgroundSize: "cover",
           backgroundPosition: "center",
-          filter: event.imageUrl ? "blur(4px) brightness(0.55)" : "none",
+          filter: event.imageUrl ? "grayscale(1) contrast(1.1) brightness(0.9) blur(4px)" : "none",
           transform: event.imageUrl ? "scale(1.15)" : undefined,
         }}
       />
@@ -108,7 +108,7 @@ export function EventCard({ event, onShowOnMap, onOpenDetail }: EventCardProps) 
       <div className="relative z-10 flex h-full flex-col justify-between">
         {/* Title */}
         <h4
-          className="line-clamp-2 text-sm font-semibold leading-tight"
+          className="oswald-h4 line-clamp-2 text-sm leading-tight"
           style={{ color: "#ffffff" }}
         >
           {event.title}
