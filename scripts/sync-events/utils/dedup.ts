@@ -5,9 +5,8 @@
 
 import type { EventEntry } from "../../../src/lib/registries/types";
 
-/** Source priority: lower number wins. Manual always wins. */
+/** Source priority: lower number wins. Ticketmaster is most authoritative. */
 const SOURCE_PRIORITY: Record<string, number> = {
-  manual: 0,
   ticketmaster: 1,
   eventbrite: 2,
   serpapi: 3,

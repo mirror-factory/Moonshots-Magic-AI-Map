@@ -1036,6 +1036,12 @@ export function CenterChat({
               </PromptInputFooter>
             </PromptInput>
           </div>
+          <p
+            className="px-4 pb-2 text-center text-[10px] leading-tight"
+            style={{ color: "var(--text-dim)", opacity: 0.6 }}
+          >
+            Event data from Ticketmaster, Eventbrite, Google &amp; others. Always verify details — AI can make mistakes.
+          </p>
         </div>
       </div>
     </div>

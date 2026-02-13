@@ -16,7 +16,6 @@ import { fetchTkxEvents } from "./fetchers/tkx";
 import { deduplicateEvents } from "./utils/dedup";
 import {
   readExistingRegistry,
-  extractManualEvents,
   writeRegistry,
 } from "./utils/registry-writer";
 import { logger } from "./utils/logger";
@@ -43,11 +42,9 @@ async function main(): Promise<void> {
   logger.section("Moonshots & Magic — Event Sync Pipeline");
   logger.info(`Started at ${new Date().toLocaleString()}`);
 
-  // 1. Read existing registry and extract manual events
+  // 1. Read existing registry (manual/seed events are no longer preserved)
   logger.info("Reading existing events.json...");
-  const existingRegistry = readExistingRegistry();
-  const manualEvents = extractManualEvents(existingRegistry);
-  logger.info(`Found ${manualEvents.length} manual (seed) events to preserve`);
+  readExistingRegistry(); // Validates file exists
 
   // 2. Run all fetchers (resilient — failures don't stop others)
   const fetchedEvents: import("../../src/lib/registries/types").EventEntry[] = [];
@@ -67,12 +64,8 @@ async function main(): Promise<void> {
   logger.info(`Total fetched events (pre-dedup): ${fetchedEvents.length}`);
 
   // 3. Deduplicate fetched events
-  const dedupedFetched = deduplicateEvents(fetchedEvents);
-  logger.info(`After dedup: ${dedupedFetched.length} unique fetched events`);
-
-  // 4. Merge: manual events always win, then deduped fetched
-  const allEvents = deduplicateEvents([...manualEvents, ...dedupedFetched]);
-  logger.info(`Total merged events: ${allEvents.length}`);
+  const allEvents = deduplicateEvents(fetchedEvents);
+  logger.info(`After dedup: ${allEvents.length} unique events`);
 
   // 5. Write the registry
   logger.section("Writing Output");

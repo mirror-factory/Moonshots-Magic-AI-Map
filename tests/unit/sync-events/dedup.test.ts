@@ -86,7 +86,7 @@ describe("deduplicateEvents", () => {
     expect(result).toHaveLength(1);
   });
 
-  it("keeps manual events over fetched duplicates", () => {
+  it("prefers ticketmaster over unknown source types", () => {
     const events = [
       makeEvent({
         id: "tm-123",
@@ -96,7 +96,7 @@ describe("deduplicateEvents", () => {
         source: { type: "ticketmaster", fetchedAt: "2026-01-01" },
       }),
       makeEvent({
-        id: "manual-1",
+        id: "other-1",
         title: "Jazz Night",
         venue: "Lake Eola",
         startDate: "2026-03-15T19:00:00Z",
@@ -105,7 +105,7 @@ describe("deduplicateEvents", () => {
     ];
     const result = deduplicateEvents(events);
     expect(result).toHaveLength(1);
-    expect(result[0].id).toBe("manual-1");
+    expect(result[0].id).toBe("tm-123");
   });
 
   it("prefers ticketmaster over eventbrite", () => {
