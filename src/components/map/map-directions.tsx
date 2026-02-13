@@ -3,6 +3,7 @@
  * Renders a route line and origin/destination markers on the map
  * using GeoJSON source and layers. Manages layer lifecycle with cleanup.
  * The glow layers pulse with a smooth sine-wave animation.
+ * After fitting bounds, a cinematic orbit rotates the view ~60° over 20s.
  */
 
 "use client";
@@ -21,6 +22,11 @@ const ROUTE_ORIGIN = "directions-origin";
 const ROUTE_DEST = "directions-destination";
 const MARKERS_SOURCE = "directions-markers";
 
+/** Orbit animation configuration. */
+const ORBIT_DEGREES = 60;
+const ORBIT_DURATION_MS = 20_000;
+
+/** Props for {@link MapDirections}. */
 interface MapDirectionsProps {
   /** Route result to render, or null to clear. */
   route: DirectionsResult | null;
@@ -34,6 +40,8 @@ interface MapDirectionsProps {
 export function MapDirections({ route, origin, destination }: MapDirectionsProps) {
   const map = useMap();
   const animFrameRef = useRef<number>(0);
+  const orbitFrameRef = useRef<number>(0);
+  const orbitStoppedRef = useRef(false);
 
   // Pulsating glow animation
   useEffect(() => {
@@ -67,11 +75,68 @@ export function MapDirections({ route, origin, destination }: MapDirectionsProps
     };
   }, [map, route]);
 
+  // Cinematic orbit after route loads — slow 60° rotation over 20s
+  useEffect(() => {
+    if (!map || !route || !route.bbox) return;
+
+    orbitStoppedRef.current = false;
+
+    /** Stops the orbit on any user interaction. */
+    const stopOrbit = () => {
+      orbitStoppedRef.current = true;
+      cancelAnimationFrame(orbitFrameRef.current);
+    };
+
+    // Wait for fitBounds to finish (~1200ms), then start orbit
+    const timeout = setTimeout(() => {
+      if (orbitStoppedRef.current) return;
+
+      const startBearing = map.getBearing();
+      const startTime = performance.now();
+
+      const orbit = (now: number) => {
+        if (orbitStoppedRef.current) return;
+
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / ORBIT_DURATION_MS, 1);
+        // Ease-out cubic for smooth deceleration
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const bearing = startBearing + ORBIT_DEGREES * eased;
+
+        map.easeTo({ bearing, duration: 0, animate: false });
+
+        if (progress < 1) {
+          orbitFrameRef.current = requestAnimationFrame(orbit);
+        }
+      };
+
+      orbitFrameRef.current = requestAnimationFrame(orbit);
+
+      // Stop orbit on user interaction
+      map.on("mousedown", stopOrbit);
+      map.on("touchstart", stopOrbit);
+      map.on("wheel", stopOrbit);
+    }, 1400);
+
+    return () => {
+      clearTimeout(timeout);
+      cancelAnimationFrame(orbitFrameRef.current);
+      orbitStoppedRef.current = true;
+      if (map) {
+        map.off("mousedown", stopOrbit);
+        map.off("touchstart", stopOrbit);
+        map.off("wheel", stopOrbit);
+      }
+    };
+  }, [map, route]);
+
   useEffect(() => {
     if (!map) return;
 
     const cleanup = () => {
       cancelAnimationFrame(animFrameRef.current);
+      cancelAnimationFrame(orbitFrameRef.current);
+      orbitStoppedRef.current = true;
       for (const id of [ROUTE_LINE, ROUTE_LINE_GLOW, ROUTE_LINE_CASING, ROUTE_ORIGIN, ROUTE_DEST]) {
         if (map.getLayer(id)) map.removeLayer(id);
       }

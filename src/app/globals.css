@@ -477,15 +477,6 @@
 }
 
 /* Twinkling stars animation */
-@keyframes twinkle {
-  0%, 100% {
-    opacity: 0.2;
-  }
-  50% {
-    opacity: 0.4;
-  }
-}
-
 /* Animated border glow on chat panel (dark mode only) */
 .dark .glow-border {
   animation: subtle-pulse 4s ease-in-out infinite;

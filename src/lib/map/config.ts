@@ -8,14 +8,26 @@ import type { EventCategory } from "@/lib/registries/types";
 
 /**
  * Map style URLs by theme.
- * Light: CartoDB Positron GL (clean grayscale, same OpenMapTiles schema — `render_height` works).
- * Dark: CartoDB Dark Matter GL (uses same OpenMapTiles schema — `render_height` works).
+ *
+ * Primary: MapTiler Streets v2 (rich POI labels, building names, restaurant names).
+ * Fallback: CartoDB Positron/Dark Matter if no MapTiler API key is configured.
+ *
+ * Both use the OpenMapTiles schema — `render_height` and `source-layer: "building"` work.
+ *
+ * @see https://docs.maptiler.com/schema/
  * @see https://github.com/CartoDB/basemap-styles
  */
-export const MAP_STYLES_BY_THEME = {
-  light: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-  dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-} as const;
+const maptilerKey = process.env.NEXT_PUBLIC_MAPTILER_KEY;
+
+export const MAP_STYLES_BY_THEME = maptilerKey
+  ? {
+      light: `https://api.maptiler.com/maps/streets-v2/style.json?key=${maptilerKey}`,
+      dark: `https://api.maptiler.com/maps/streets-v2-dark/style.json?key=${maptilerKey}`,
+    } as const
+  : {
+      light: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+      dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+    } as const;
 
 /** Default map center as `[longitude, latitude]` (West of Lake Eola, Downtown Orlando). */
 export const DEFAULT_CENTER: [number, number] = [-81.3780, 28.5431];

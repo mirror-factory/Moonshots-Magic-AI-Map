@@ -403,6 +403,146 @@ See **[docs/TEAM-INFRASTRUCTURE.md](docs/TEAM-INFRASTRUCTURE.md)** for full deta
 | TypeDoc builds | pre-push | `pnpm docs` |
 | Dependency sync | post-merge | Auto `pnpm install` on lock change |
 
+## Map Tile Provider
+
+The app uses **MapTiler Streets v2** for rich POI labels, building names, and restaurant names. Falls back to CartoDB Positron/Dark Matter when no MapTiler API key is configured.
+
+| Theme | Provider | Style |
+|-------|----------|-------|
+| Light | MapTiler Streets v2 | `streets-v2/style.json` |
+| Dark | MapTiler Streets v2 Dark | `streets-v2-dark/style.json` |
+| Fallback Light | CartoDB Positron GL | `positron-gl-style/style.json` |
+| Fallback Dark | CartoDB Dark Matter GL | `dark-matter-gl-style/style.json` |
+
+Both providers use the **OpenMapTiles schema**, so `source-layer: "building"`, `render_height`, and all custom layers continue to work regardless of which provider is active.
+
+**Environment variable**: `NEXT_PUBLIC_MAPTILER_KEY` — also used for 3D terrain DEM tiles.
+
+## Directions System
+
+Full routing flow from chat to map:
+
+```
+User asks for directions
+  → AI calls getDirectionsTool (client-side, no execute)
+  → Chat shows loading indicator ("Locating you and finding route...")
+  → MapAction resolves tool on client
+  → Browser geolocation API provides origin
+  → OpenRouteService Directions API (POST) returns route
+  → MapDirections renders route line + markers
+  → DirectionsPanel shows ETA, distance, travel mode selector
+  → Cinematic 60° orbit starts after fitBounds
+```
+
+### Turn-by-Turn Steps
+
+The ORS API returns `segments[].steps[]` with `instruction`, `distance`, and `duration`. The `DirectionsPanel` renders these as a collapsible list with directional icons (turn left/right, bear left/right, straight, arrive).
+
+### External Map Deep Links
+
+The panel provides "Open in Google Maps" and "Open in Apple Maps" buttons:
+- Google Maps: `https://www.google.com/maps/dir/?api=1&origin={lat},{lng}&destination={lat},{lng}&travelmode={mode}`
+- Apple Maps: `https://maps.apple.com/?saddr={lat},{lng}&daddr={lat},{lng}&dirflg={flag}`
+- Platform detection: Apple Maps shown first on iOS/macOS, Google Maps first elsewhere
+
+### Route Orbit Animation
+
+After `fitBounds()` completes (~1.2s), the camera slowly rotates 60° over 20 seconds using an ease-out cubic curve. The orbit stops immediately on any user interaction (mousedown, touchstart, wheel).
+
+## Chat UI Patterns
+
+### Tool Loading States
+
+Each AI tool has a chat feedback pattern:
+- **`input-streaming` / `input-available`**: Show a loading spinner with contextual text
+- **`output-available`**: Show the result summary
+- Tools without visible output return `null`
+
+### Event Carousel
+
+Event search results render as horizontally scrollable `EventList` cards inside chat messages. Each card shows event image (blurred background), title, date, venue, and category badge.
+
+**Planned**: Sticky carousel — when scrolling past event carousels in chat, a compact version sticks to the top of the chat area with `backdrop-blur-md`.
+
+### Directions Feedback
+
+The `getDirectionsTool` shows two states:
+1. **Loading**: Spinner + "Locating you and finding route..."
+2. **Complete**: Navigation icon + "Getting directions to {destination}..."
+
+## Events Dropdown
+
+The logo-anchored `Popover` (Radix UI) is configured to:
+- **Stay open on outside clicks** — `onInteractOutside` and `onPointerDownOutside` prevent dismiss when clicking the map
+- **Close only via X button** — explicit close handler resets all filters and selection
+- **Virtualized list** — renders only visible rows (76px height, 5-row overscan) for smooth scrolling with 200+ events
+- **Multi-layer filters** — category, source, venue, and custom date range, all composable
+
+## Flyover & Showcase Navigation System
+
+The flyover engine and Orlando showcase both fly the camera to event/landmark coordinates. However, they currently use **separate navigation paths** instead of a unified system:
+
+### Navigation Paths (current — fragmented)
+
+| System | Coordinate Source | Navigation Call | File |
+|--------|------------------|----------------|------|
+| Flyover | `event.coordinates` → `FlyoverWaypoint.center` | `animateToWaypoint()` | `flyover-engine.ts` |
+| Presentation (Orlando Showcase) | Hardcoded `coordinates` in landmarks | `map.flyTo()` directly | `presentation-panel.tsx` |
+| Chat mapNavigate | LLM-provided coordinates | `map.flyTo()` in MapAction | `map-action.tsx` |
+| Chat startFlyover | Event IDs → lookup → `event.coordinates` | `animateToWaypoint()` | `map-container.tsx` |
+| Show on map | `event.coordinates` | `map.flyTo()` | `map-container.tsx` |
+
+### Known Bugs
+
+1. **Events don't fly to correct coordinates** — Camera navigation and event coordinate resolution are duplicated across 5+ locations with subtly different parameters. Sometimes `flyTo` targets the wrong position or doesn't move at all.
+2. **Orlando showcase doesn't move to starting destination** — Presentation uses hardcoded landmark coordinates that aren't validated. The `cinematicIntro()` animation may complete before `flyTo` starts.
+3. **Chat disappears during showcase** — `AnimatePresence` in `map-with-chat.tsx` swaps `CenterChat` for `PresentationPanel`, so tapping "Astado" (which triggers presentation) removes the chat entirely. Chat should remain visible.
+4. **Silent failure on missing event IDs** — `events.find((e) => e.id === id)` returns undefined for stale IDs, silently skipping waypoints with no user feedback.
+5. **fitBounds unimplemented** — `map-action.tsx` line 41-44 has a skeleton `fitBounds` case with a "skip for now" comment.
+
+### Audio Plan
+
+| Context | Audio File | Behavior |
+|---------|-----------|----------|
+| General flyover tours | `public/audio/liosound_Lofi_loop-01.mp3` | Play softly as background during flyover, fade out on stop |
+| Orlando showcase | `public/audio/Real Estate 03.mp3` | Play during showcase mode, fade out on exit |
+| Waypoint narration | Cartesia TTS (dynamic) | Per-waypoint narration overlaid on background audio |
+
+### Planned Fixes (next session)
+
+1. **Unify navigation system** — Extract a shared `flyToCoordinates()` in `src/lib/map/camera-utils.ts` that all systems use. Single source of truth for `flyTo` params (duration, pitch, bearing, padding).
+2. **Fix coordinate resolution** — Validate coordinates before `flyTo`. Log warnings for out-of-bounds or NaN values. Show error in chat for missing event IDs.
+3. **Chat visibility toggle** — During showcase, chat stays visible but minimized. Add a "Hide Chat" / "Show Chat" toggle button instead of auto-dismissing. Tapping Astado should not exit the showcase.
+4. **Background audio** — Add `liosound_Lofi_loop-01.mp3` for flyovers and `Real Estate 03.mp3` for showcase with volume control and fade transitions.
+5. **Implement fitBounds** — Complete the skeleton in `map-action.tsx` using `LngLatBounds` from maplibre-gl.
+
+## Additional MapLibre Capabilities
+
+Potential features that could be added to the map:
+
+| Capability | Difficulty | Description |
+|-----------|-----------|-------------|
+| Marker clustering | Medium | Supercluster at low zoom levels — prevents overlap |
+| Geocoding search bar | Medium | MapTiler Geocoding API — search addresses/places directly on map |
+| Street-level navigation | Hard | Mapillary integration for street imagery |
+| Indoor maps | Hard | Venue floor plans for convention centers, malls |
+| Satellite/aerial toggle | Easy | MapTiler Satellite style as optional layer |
+| Weather overlay | Medium | Open-Meteo radar tiles for rain/weather visualization |
+| Transit directions | Medium | ORS public-transport profile (bus/rail routes) |
+| Measure distance tool | Easy | Click two points to measure distance (Turf.js) |
+| Draw/annotate on map | Medium | MapLibre Draw plugin for user annotations |
+| Export/print map | Easy | `map.getCanvas().toDataURL()` for screenshots |
+| Accessibility: high-contrast mode | Easy | MapTiler high-contrast style option |
+| Route alternatives | Medium | ORS `alternative_routes` parameter — show 2-3 route options |
+| Waypoints/multi-stop routing | Medium | Allow adding intermediate stops to directions |
+| Live traffic layer | Hard | Requires traffic data provider (TomTom/HERE) |
+| Geofencing alerts | Medium | Notify when user enters/exits event area (Turf.js `booleanPointInPolygon`) |
+| Time-based animation | Medium | Animate event markers by date (show events appearing/disappearing over time) |
+| Nearby discovery radius | Easy | Draw circle around user location showing events within X miles |
+| Elevation profile | Medium | Show elevation chart along a route (ORS elevation API) |
+| Offline map support | Hard | MapLibre offline tile caching (service worker) |
+| AR view | Hard | WebXR integration for placing events in camera view |
+
 ## Opportunities for Improvement
 
 ### Performance

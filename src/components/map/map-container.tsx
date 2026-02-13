@@ -54,6 +54,7 @@ import {
   deselectEventHighlight,
   buildCardInfo,
 } from "@/lib/map/venue-highlight";
+import { Stars } from "@/components/effects/stars";
 
 /** Default isochrone time ranges in minutes. */
 const ISOCHRONE_MINUTES: number[] = [5, 10, 15, 30];
@@ -941,29 +942,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
         }} />
 
         {/* Stars overlay */}
-        <div className="pointer-events-none absolute inset-0 z-[5]" style={{
-          backgroundImage: `
-            radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.8) 0px, transparent 1px),
-            radial-gradient(circle at 80% 20%, rgba(0, 99, 205, 0.6) 0px, transparent 1px),
-            radial-gradient(circle at 40% 70%, rgba(255, 255, 255, 0.7) 0px, transparent 1px),
-            radial-gradient(circle at 60% 50%, rgba(255, 255, 255, 0.5) 0px, transparent 0.5px),
-            radial-gradient(circle at 90% 80%, rgba(0, 99, 205, 0.5) 0px, transparent 1px),
-            radial-gradient(circle at 10% 90%, rgba(255, 255, 255, 0.6) 0px, transparent 0.8px),
-            radial-gradient(circle at 70% 10%, rgba(255, 255, 255, 0.4) 0px, transparent 0.5px),
-            radial-gradient(circle at 30% 40%, rgba(0, 99, 205, 0.4) 0px, transparent 0.8px),
-            radial-gradient(circle at 50% 85%, rgba(255, 255, 255, 0.7) 0px, transparent 1px),
-            radial-gradient(circle at 85% 45%, rgba(255, 255, 255, 0.5) 0px, transparent 0.6px),
-            radial-gradient(circle at 15% 60%, rgba(0, 99, 205, 0.6) 0px, transparent 1px),
-            radial-gradient(circle at 95% 15%, rgba(255, 255, 255, 0.6) 0px, transparent 0.8px),
-            radial-gradient(circle at 25% 80%, rgba(255, 255, 255, 0.4) 0px, transparent 0.5px),
-            radial-gradient(circle at 75% 65%, rgba(0, 99, 205, 0.5) 0px, transparent 0.8px),
-            radial-gradient(circle at 45% 25%, rgba(255, 255, 255, 0.6) 0px, transparent 0.7px),
-            radial-gradient(circle at 55% 95%, rgba(255, 255, 255, 0.5) 0px, transparent 0.6px)
-          `,
-          backgroundSize: "100% 100%",
-          animation: "twinkle 4s ease-in-out infinite alternate",
-          opacity: 0.3,
-        }} />
+        <Stars count={120} shootingStars={3} />
 
         <div
           ref={containerRef}
@@ -1013,6 +992,8 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
             onProfileChange={handleDirectionsProfileChange}
             onClose={handleCloseDirections}
             error={directionsError}
+            origin={directionsOrigin}
+            destination={directionsDestination}
           />
         )}
 
