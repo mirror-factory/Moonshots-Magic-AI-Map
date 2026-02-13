@@ -160,35 +160,46 @@ function AnimatedLogo({ className, width = 750, height = 250 }: { className?: st
       gsap.set(path, { opacity: 0.15 });
     });
 
-    // Map paths to letter order: M-O-O-N-S-H-O-T-S-&-M-A-G-I-C
-    // Based on x-coordinates and reading order
-    const letterOrder = [
-      0,  // M (MOONSHOTS)
-      5,  // O
-      4,  // O
-      2,  // N
-      10, // S
-      7,  // H
-      8,  // O
-      14, // T
-      11, // S
-      6,  // & (ampersand)
-      1,  // M (MAGIC)
-      9,  // A
-      15, // G
-      12, // I
-      13, // C
-    ];
+    // Group paths by word: MOONSHOTS, &, MAGIC
+    const moonshotsGroup = [0, 5, 4, 2, 10, 7, 8, 14, 11]; // MOONSHOTS
+    const ampersandGroup = [6]; // &
+    const magicGroup = [1, 9, 15, 12, 13]; // MAGIC
 
-    // Animate each path lighting up in letter order
+    // Animate word by word: MOONSHOTS → & → MAGIC
     const timeline = gsap.timeline({ delay: 0.5 });
-    letterOrder.forEach((pathIndex, step) => {
-      timeline.to(paths[pathIndex], {
+
+    // 1. Light up MOONSHOTS (all at once)
+    timeline.to(
+      moonshotsGroup.map(i => paths[i]),
+      {
         opacity: 1,
-        duration: 0.15,
+        duration: 0.4,
         ease: "power2.out",
-      }, step * 0.08); // Stagger each by 80ms
-    });
+      },
+      0
+    );
+
+    // 2. Then light up & (after MOONSHOTS)
+    timeline.to(
+      paths[ampersandGroup[0]],
+      {
+        opacity: 1,
+        duration: 0.3,
+        ease: "power2.out",
+      },
+      0.5
+    );
+
+    // 3. Finally light up MAGIC (after &)
+    timeline.to(
+      magicGroup.map(i => paths[i]),
+      {
+        opacity: 1,
+        duration: 0.4,
+        ease: "power2.out",
+      },
+      0.9
+    );
 
     return () => {
       timeline.kill();
@@ -247,14 +258,22 @@ export default function BrandGuidePage() {
     return saved !== null ? JSON.parse(saved) : true;
   });
   const [menuOpen, setMenuOpen] = useState(false);
-  const [showToast, setShowToast] = useState(true);
+  const [showToast, setShowToast] = useState(false);
 
-  // Auto-hide toast after 8 seconds
+  // Show toast after 3 seconds, hide after 8 more seconds
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const showTimer = setTimeout(() => {
+      setShowToast(true);
+    }, 3000);
+
+    const hideTimer = setTimeout(() => {
       setShowToast(false);
-    }, 8000);
-    return () => clearTimeout(timer);
+    }, 11000);
+
+    return () => {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
+    };
   }, []);
 
   // Save preferences to localStorage
@@ -1865,21 +1884,17 @@ export default function BrandGuidePage() {
           download="moonshots-magic-brand-guide.md"
           onClick={() => setShowToast(false)}
           className="fixed bottom-6 left-1/2 z-[200] -translate-x-1/2 animate-in slide-in-from-bottom-4 fade-in duration-500"
-          style={{
-            animation: showToast ? "slideUp 0.5s ease-out" : "slideDown 0.3s ease-in",
-          }}
         >
           <div
-            className="flex items-center gap-3 rounded-full px-6 py-3 shadow-2xl transition-all hover:scale-105"
+            className="flex items-center gap-2 rounded-full px-3 py-1.5 transition-all hover:bg-white/10"
             style={{
-              background: "rgba(0, 99, 205, 0.95)",
-              backdropFilter: "blur(12px)",
-              border: "1px solid rgba(255, 255, 255, 0.2)",
-              boxShadow: "0 8px 32px rgba(0, 99, 205, 0.4)",
+              background: "rgba(255, 255, 255, 0.05)",
+              backdropFilter: "blur(8px)",
+              border: "1px solid rgba(255, 255, 255, 0.08)",
             }}
           >
-            <Download className="h-5 w-5 text-white" />
-            <span className="font-medium text-white">
+            <Download className="h-3 w-3" style={{ color: "rgba(255, 255, 255, 0.5)" }} />
+            <span className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
               Tap here to download brand guide for AI
             </span>
           </div>
