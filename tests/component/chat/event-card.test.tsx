@@ -39,38 +39,26 @@ describe("EventCard", () => {
     expect(screen.getByText(`${dateStr} · ${timeStr}`)).toBeInTheDocument();
   });
 
-  it('shows "Free" when price.isFree is true', () => {
+  it("renders source label as blue link when url provided", () => {
     const event = {
       ...baseEvent,
-      price: { min: 0, max: 0, isFree: true },
+      url: "https://example.com/event",
+      source: { type: "ticketmaster" },
     };
     render(<EventCard event={event} />);
-    expect(screen.getByText("Free")).toBeInTheDocument();
+    const link = screen.getByText("Ticketmaster");
+    expect(link.tagName).toBe("A");
+    expect(link).toHaveAttribute("href", "https://example.com/event");
   });
 
-  it('shows price range "$10\u2013$25" when min !== max', () => {
+  it("renders source label as plain text when no url", () => {
     const event = {
       ...baseEvent,
-      price: { min: 10, max: 25, isFree: false },
+      source: { type: "ticketmaster" },
     };
     render(<EventCard event={event} />);
-    expect(screen.getByText("$10\u2013$25")).toBeInTheDocument();
-  });
-
-  it('shows single price "$15" when min === max', () => {
-    const event = {
-      ...baseEvent,
-      price: { min: 15, max: 15, isFree: false },
-    };
-    render(<EventCard event={event} />);
-    expect(screen.getByText("$15")).toBeInTheDocument();
-  });
-
-  it("hides price row when no price data", () => {
-    const { container } = render(<EventCard event={baseEvent} />);
-    // Tag icon (price row) should not be present when no price
-    const tagIcons = container.querySelectorAll(".lucide-tag");
-    expect(tagIcons.length).toBe(0);
+    const label = screen.getByText("Ticketmaster");
+    expect(label.tagName).toBe("SPAN");
   });
 
   it("does NOT show category badge (compact card)", () => {

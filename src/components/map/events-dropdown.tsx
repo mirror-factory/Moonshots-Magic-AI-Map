@@ -17,7 +17,6 @@ import {
   ChevronDown,
   Sparkles,
   Filter,
-  ExternalLink,
   Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -207,9 +206,22 @@ function VirtualEventList({ events, searchQuery, onEventClick, onShowOnMap }: Vi
                     <MapPin className="h-3 w-3 shrink-0" />
                     <span className="truncate">{event.venue}</span>
                     {SOURCE_LABELS[event.source.type] && (
-                      <span className="ml-auto shrink-0 text-[10px] opacity-50">
-                        {SOURCE_LABELS[event.source.type]}
-                      </span>
+                      event.url ? (
+                        <a
+                          href={event.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="ml-auto shrink-0 text-[10px] hover:underline"
+                          style={{ color: "#3B82F6" }}
+                        >
+                          {SOURCE_LABELS[event.source.type]}
+                        </a>
+                      ) : (
+                        <span className="ml-auto shrink-0 text-[10px] opacity-50">
+                          {SOURCE_LABELS[event.source.type]}
+                        </span>
+                      )
                     )}
                   </div>
                 </div>
@@ -220,18 +232,6 @@ function VirtualEventList({ events, searchQuery, onEventClick, onShowOnMap }: Vi
                   >
                     {CATEGORY_LABELS[event.category]}
                   </Badge>
-                  {event.url && (
-                    <a
-                      href={event.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex h-7 w-7 items-center justify-center rounded-md opacity-0 transition-all hover:bg-primary/10 group-hover:opacity-100"
-                      title="Visit site"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5 text-primary" />
-                    </a>
-                  )}
                   {onShowOnMap && event.coordinates && (
                     <span
                       role="button"

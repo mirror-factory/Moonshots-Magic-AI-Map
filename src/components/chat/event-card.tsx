@@ -1,13 +1,13 @@
 /**
  * @module components/chat/event-card
  * Compact, fixed-height card displaying a single event's title,
- * venue, date/time, and price within the chat panel carousel.
+ * venue, and date/time within the chat panel carousel.
  * Includes a "Learn More" button that triggers cinematic map view.
  */
 
 "use client";
 
-import { MapPin, Calendar, Tag } from "lucide-react";
+import { MapPin, Calendar } from "lucide-react";
 import type { EventCategory } from "@/lib/registries/types";
 
 /** Brand primary blue color. */
@@ -38,6 +38,7 @@ export interface EventCardEvent {
   tags: string[];
   featured?: boolean;
   imageUrl?: string;
+  url?: string;
   source?: { type: string } | string;
 }
 
@@ -64,12 +65,6 @@ export function EventCard({ event, onShowOnMap, onOpenDetail }: EventCardProps) 
     hour: "numeric",
     minute: "2-digit",
   });
-
-  const priceLabel = event.price?.isFree
-    ? "Free"
-    : event.price
-      ? `$${event.price.min}${event.price.max > event.price.min ? `–$${event.price.max}` : ""}`
-      : "";
 
   const sourceType = typeof event.source === "object" && event.source
     ? event.source.type
@@ -125,26 +120,31 @@ export function EventCard({ event, onShowOnMap, onOpenDetail }: EventCardProps) 
             <MapPin className="h-3 w-3 shrink-0" style={{ color: "rgba(255,255,255,0.4)" }} />
             <span className="truncate">{event.venue}</span>
             {sourceLabel && (
-              <span
-                className="ml-auto shrink-0 rounded px-1 py-0.5 text-[9px] font-medium"
-                style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}
-              >
-                {sourceLabel}
-              </span>
+              event.url ? (
+                <a
+                  href={event.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="ml-auto shrink-0 rounded px-1 py-0.5 text-[9px] font-medium hover:underline"
+                  style={{ color: "#3B82F6" }}
+                >
+                  {sourceLabel}
+                </a>
+              ) : (
+                <span
+                  className="ml-auto shrink-0 rounded px-1 py-0.5 text-[9px] font-medium"
+                  style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}
+                >
+                  {sourceLabel}
+                </span>
+              )
             )}
           </div>
           <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "rgba(255,255,255,0.6)" }}>
             <Calendar className="h-3 w-3 shrink-0" style={{ color: "rgba(255,255,255,0.4)" }} />
             <span>{dateStr} · {timeStr}</span>
           </div>
-          {priceLabel && (
-            <div className="flex items-center gap-1.5 text-[11px]">
-              <Tag className="h-3 w-3 shrink-0" style={{ color: "rgba(255,255,255,0.4)" }} />
-              <span style={{ color: event.price?.isFree ? "#00D4AA" : "rgba(255,255,255,0.6)" }}>
-                {priceLabel}
-              </span>
-            </div>
-          )}
         </div>
 
         {/* Learn More button — opens detail + cinematic show-on-map */}

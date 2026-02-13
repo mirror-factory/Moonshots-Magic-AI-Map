@@ -103,12 +103,31 @@ export async function fetchTkxEvents(): Promise<EventEntry[]> {
         const detailHtml = await detailRes.text();
         const $detail = cheerio.load(detailHtml);
 
-        const desc = $detail('meta[name="description"]').attr("content")
+        // Description: prefer "Event Details" section content over meta tags
+        const detailParagraphs = $detail(".font-raleway.text-base.font-medium p")
+          .toArray()
+          .map((p) => $detail(p).text().trim())
+          .filter(Boolean);
+        const detailDesc = detailParagraphs.join(" ");
+
+        const metaDesc = $detail('meta[name="description"]').attr("content")
           ?? $detail('meta[property="og:description"]').attr("content")
           ?? "";
 
-        if (desc) {
-          event.description = desc.trim();
+        if (detailDesc) {
+          event.description = detailDesc;
+        } else if (metaDesc) {
+          event.description = metaDesc.trim();
+        }
+
+        // Address: look for venue/address info in the detail page
+        // TKX detail pages often have venue + address in a section with map info
+        const addressEl = $detail('a[href*="google.com/maps"], a[href*="maps.google"]');
+        if (addressEl.length > 0) {
+          const addressText = addressEl.text().trim();
+          if (addressText && !event.address) {
+            event.address = addressText;
+          }
         }
 
         const ogImage = $detail('meta[property="og:image"]').attr("content");

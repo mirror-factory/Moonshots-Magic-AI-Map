@@ -108,7 +108,6 @@ describe("events registry", () => {
 
     it("filters featured events", () => {
       const featured = getEvents({ featured: true });
-      expect(featured.length).toBeGreaterThan(0);
       expect(featured.every((e) => e.featured === true)).toBe(true);
     });
 

@@ -7,16 +7,37 @@
 - [ ] **F3** — Handle Cartesia "too many concurrent requests" — add retry/queue for TTS
 - [ ] **F4** — Fix flyover sometimes stuck on keyhole and not moving to events
 - [x] **F5** — Make flyover card above dot bigger overall with text info
+- [ ] **F6** — Remove bottom flyover card (keep only floating card above orb)
+- [ ] **F7** — Lock map during flyover: disable pan/rotate, allow zoom only, continuous rotation until complete
+- [ ] **F8** — Fix flyover exit button — make it clearer/more intentional (not accidental)
 
 ## Filters & Top Bar
 
 - [x] **T1** — Add venue filter dropdown (multi-select with checkmarks, like categories)
 - [ ] **T2** — Redesign top bar into segmented filter groups: Dates (All/Today/Weekend/Week/Month/Custom) | Event Types | Venues | Distance radius
-- [ ] **T3** — Quick actions visible by default on right side of chat input (not hidden behind icon)
+- [ ] **T3** — Quick actions as carousel: one at a time, left/right arrows, "Get a tour of Orlando" first, blue boxes
 - [x] **T4** — Replace emojis with Lucide icons in Quick Actions menu (still showing emojis)
 - [x] **T5** — Move toolbar (3D/theme/play/etc.) to bottom-left, vertical layout, add location button, tooltips on hover
 - [ ] **T6** — Explain/improve clock icon (isochrone) — currently confusing UI
 - [x] **T7** — Location button turns blue when active/permissioned
+- [ ] **T8** — Add search bar inside category and venue filter dropdowns
+- [ ] **T9** — Filters should show ALL events by default, not just timeline-filtered ones
+- [ ] **T10** — Fix source/resources labels: Google Events, Ticketmaster, Eventbrite, TKX (not "Web Scraper")
+
+## Logo & Branding
+
+- [ ] **L1** — Replace light mode logo with proper one from public/logos (current has blue in the O's)
+- [ ] **L2** — Add backdrop blur around logo and dropdown area so always visible over map
+- [ ] **L3** — Improve Ditto avatar: higher quality, sparkle effect instead of just pulsing
+
+## Chat & Events UI
+
+- [ ] **E1** — Event cards in chat as carousel: show count, scroll horizontally, not stacked vertically
+- [ ] **E2** — Move resources/options button to bottom-left of chat next to pin icon
+
+## Location & Privacy
+
+- [ ] **LP1** — "You Are Here" toggle should disable location AND remove it from AI chat context when off
 
 ## Data Quality & Links
 

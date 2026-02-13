@@ -12,7 +12,6 @@
 import {
   ArrowLeft,
   Calendar,
-  ExternalLink,
   MapPin,
   Sparkles,
   Map,
@@ -97,18 +96,6 @@ function formatDateRange(
   }
 
   return `${dateStr} · ${startTime}`;
-}
-
-/**
- * Formats price information into a display string.
- *
- * @param price - Price object from an {@link EventEntry}.
- * @returns Human-readable price string (e.g. "Free", "$25", "$10 - $50").
- */
-function formatPrice(price: EventEntry["price"]): string {
-  if (!price || price.isFree) return "Free";
-  if (price.min === price.max) return `$${price.min}`;
-  return `$${price.min} - $${price.max}`;
 }
 
 /**
@@ -248,29 +235,27 @@ export function EventDetailPanelDropdown({
               >
                 ↗
               </span>
-              <div
-                className="text-xs font-medium"
-                style={{ color: "var(--text-dim)" }}
-              >
-                via {SOURCE_LABELS[getSourceType(event.source)]}
-              </div>
+              {event.url ? (
+                <a
+                  href={event.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium hover:underline"
+                  style={{ color: "#3B82F6" }}
+                >
+                  via {SOURCE_LABELS[getSourceType(event.source)]}
+                </a>
+              ) : (
+                <div
+                  className="text-xs font-medium"
+                  style={{ color: "var(--text-dim)" }}
+                >
+                  via {SOURCE_LABELS[getSourceType(event.source)]}
+                </div>
+              )}
             </div>
           )}
 
-          {/* Price */}
-          {event.price && (
-            <div className="flex items-center gap-3">
-              <span
-                className="h-5 w-5 flex-shrink-0 flex items-center justify-center text-xs font-semibold"
-                style={{ color: "var(--text-muted)" }}
-              >
-                $
-              </span>
-              <div className="font-medium" style={{ color: "var(--text)" }}>
-                {formatPrice(event.price)}
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="px-6">
@@ -350,19 +335,6 @@ export function EventDetailPanelDropdown({
               <span className="font-medium">Share Event</span>
             </Button>
 
-            {/* Visit Site */}
-            {event.url && (
-              <Button
-                asChild
-                variant="outline"
-                className="h-auto flex-col gap-1 bg-transparent py-2.5 text-xs"
-              >
-                <a href={event.url} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4" />
-                  <span className="font-medium">Visit Site</span>
-                </a>
-              </Button>
-            )}
           </div>
         </div>
       </div>

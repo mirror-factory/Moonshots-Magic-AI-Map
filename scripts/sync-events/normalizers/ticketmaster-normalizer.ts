@@ -129,7 +129,7 @@ export function normalizeTmEvent(tm: TmEvent): EventEntry {
     endDate: tm.dates?.end?.dateTime,
     timezone: venue?.timezone ?? tm.dates?.timezone ?? "America/New_York",
     price,
-    url: tm.url,
+    url: tm.url || `https://www.ticketmaster.com/event/${tm.id}`,
     imageUrl: pickBestImage(tm.images),
     tags,
     source: { type: "ticketmaster", fetchedAt: now },

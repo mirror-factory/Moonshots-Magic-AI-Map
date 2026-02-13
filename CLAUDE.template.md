@@ -2,147 +2,73 @@
 
 IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning. Consult local docs and skill references before relying on training data.
 
-> REMINDER: Push early, push often. Commit after each completed unit of work — every new function, test, or component. The pre-push hook runs typecheck + full test suite. Small pushes catch issues early and keep the CI pipeline validating every iteration.
+> REMINDER: Push early, push often. Commit after each completed unit of work — every new function, test, or component. Small pushes catch issues early and keep the CI pipeline validating every iteration.
 
 ## Project Instructions
 
-- **Stack**: Next.js (App Router), React, TypeScript, Tailwind CSS, Supabase, Vercel AI SDK
-- **Package manager**: pnpm (npm fallback)
-- **Patterns**: Functional programming, React Server Components by default, composable component architecture
-- **Code style**: Self-documenting code, small focused functions, meaningful names, TypeScript strict mode
-- **Testing**: Test locally before pushing, lint before commits
-- **Commit hygiene**: Commit often and small — husky pre-commit hook runs lint-staged on every commit, catching missing TSDoc early
-- **Security**: Validate inputs at system boundaries, escape outputs, follow OWASP top 10
+<!-- 🔧 CUSTOMIZE THIS SECTION FOR YOUR PROJECT -->
+
+- **Stack**: [Your stack here - e.g., Next.js, React, TypeScript, etc.]
+- **Package manager**: [pnpm/npm/yarn]
+- **Patterns**: [Your architectural patterns]
+- **Code style**: [Your code style preferences]
+- **Testing**: [Your testing approach]
+- **Commit hygiene**: [Your commit practices]
+- **Security**: [Your security requirements]
 
 ## Skills
+
+<!-- 🔧 CUSTOMIZE THIS SECTION -->
+<!-- Add your project-specific skills here, organized by tier -->
+<!-- Example structure:
 
 [Skills Index]
 |IMPORTANT: When a skill is relevant, read its SKILL.md BEFORE writing code or creating files.
 
 ### Tier 1 — Core
 
-|brand-guide|.claude/skills/brand-guide
-|  desc: Moonshots & Magic brand identity — colors, typography, animations, textures, logo specs, image generation prompts.
+|skill-name|.claude/skills/skill-name
+|  desc: Brief description of what this skill does
 |  contains: SKILL.md,references/
-|  size: ~12KB (3 files)
-
-|ai-sdk|.claude/skills/ai-sdk
-|  desc: AI SDK functions (generateText, streamText, ToolLoopAgent, embed, useChat). Build agents, chatbots, RAG, structured output.
-|  contains: SKILL.md,references/
-|  size: 32KB (4 files)
-
-|ai-elements|.claude/skills/ai-elements
-|  desc: AI chat interface components — composable patterns, shadcn/ui integration, Vercel AI SDK conventions.
-|  contains: SKILL.md,references/,scripts/
-|  size: 1.1MB (130 files)
-
-|ai-team|.claude/skills/ai-team
-|  desc: Composite AI feature development — orchestrates AI SDK + AI Elements + AI Gateway. Agent team spawn patterns for parallel AI feature work.
-|  contains: SKILL.md
-|  size: ~8KB (1 file)
-
-|next-best-practices|.claude/skills/next-best-practices
-|  desc: Next.js file conventions, RSC boundaries, data patterns, async APIs, metadata, error handling, route handlers, image/font optimization, bundling.
-|  contains: SKILL.md,async-patterns.md,bundling.md,data-patterns.md,debug-tricks.md,directives.md,error-handling.md,file-conventions.md,font.md,functions.md,hydration-error.md,image.md,metadata.md,parallel-routes.md,route-handlers.md,rsc-boundaries.md,runtime-selection.md,scripts.md,self-hosting.md,suspense-boundaries.md
-|  size: 120KB (20 files)
+|  size: ~XKB (N files)
 
 ### Tier 2 — Architecture
 
-|vercel-react-best-practices|.claude/skills/vercel-react-best-practices
-|  desc: React/Next.js performance optimization from Vercel Engineering. Components, data fetching, bundle optimization.
-|  contains: SKILL.md,AGENTS.md,rules/
-|  size: 364KB (59 files)
-
-|vercel-composition-patterns|.claude/skills/vercel-composition-patterns
-|  desc: React composition patterns — compound components, render props, context providers. Refactoring boolean prop proliferation.
-|  contains: SKILL.md,AGENTS.md,rules/
-|  size: 64KB (10 files)
-
-|next-cache-components|.claude/skills/next-cache-components
-|  desc: Next.js 16 Cache Components — PPR, use cache directive, cacheLife, cacheTag, updateTag.
-|  contains: SKILL.md
-|  size: 8KB (1 file)
-
-|sync-events|.claude/skills/sync-events
-|  desc: Event sync pipeline — sources (Ticketmaster, Eventbrite, SerpAPI, scrapers), normalizers, dedup, output to events.json. How to run, add sources, test.
-|  contains: SKILL.md
-|  size: ~4KB (1 file)
-
-|test-suite|.claude/skills/test-suite
-|  desc: Vitest + Playwright testing — commands, file placement, fixtures, AI SDK mock patterns, coverage gates.
-|  contains: SKILL.md
-|  size: 4KB (1 file)
-
-|feature-testing|.claude/skills/feature-testing
-|  desc: Feature development with parallel agent teams — implementation, unit tests, visual tests, documentation. Ensures every feature gets test coverage.
-|  contains: SKILL.md
-|  size: ~4KB (1 file)
+[Add your architecture-level skills]
 
 ### Tier 3 — Tooling
 
-|turborepo|.claude/skills/turborepo
-|  desc: Turborepo monorepo — turbo.json, task pipelines, dependsOn, caching, remote cache, --filter, --affected, CI optimization.
-|  contains: SKILL.md,command/,references/
-|  size: 168KB (26 files)
-
-|agent-browser|.claude/skills/agent-browser
-|  desc: Browser automation CLI — navigate pages, fill forms, click buttons, screenshots, extract data, test web apps.
-|  contains: SKILL.md,references/,templates/
-|  size: 68KB (10 files)
-
-|vercel-react-native-skills|.claude/skills/vercel-react-native-skills
-|  desc: React Native/Expo best practices — components, list performance, animations, native modules.
-|  contains: SKILL.md,AGENTS.md,rules/
-|  size: 292KB (38 files)
+[Add your tooling skills]
 
 ### Tier 4 — Reference
 
-|web-design-guidelines|.claude/skills/web-design-guidelines
-|  desc: Web Interface Guidelines compliance — UI review, accessibility, design audit, UX check.
-|  contains: SKILL.md
-|  size: 4KB (1 file)
-
-|find-skills|.claude/skills/find-skills
-|  desc: Discover and install agent skills. "How do I do X", "find a skill for X".
-|  contains: SKILL.md
-|  size: 8KB (1 file)
-
-|agents-md-generator|.claude/skills/agents-md-generator
-|  desc: Generate AGENTS.md/CLAUDE.md with compressed doc indexes and skill maps for AI coding agents.
-|  contains: SKILL.md,references/,scripts/
-|  size: 44KB (5 files)
+[Add your reference skills]
 
 ### Tier 5 — Maintenance
 
-|docs-maintenance|.claude/skills/docs-maintenance
-|  desc: Documentation maintenance — TSDoc enforcement, ARCHITECTURE.md sync, TypeDoc verification. Triggered on any src/ file changes.
-|  contains: SKILL.md
-|  size: ~4KB (1 file)
+[Add your maintenance skills]
 
-|commit-docs|.claude/skills/commit-docs
-|  desc: Commit documentation standards — TSDoc checklist, conventional commit messages, pre-commit verification.
-|  contains: SKILL.md
-|  size: ~4KB (1 file)
-
-> REMINDER: Have you pushed recently? If you've completed a feature, test, or meaningful change — commit and push now. Don't batch work. The hooks will catch problems. Small, frequent pushes > large, infrequent ones.
+-->
 
 ## Architecture
 
+<!-- 🔧 CUSTOMIZE THIS SECTION -->
+
 - `ARCHITECTURE.md` — System overview, data flow, directory map, conventions
-- `docs/generated/` — Auto-generated TypeDoc API reference (run `pnpm docs`)
+- `docs/generated/` — Auto-generated API reference (if applicable)
 
 ## Documentation Rules
 
-- Every exported function/type/component MUST have a TSDoc comment
-- **Enforced by**: `eslint-plugin-jsdoc` (`jsdoc/require-jsdoc` rule) — errors on any exported function/type/interface missing a TSDoc comment
-- **Pre-commit hook**: `husky` + `lint-staged` runs ESLint on staged `src/**/*.{ts,tsx}` files — commits are blocked if TSDoc is missing
-- Read `.claude/skills/docs-maintenance/SKILL.md` before completing any code task
-- Run `pnpm docs` after adding new exports
-- Keep ARCHITECTURE.md directory map in sync when adding/removing files
+<!-- 🔧 CUSTOMIZE THIS SECTION FOR YOUR DOC STANDARDS -->
+
+- [Your documentation requirements]
+- [Your TSDoc/JSDoc rules]
+- [Your pre-commit hooks for docs]
 
 ## Vercel AI SDK Docs
 
-[AI SDK Docs Index]|root: ./docs/ai-sdk
+[AI SDK Docs Index]
+|root: ./docs/ai-sdk
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any AI SDK tasks.
 |00-introduction:{index.mdx}
 |02-foundations:{index.mdx,01-overview.mdx,02-providers-and-models.mdx,03-prompts.mdx,04-tools.mdx,05-streaming.mdx}
@@ -162,13 +88,15 @@ IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning. Consu
 
 ## AI Gateway Docs
 
-[AI Gateway Docs Index]|root: ./docs/ai-gateway
+[AI Gateway Docs Index]
+|root: ./docs/ai-gateway
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any AI Gateway tasks.
 |{01-getting-started.md,02-models-and-providers.md,03-provider-options.md,04-model-fallbacks.md}
 
 ## AI Elements Docs
 
-[AI Elements Docs Index]|root: ./docs/ai-elements
+[AI Elements Docs Index]
+|root: ./docs/ai-elements
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any AI Elements tasks.
 |{index.mdx,usage.mdx,troubleshooting.mdx}
 |components/chatbot:{attachments.mdx,chain-of-thought.mdx,checkpoint.mdx,confirmation.mdx,context.mdx,conversation.mdx,inline-citation.mdx,message.mdx,model-selector.mdx,plan.mdx,prompt-input.mdx,queue.mdx,reasoning.mdx,shimmer.mdx,sources.mdx,suggestion.mdx,task.mdx,tool.mdx}
