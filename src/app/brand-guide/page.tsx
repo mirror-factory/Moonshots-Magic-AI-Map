@@ -601,7 +601,7 @@ export default function BrandGuidePage() {
                 fill
                 className="object-cover"
                 style={{
-                  filter: "grayscale(1) blur(5px) brightness(0.5)",
+                  filter: "grayscale(1) blur(3px) brightness(0.65)",
                   objectPosition: "center 60%",
                 }}
                 priority
@@ -637,7 +637,7 @@ export default function BrandGuidePage() {
                 fill
                 className="object-cover"
                 style={{
-                  filter: "grayscale(1) blur(5px) brightness(0.5)",
+                  filter: "grayscale(1) blur(3px) brightness(0.65)",
                   objectPosition: "center 60%",
                 }}
                 priority
@@ -682,7 +682,7 @@ export default function BrandGuidePage() {
                 fill
                 className="object-cover"
                 style={{
-                  filter: "grayscale(1) blur(5px) brightness(0.5)",
+                  filter: "grayscale(1) blur(3px) brightness(0.65)",
                   objectPosition: "center 60%",
                 }}
                 priority
