@@ -40,7 +40,7 @@ export async function fetchTicketmasterEvents(): Promise<EventEntry[]> {
   const rateFetch = createRateLimitedFetch(RATE_LIMIT_MS, "Ticketmaster");
   const events: EventEntry[] = [];
   let page = 0;
-  const maxPages = 5; // TM caps at 1000 events (5 pages x 200)
+  const maxPages = 10; // Allow up to 2000 events for 7-month window
 
   try {
     while (page < maxPages) {
@@ -53,7 +53,7 @@ export async function fetchTicketmasterEvents(): Promise<EventEntry[]> {
         page: String(page),
         sort: "date,asc",
         startDateTime: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
-        endDateTime: new Date(Date.now() + 90 * 86400000).toISOString().replace(/\.\d+Z$/, "Z"),
+        endDateTime: new Date(Date.now() + 210 * 86400000).toISOString().replace(/\.\d+Z$/, "Z"),
       });
 
       const url = `${API_BASE}?${params}`;

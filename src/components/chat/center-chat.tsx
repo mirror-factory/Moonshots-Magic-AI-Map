@@ -11,7 +11,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useChat } from "@ai-sdk/react";
 import { lastAssistantMessageIsCompleteWithToolCalls } from "ai";
-import { ChevronDown, Pin, PinOff } from "lucide-react";
+import { ChevronDown, Pin, PinOff, Sparkles } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -78,6 +78,18 @@ interface CenterChatProps {
   ambientContext?: AmbientContext | null;
 }
 
+/** Quick action items for the dropdown menu. */
+const QUICK_ACTIONS = [
+  { id: "search", label: "Find Events", desc: "Search by date, category, vibe", icon: "🔍", color: "#3560FF", prompt: "What events are happening this weekend in Orlando?" },
+  { id: "personalize", label: "Personalize", desc: "Set your preferences", icon: "✨", color: "#8B5CF6", prompt: "" },
+  { id: "flyover", label: "Flyover Tour", desc: "3D cinematic event tour", icon: "🚀", color: "#0EA5E9", prompt: "Take me on a flyover tour of the best events this week" },
+  { id: "directions", label: "Get Directions", desc: "Walking or driving routes", icon: "🧭", color: "#10B981", prompt: "How do I get to the nearest event from downtown Orlando?" },
+  { id: "presentation", label: "Orlando Tour", desc: "Narrated landmarks tour", icon: "🎬", color: "#F59E0B", prompt: "" },
+  { id: "recommend", label: "Recommendations", desc: "Personalized event picks", icon: "💡", color: "#EC4899", prompt: "What events would you recommend for me based on my profile?" },
+  { id: "free", label: "Free Events", desc: "No-cost things to do", icon: "🆓", color: "#14B8A6", prompt: "Show me free events happening this month in Orlando" },
+  { id: "family", label: "Family Friendly", desc: "Kid-friendly activities", icon: "👨‍👩‍👧", color: "#F97316", prompt: "What family-friendly events are happening this week?" },
+] as const;
+
 /** Center-stage chat bar with expand-upward conversation panel. */
 export function CenterChat({
   initialInput,
@@ -93,6 +105,7 @@ export function CenterChat({
   const [pinned, setPinned] = useState(() => getChatPinned());
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [dittoState, setDittoState] = useState<DittoState>("greeting");
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const greetingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const map = useMap();
@@ -353,17 +366,21 @@ export function CenterChat({
     }
   }, [speakingMessageId]);
 
-  // Click outside to collapse (skipped when pinned)
+  // Click outside to collapse (skipped when pinned) and close quick actions
   useEffect(() => {
-    if (!expanded || pinned) return;
+    if (!expanded && !quickActionsOpen) return;
+    if (expanded && pinned && !quickActionsOpen) return;
     const handleClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (quickActionsOpen) {
+        setQuickActionsOpen(false);
+      }
+      if (expanded && !pinned && containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setExpanded(false);
       }
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [expanded, pinned]);
+  }, [expanded, pinned, quickActionsOpen]);
 
   // Auto-expand and send when initialInput is provided
   const lastProcessedInputRef = useRef<string | null>(null);
@@ -470,13 +487,72 @@ export function CenterChat({
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setExpanded(false)}
-                  className="rounded-lg p-1 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-                  aria-label="Collapse chat"
-                >
-                  <ChevronDown className="h-4 w-4" style={{ color: "var(--text-dim)" }} />
-                </button>
+                <div className="flex items-center gap-1">
+                  {/* Quick Actions dropdown */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setQuickActionsOpen((prev) => !prev)}
+                      className="rounded-lg p-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                      aria-label="Quick actions"
+                      title="Quick actions"
+                    >
+                      <Sparkles className="h-4 w-4" style={{ color: quickActionsOpen ? "var(--brand-primary, #3560ff)" : "var(--text-dim)" }} />
+                    </button>
+                    <AnimatePresence>
+                      {quickActionsOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute right-0 top-full z-50 mt-1 w-56 overflow-hidden rounded-xl shadow-xl"
+                          style={{
+                            background: "var(--glass-bg)",
+                            border: "1px solid var(--glass-border)",
+                            backdropFilter: "blur(16px)",
+                          }}
+                        >
+                          <div className="p-1.5">
+                            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-dim)" }}>
+                              Quick Actions
+                            </p>
+                            {QUICK_ACTIONS.map((action) => (
+                              <button
+                                key={action.id}
+                                onClick={() => {
+                                  setQuickActionsOpen(false);
+                                  if (action.id === "presentation") {
+                                    onStartPresentation?.();
+                                  } else if (action.id === "personalize") {
+                                    handleSend("Personalize my experience");
+                                  } else {
+                                    handleSend(action.prompt);
+                                  }
+                                }}
+                                className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-xs transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                              >
+                                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-sm" style={{ background: action.color, color: "#fff" }}>
+                                  {action.icon}
+                                </span>
+                                <div className="min-w-0">
+                                  <div className="font-medium" style={{ color: "var(--text)" }}>{action.label}</div>
+                                  <div className="truncate text-[10px]" style={{ color: "var(--text-dim)" }}>{action.desc}</div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  <button
+                    onClick={() => setExpanded(false)}
+                    className="rounded-lg p-1 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                    aria-label="Collapse chat"
+                  >
+                    <ChevronDown className="h-4 w-4" style={{ color: "var(--text-dim)" }} />
+                  </button>
+                </div>
               </div>
 
               {/* Scrollable messages area — StickToBottom manages its own scroll */}

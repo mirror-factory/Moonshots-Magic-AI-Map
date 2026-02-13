@@ -88,6 +88,17 @@ const SEARCH_QUERIES = [
   "events in Tavares FL",
   "events in Leesburg FL",
   "events in Cocoa Beach FL",
+  // Future month coverage (6+ months ahead)
+  "events in Orlando FL March 2026",
+  "events in Orlando FL April 2026",
+  "events in Orlando FL May 2026",
+  "events in Orlando FL June 2026",
+  "events in Orlando FL July 2026",
+  "events in Orlando FL August 2026",
+  "Orlando summer events 2026",
+  "Orlando spring events 2026",
+  "festivals Orlando FL 2026",
+  "concerts Orlando FL spring 2026",
 ];
 
 /**

@@ -42,31 +42,60 @@ export async function fetchEventbriteEvents(): Promise<EventEntry[]> {
 
   try {
     while (pageNum < maxPages) {
-      const params = new URLSearchParams({
-        "location.latitude": "28.5383",
-        "location.longitude": "-81.3792",
-        "location.within": "50mi",
-        expand: "venue,category",
-        status: "live",
+      // Try the current destination/search endpoint first, fall back to legacy
+      const destinationParams = new URLSearchParams({
+        latitude: "28.5383",
+        longitude: "-81.3792",
+        within: "50mi",
+        dates: "current_future",
+        page_size: "50",
       });
       if (continuation) {
-        params.set("continuation", continuation);
+        destinationParams.set("continuation", continuation);
       }
 
-      const url = `${API_BASE}/events/search/?${params}`;
+      let data: EbResponse | undefined;
+      const destinationUrl = `${API_BASE}/destination/search/?${destinationParams}`;
       logger.info(`Fetching page ${pageNum + 1}...`);
 
-      const response = await rateFetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = (await response.json()) as EbResponse;
+      try {
+        const response = await rateFetch(destinationUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (response.ok) {
+          data = (await response.json()) as EbResponse;
+        } else {
+          logger.debug(`Destination endpoint returned ${response.status}, trying legacy...`);
+        }
+      } catch {
+        logger.debug("Destination endpoint failed, trying legacy...");
+      }
+
+      // Fallback to legacy /events/search/ endpoint
+      if (!data) {
+        const legacyParams = new URLSearchParams({
+          "location.latitude": "28.5383",
+          "location.longitude": "-81.3792",
+          "location.within": "50mi",
+          expand: "venue,category",
+          status: "live",
+        });
+        if (continuation) {
+          legacyParams.set("continuation", continuation);
+        }
+
+        const legacyUrl = `${API_BASE}/events/search/?${legacyParams}`;
+        const response = await rateFetch(legacyUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        data = (await response.json()) as EbResponse;
+      }
 
       const ebEvents = data.events ?? [];
       if (ebEvents.length === 0) break;
 
       for (const raw of ebEvents) {
         const parsed = parseEventbriteEvent(raw as Parameters<typeof parseEventbriteEvent>[0]);
-        // Update source to use proper eventbrite type instead of scraper
         const entry: EventEntry = {
           ...parsed,
           source: { type: "eventbrite", fetchedAt: new Date().toISOString() },
