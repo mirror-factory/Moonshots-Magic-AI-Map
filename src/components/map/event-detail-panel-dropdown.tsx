@@ -126,10 +126,10 @@ export function EventDetailPanelDropdown({
   };
 
   return (
-    <div className="flex flex-col h-full max-h-[calc(100vh-120px)]">
+    <div className="flex flex-col" style={{ height: 600, maxHeight: "calc(100vh - 120px)" }}>
       {/* Header */}
       <div
-        className="flex items-center justify-between p-4 border-b"
+        className="flex items-center justify-between p-4 border-b shrink-0"
         style={{ borderColor: "var(--border-color)" }}
       >
         <Button variant="ghost" size="sm" onClick={onBack} className="gap-2">
@@ -142,10 +142,10 @@ export function EventDetailPanelDropdown({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto space-y-6">
+      <div className="flex-1 overflow-y-auto space-y-4">
         {/* Hero Image */}
         {event.imageUrl ? (
-          <div className="relative h-44 w-full overflow-hidden">
+          <div className="relative h-36 w-full overflow-hidden shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={event.imageUrl}
@@ -166,7 +166,7 @@ export function EventDetailPanelDropdown({
           </div>
         ) : (
           <div
-            className="relative h-32 w-full flex items-center justify-center"
+            className="relative h-24 w-full flex items-center justify-center shrink-0"
             style={{
               background: "linear-gradient(135deg, rgba(0, 99, 205, 0.25) 0%, rgba(53, 96, 255, 0.1) 50%, rgba(0, 99, 205, 0.2) 100%)",
             }}
@@ -185,9 +185,9 @@ export function EventDetailPanelDropdown({
         )}
 
         {/* Event Header */}
-        <div className="space-y-3 px-6">
+        <div className="space-y-2 px-6">
           <h2
-            className="text-2xl font-bold text-balance leading-tight"
+            className="text-xl font-bold text-balance leading-tight"
             style={{ color: "var(--text)" }}
           >
             {event.title}
@@ -255,88 +255,87 @@ export function EventDetailPanelDropdown({
               )}
             </div>
           )}
-
         </div>
 
-        <div className="px-6">
-          <Separator />
-        </div>
-
-        {/* Description */}
-        <div className="space-y-2 px-6">
-          <h3 className="font-semibold" style={{ color: "var(--text)" }}>
-            About this event
-          </h3>
-          <p
-            className="text-sm leading-relaxed"
-            style={{ color: "var(--text-dim)" }}
-          >
-            {event.description}
-          </p>
-        </div>
-
-        <div className="px-6">
-          <Separator />
-        </div>
-
-        {/* Quick Actions — 2x2 grid */}
-        <div className="space-y-3 px-6 pb-6">
-          <h3
-            className="font-semibold text-sm"
-            style={{ color: "var(--text)" }}
-          >
-            Quick Actions
-          </h3>
-
-          <div className="grid grid-cols-2 gap-2">
-            {/* Ask Ditto */}
-            <Button
-              onClick={() => onAskDitto(`__EVENT__:${event.id}:${event.title}`)}
-              className="h-auto flex-col gap-1 py-2.5 text-xs"
-              style={{
-                background: "var(--brand-primary)",
-                color: "var(--brand-primary-foreground)",
-              }}
-            >
-              <Sparkles className="h-4 w-4" />
-              <span className="font-medium">Ask Ditto</span>
-            </Button>
-
-            {/* Show on Map */}
-            {onShowMap && event.coordinates ? (
-              <Button
-                onClick={() => onShowMap(event)}
-                variant="outline"
-                className="h-auto flex-col gap-1 bg-transparent py-2.5 text-xs"
-              >
-                <Map className="h-4 w-4" />
-                <span className="font-medium">Show on Map</span>
-              </Button>
-            ) : (
-              <div />
-            )}
-
-            {/* Add to Calendar */}
-            <div className="[&>*]:w-full [&_button]:h-auto [&_button]:flex-col [&_button]:gap-1 [&_button]:py-2.5 [&_button]:text-xs">
-              <AddToCalendarButton
-                event={event}
-                variant="outline"
-                size="default"
-              />
+        {/* Description — only when non-empty */}
+        {event.description?.trim() && (
+          <>
+            <div className="px-6">
+              <Separator />
             </div>
+            <div className="space-y-2 px-6">
+              <h3 className="font-semibold text-sm" style={{ color: "var(--text)" }}>
+                About this event
+              </h3>
+              <p
+                className="text-sm leading-relaxed overflow-y-auto"
+                style={{ color: "var(--text-dim)", maxHeight: 120 }}
+              >
+                {event.description}
+              </p>
+            </div>
+          </>
+        )}
+      </div>
 
-            {/* Share Event */}
-            <Button
-              onClick={handleShare}
-              variant="outline"
-              className="h-auto flex-col gap-1 bg-transparent py-2.5 text-xs"
-            >
-              <Share2 className="h-4 w-4" />
-              <span className="font-medium">Share Event</span>
-            </Button>
+      {/* Quick Actions — inline icon row, pinned to bottom */}
+      <div
+        className="flex items-center gap-2 border-t px-6 py-3 shrink-0"
+        style={{ borderColor: "var(--border-color)" }}
+      >
+        <span
+          className="text-xs font-semibold mr-auto"
+          style={{ color: "var(--text-muted)" }}
+        >
+          Quick Actions
+        </span>
 
-          </div>
+        {/* Ask Ditto — highlighted */}
+        <Button
+          onClick={() => onAskDitto(`__EVENT__:${event.id}:${event.title}`)}
+          size="icon"
+          className="h-8 w-8"
+          style={{
+            background: "var(--brand-primary)",
+            color: "var(--brand-primary-foreground)",
+          }}
+          title="Ask Ditto"
+        >
+          <Sparkles className="h-4 w-4" />
+        </Button>
+
+        {/* Show on Map */}
+        {onShowMap && event.coordinates && (
+          <Button
+            onClick={() => onShowMap(event)}
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 bg-transparent"
+            title="Show on Map"
+          >
+            <Map className="h-4 w-4" />
+          </Button>
+        )}
+
+        {/* Add to Calendar */}
+        <div className="[&_button]:h-8 [&_button]:w-8 [&_button]:p-0">
+          <AddToCalendarButton
+            event={event}
+            variant="outline"
+            size="icon"
+          />
         </div>
+
+        {/* Share Event */}
+        <Button
+          onClick={handleShare}
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 bg-transparent"
+          title="Share Event"
+        >
+          <Share2 className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );

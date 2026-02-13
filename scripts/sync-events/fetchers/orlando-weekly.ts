@@ -104,5 +104,8 @@ function parseLooseDate(text: string): string {
   if (!text) return "";
   const d = new Date(text);
   if (isNaN(d.getTime())) return "";
-  return d.toISOString();
+  // Treat parsed time as Eastern and convert to UTC
+  const month = d.getMonth();
+  const etOffset = (month >= 2 && month <= 10) ? 4 : 5;
+  return new Date(Date.UTC(d.getFullYear(), month, d.getDate(), d.getHours() + etOffset, d.getMinutes())).toISOString();
 }

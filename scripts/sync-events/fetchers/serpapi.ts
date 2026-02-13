@@ -102,29 +102,73 @@ const SEARCH_QUERIES = [
 ];
 
 /**
+ * Extract hours and minutes from a time string like "7 PM", "8:30 AM", "10 PM".
+ * @param text - String potentially containing a time.
+ * @returns Parsed hours (24h) and minutes, or null if no time found.
+ */
+function extractTime(text: string): { hours: number; minutes: number } | null {
+  const match = text.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+  if (!match) return null;
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2] ?? "0", 10);
+  const isPM = match[3].toLowerCase() === "pm";
+  if (isPM && hours !== 12) hours += 12;
+  if (!isPM && hours === 12) hours = 0;
+  return { hours, minutes };
+}
+
+/**
+ * Build a UTC ISO string from date parts + Eastern Time hours/minutes.
+ * EDT (Mar–Nov) = UTC-4, EST (Nov–Mar) = UTC-5.
+ * @param year - Full year.
+ * @param month - 0-indexed month.
+ * @param day - Day of month.
+ * @param hours - Hours in Eastern Time (24h).
+ * @param minutes - Minutes.
+ * @returns ISO 8601 UTC string.
+ */
+function easternToUtc(year: number, month: number, day: number, hours: number, minutes: number): string {
+  const etOffset = (month >= 2 && month <= 10) ? 4 : 5;
+  return new Date(Date.UTC(year, month, day, hours + etOffset, minutes)).toISOString();
+}
+
+/**
  * Parse a SerpApi date string into an ISO 8601 date.
  * SerpApi returns dates like "Sat, Feb 15" or "Feb 15 – 16" or "Tomorrow".
+ * The `when` field may include time: "Friday, Feb 13, 7 PM – 10 PM".
+ * All times are treated as Eastern Time and converted to UTC.
  * @param dateInfo - Date info from SerpApi.
  * @returns ISO 8601 date string.
  */
 function parseSerpDate(dateInfo?: SerpEvent["date"]): string {
   if (!dateInfo) return new Date().toISOString();
 
+  // Extract time from the `when` field (e.g. "Friday, Feb 13, 7 PM – 10 PM")
+  const timeFromWhen = dateInfo.when ? extractTime(dateInfo.when) : null;
+
   if (dateInfo.start_date) {
     try {
       const parsed = new Date(dateInfo.start_date);
       if (!isNaN(parsed.getTime())) {
+        const now = new Date();
+        let year = parsed.getFullYear();
         // SerpApi sometimes returns dates without a year (e.g. "Feb 12")
         // which JS parses as year 2001. Fix by using the current year.
-        const now = new Date();
-        if (parsed.getFullYear() < now.getFullYear()) {
-          parsed.setFullYear(now.getFullYear());
-          // If it's now in the past, bump to next year
-          if (parsed.getTime() < now.getTime() - 7 * 86400000) {
-            parsed.setFullYear(now.getFullYear() + 1);
-          }
+        if (year < now.getFullYear()) {
+          year = now.getFullYear();
         }
-        return parsed.toISOString();
+        const month = parsed.getMonth();
+        const day = parsed.getDate();
+
+        // If the date is in the past, bump to next year
+        const check = new Date(Date.UTC(year, month, day));
+        if (check.getTime() < now.getTime() - 7 * 86400000) {
+          year++;
+        }
+
+        const hours = timeFromWhen?.hours ?? 0;
+        const minutes = timeFromWhen?.minutes ?? 0;
+        return easternToUtc(year, month, day, hours, minutes);
       }
     } catch {
       // fall through
@@ -132,40 +176,40 @@ function parseSerpDate(dateInfo?: SerpEvent["date"]): string {
   }
 
   if (dateInfo.when) {
-    try {
-      // Try direct parse first
-      const parsed = new Date(dateInfo.when);
-      if (!isNaN(parsed.getTime())) return parsed.toISOString();
-    } catch {
-      // fall through
-    }
-
-    // Handle relative dates
-    const when = dateInfo.when.toLowerCase();
+    const when = dateInfo.when;
     const now = new Date();
 
-    if (when.includes("today")) {
-      return now.toISOString();
+    // Handle relative dates
+    const whenLower = when.toLowerCase();
+    if (whenLower.includes("today")) {
+      const hours = timeFromWhen?.hours ?? now.getHours();
+      const minutes = timeFromWhen?.minutes ?? 0;
+      return easternToUtc(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
     }
-    if (when.includes("tomorrow")) {
-      now.setDate(now.getDate() + 1);
-      return now.toISOString();
+    if (whenLower.includes("tomorrow")) {
+      const tom = new Date(now);
+      tom.setDate(tom.getDate() + 1);
+      const hours = timeFromWhen?.hours ?? 0;
+      const minutes = timeFromWhen?.minutes ?? 0;
+      return easternToUtc(tom.getFullYear(), tom.getMonth(), tom.getDate(), hours, minutes);
     }
 
-    // Try parsing "Mon, Feb 15" style
+    // Try parsing "Mon, Feb 15" or "Friday, Feb 13, 7 PM" style
     const match = when.match(
-      /(?:mon|tue|wed|thu|fri|sat|sun),?\s+(\w+)\s+(\d+)/i,
+      /(?:mon|tue|wed|thu|fri|sat|sun)\w*,?\s+(\w+)\s+(\d+)/i,
     );
     if (match) {
-      const [, month, day] = match;
+      const [, monthStr, dayStr] = match;
       const year = now.getFullYear();
-      const attempt = new Date(`${month} ${day}, ${year}`);
+      const attempt = new Date(`${monthStr} ${dayStr}, ${year}`);
       if (!isNaN(attempt.getTime())) {
-        // If the date is in the past, assume next year
-        if (attempt < now) {
-          attempt.setFullYear(year + 1);
+        let useYear = year;
+        if (attempt.getTime() < now.getTime() - 7 * 86400000) {
+          useYear = year + 1;
         }
-        return attempt.toISOString();
+        const hours = timeFromWhen?.hours ?? 0;
+        const minutes = timeFromWhen?.minutes ?? 0;
+        return easternToUtc(useYear, attempt.getMonth(), attempt.getDate(), hours, minutes);
       }
     }
   }

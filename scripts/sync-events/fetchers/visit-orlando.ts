@@ -119,10 +119,13 @@ function resolveUrl(href: string): string {
   return `${BASE_URL}${href.startsWith("/") ? "" : "/"}${href}`;
 }
 
-/** Attempt to parse a loose date string into ISO 8601. */
+/** Attempt to parse a loose date string into ISO 8601 (Eastern → UTC). */
 function parseLooseDate(text: string): string {
   if (!text) return "";
   const d = new Date(text);
   if (isNaN(d.getTime())) return "";
-  return d.toISOString();
+  // Treat parsed time as Eastern and convert to UTC
+  const month = d.getMonth();
+  const etOffset = (month >= 2 && month <= 10) ? 4 : 5;
+  return new Date(Date.UTC(d.getFullYear(), month, d.getDate(), d.getHours() + etOffset, d.getMinutes())).toISOString();
 }

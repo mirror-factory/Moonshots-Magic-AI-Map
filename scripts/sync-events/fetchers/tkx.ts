@@ -55,15 +55,16 @@ export async function fetchTkxEvents(): Promise<EventEntry[]> {
         const paragraphs = $el.find("p").toArray().map((p) => $(p).text().trim()).filter(Boolean);
 
         const dateLine = paragraphs[0] ?? "";
-        const startDate = parseTkxDate(dateLine, currentYear, month);
+        // Calendar venue format: "City | Venue | Time" or "Venue • City"
+        const venueLine = paragraphs[1] ?? "";
+        const { venue, city, time: venueTime } = parseTkxVenue(venueLine);
+
+        // Time may appear in date line ("Sat • Feb 14 • 9:00 pm") or venue line ("Orlando | Beacham | 6:00 pm")
+        const startDate = parseTkxDate(dateLine, currentYear, month, venueTime);
         if (!startDate) {
           logger.debug(`Skipping "${title}" — could not parse date from "${dateLine}"`);
           continue;
         }
-
-        // Calendar venue format: "City | Venue | Time" or "Venue • City"
-        const venueLine = paragraphs[1] ?? "";
-        const { venue, city } = parseTkxVenue(venueLine);
 
         const imageUrl = $el.find("img").first().attr("src") ?? undefined;
         const eventUrl = `${BASE_URL}${href}`;
@@ -152,13 +153,14 @@ export async function fetchTkxEvents(): Promise<EventEntry[]> {
 /**
  * Parse a TKX date line into an ISO 8601 string.
  * Calendar format: "Sat • Feb 14" or "Thu, Feb 12 • 9:00 pm"
- * Also handles pipe-delimited time: "Orlando | Venue | 06:00 pm"
+ * Times are treated as Eastern Time and converted to UTC.
  * @param text - Date text from the event card.
  * @param year - Year to use for the date.
  * @param expectedMonth - Expected month (1-based) for validation.
+ * @param fallbackTime - Optional time string from venue line (e.g. "6:00 pm").
  * @returns ISO date string, or empty string if unparseable.
  */
-function parseTkxDate(text: string, year: number, expectedMonth: number): string {
+function parseTkxDate(text: string, year: number, expectedMonth: number, fallbackTime?: string): string {
   if (!text) return "";
 
   // Normalize: replace comma after day name with bullet for uniform splitting
@@ -170,7 +172,8 @@ function parseTkxDate(text: string, year: number, expectedMonth: number): string
 
   // parts[0] = "Thu", parts[1] = "Feb 12", parts[2] = "9:00 pm" (optional)
   const dateStr = parts[1]; // "Feb 12"
-  const timeStr = parts[2] ?? "";
+  // Time from date line takes priority, fallback to venue line time
+  const timeStr = parts[2] || fallbackTime || "";
 
   // Parse month and day
   const dateMatch = dateStr.match(/^(\w+)\s+(\d+)$/);
@@ -191,7 +194,7 @@ function parseTkxDate(text: string, year: number, expectedMonth: number): string
   // (calendar may show events from adjacent months)
   const useYear = month + 1 < expectedMonth ? year + 1 : year;
 
-  // Parse time if available
+  // Parse time if available (Eastern Time)
   let hours = 0;
   let minutes = 0;
   if (timeStr) {
@@ -205,34 +208,39 @@ function parseTkxDate(text: string, year: number, expectedMonth: number): string
     }
   }
 
-  const date = new Date(useYear, month, day, hours, minutes);
-  return date.toISOString();
+  // Convert Eastern Time to UTC (EST = UTC-5, EDT = UTC-4)
+  // EDT runs roughly Mar second Sun – Nov first Sun
+  const etOffset = (month >= 2 && month <= 10) ? 4 : 5;
+  return new Date(Date.UTC(useYear, month, day, hours + etOffset, minutes)).toISOString();
 }
 
 /**
- * Parse a TKX venue line into venue name and city.
+ * Parse a TKX venue line into venue name, city, and optional time.
  * Handles both formats:
  *   - Bullet: "The Corner • Orlando"
  *   - Pipe: "Orlando | The Beacham | 06:00 pm"
  * @param text - Venue text from the event card.
- * @returns Object with venue and city strings.
+ * @returns Object with venue, city, and optional time strings.
  */
-function parseTkxVenue(text: string): { venue: string; city: string } {
-  if (!text) return { venue: "", city: "Orlando" };
+function parseTkxVenue(text: string): { venue: string; city: string; time: string } {
+  if (!text) return { venue: "", city: "Orlando", time: "" };
 
   // Pipe-delimited format (calendar): "Orlando | The Beacham | 06:00 pm"
   if (text.includes("|")) {
     const parts = text.split("|").map((s) => s.trim());
     if (parts.length >= 2) {
-      return { city: parts[0], venue: parts[1] };
+      // Third part is usually the time (e.g. "6:00 pm")
+      const timePart = parts[2] ?? "";
+      const isTime = /\d+:\d+\s*(am|pm)/i.test(timePart);
+      return { city: parts[0], venue: parts[1], time: isTime ? timePart : "" };
     }
   }
 
   // Bullet-delimited format (homepage): "The Corner • Orlando"
   const parts = text.split("•").map((s) => s.trim());
   if (parts.length >= 2) {
-    return { venue: parts[0], city: parts[1] };
+    return { venue: parts[0], city: parts[1], time: "" };
   }
 
-  return { venue: text, city: "Orlando" };
+  return { venue: text, city: "Orlando", time: "" };
 }
