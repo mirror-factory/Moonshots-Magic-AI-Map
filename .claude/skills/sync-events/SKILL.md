@@ -94,6 +94,51 @@ Test files:
 - `tests/unit/sync-events/ticketmaster-normalizer.test.ts` — TM → EventEntry
 - `tests/unit/sync-events/scraper-normalizer.test.ts` — scraper → EventEntry
 
+## URL Validation
+
+Spot-check that event URLs still resolve to real event pages.
+
+### 1. Generate Manifest
+
+```bash
+npx tsx scripts/sync-events/validate-urls.ts --out /tmp/url-manifest.json
+```
+
+Samples 10 random events per source type (only events with URLs). Manifest shape:
+
+```json
+{
+  "generatedAt": "...",
+  "sources": {
+    "ticketmaster": { "totalEvents": 980, "samples": [{ "id", "title", "venue", "url", "sourceType" }] },
+    "eventbrite": { "totalEvents": 531, "samples": [...] }
+  }
+}
+```
+
+### 2. Chrome-Based Validation (Claude Code)
+
+Using `mcp__claude-in-chrome__*` tools, for each sampled URL:
+
+1. Open a new tab → navigate to the URL
+2. Extract page text
+3. Score the result:
+   - **PASS** — page loads, event title or venue appears in page text
+   - **PARTIAL** — page loads but title/venue not found (redirect, renamed, etc.)
+   - **FAIL** — 404, domain error, blocked, or page doesn't load
+
+### 3. When to Run
+
+- After a sync run, before deploying updated `events.json`
+- When investigating broken links reported by users
+- Periodic health check (monthly recommended)
+
+### 4. Interpreting Results
+
+- **>80% PASS per source** — healthy
+- **50–80%** — source adapter may need URL logic updates
+- **<50%** — source is likely broken or URLs have expired; investigate the fetcher
+
 ## Output
 
 `src/data/events.json` — JSON with:

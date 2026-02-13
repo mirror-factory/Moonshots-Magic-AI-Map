@@ -61,13 +61,19 @@ export function AddToCalendarButton({
     downloadICS(event);
   };
 
+  const isIconMode = size === "icon";
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant={variant} size={size} className={className}>
-          <Calendar className="mr-1.5 h-4 w-4" />
-          Add to Calendar
-          <ChevronDown className="ml-1.5 h-3 w-3" />
+        <Button variant={variant} size={size} className={className} title="Add to Calendar">
+          <Calendar className={isIconMode ? "h-4 w-4" : "mr-1.5 h-4 w-4"} />
+          {!isIconMode && (
+            <>
+              Add to Calendar
+              <ChevronDown className="ml-1.5 h-3 w-3" />
+            </>
+          )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent

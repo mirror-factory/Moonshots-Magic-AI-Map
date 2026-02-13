@@ -284,7 +284,7 @@ export function EventDetailPanelDropdown({
         style={{ borderColor: "var(--border-color)" }}
       >
         <span
-          className="oswald-h4 text-xs mr-auto"
+          className="text-xs font-semibold mr-auto"
           style={{ color: "var(--text-muted)" }}
         >
           Quick Actions

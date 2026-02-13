@@ -369,7 +369,7 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
             {aiResultsActive ? (
               <button
                 onClick={onClearAiResults}
-                className="oswald-h4 flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm transition-all hover:opacity-80"
+                className="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-all hover:opacity-80"
                 style={{
                   background: "#3560FF",
                   color: "#ffffff",
@@ -391,7 +391,7 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
                     )}
                     <button
                       onClick={() => onPresetChange(preset)}
-                      className="oswald-h4 rounded-full px-3.5 py-1.5 text-sm transition-all hover:opacity-80"
+                      className="rounded-full px-3.5 py-1.5 text-sm font-medium transition-all hover:opacity-80"
                       style={{
                         background: isActive ? "#3560FF" : "transparent",
                         color: isActive

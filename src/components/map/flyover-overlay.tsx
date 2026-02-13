@@ -115,7 +115,7 @@ export function FlyoverOverlay({
               }}
             >
               {/* Tour title */}
-              <span className="oswald-h4 text-sm text-white">
+              <span className="text-sm font-semibold text-white">
                 Flyover Tour
               </span>
 

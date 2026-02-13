@@ -1,0 +1,99 @@
+{
+  "runs": [
+    {
+      "runId": "2026-02-13-0705",
+      "generatedAt": "2026-02-13T07:05:05.410Z",
+      "validatedAt": "2026-02-13T07:14:18.000Z",
+      "totalSampled": 40,
+      "overall": { "pass": 35, "partial": 2, "fail": 3, "rate": 0.875 },
+      "sources": {
+        "ticketmaster": {
+          "totalEvents": 980,
+          "sampledWithUrls": 10,
+          "pass": 7,
+          "partial": 0,
+          "fail": 3,
+          "rate": 0.7,
+          "results": [
+            { "id": "tm-Za5ju3rKuqZDdItOqg6-sAB_vvfjeNwwDM", "title": "@ DC", "venue": "Other", "url": "https://www.ticketmaster.com/event/Za5ju3rKuqZDdItOqg6-sAB_vvfjeNwwDM", "status": "fail", "notes": "404: Page not found. Non-standard ID prefix Za5ju3rKuq — likely resale/universe event." },
+            { "id": "tm-Za5ju3rKuqZyzdU-Kgg74nVQIHK48b-D", "title": "Peso Pluma", "venue": "Kia Center", "url": "https://www.ticketmaster.com/event/Za5ju3rKuqZyzdU-Kgg74nVQIHK48b-D", "status": "fail", "notes": "404: Page not found. Non-standard ID prefix Za5ju3rKuq — likely resale/universe event." },
+            { "id": "tm-Z7r9jZ1A7jsbp", "title": "Cirque du Soleil: Drawn to Life", "venue": "Walt Disney World", "url": "https://www.ticketmaster.com/event/Z7r9jZ1A7jsbp", "status": "pass", "notes": "Title + venue confirmed. Apr 22, 2026." },
+            { "id": "tm-1AeFZbzGkXNfSC2", "title": "UCF Knights Softball: ChargeOn Classic Day 1", "venue": "UCF Softball Complex", "url": "https://www.ticketmaster.com/ucf-knights-softball-chargeon-classic-day-orlando-florida-02-27-2026/event/2200638FA353338F", "status": "pass", "notes": "Title confirmed. Feb 27, 2026." },
+            { "id": "tm-Z7r9jZ1A7js__", "title": "Cirque du Soleil: Drawn to Life", "venue": "Walt Disney World", "url": "https://www.ticketmaster.com/event/Z7r9jZ1A7js__", "status": "pass", "notes": "Title confirmed. Apr 10, 2026." },
+            { "id": "tm-1AxZk8SGkd0-E8S", "title": "Nirvanna - HOB Orlando 10-year anniversary show", "venue": "House of Blues Orlando", "url": "https://www.ticketmaster.com/nirvanna-hob-orlando-10year-anniversary-show-orlando-florida-03-13-2026/event/22006433E4867433", "status": "pass", "notes": "Title confirmed. Mar 13, 2026." },
+            { "id": "tm-1AeFZbzGkm-BPuz", "title": "UCF Knights Baseball vs. Siena College Saints", "venue": "John Euliano Park at UCF Baseball Complex", "url": "https://www.ticketmaster.com/ucf-knights-baseball-vs-siena-college-orlando-florida-02-15-2026/event/2200638BA1EA5378", "status": "pass", "notes": "Title confirmed. Feb 15, 2026." },
+            { "id": "tm-Z7r9jZ1A7jsuJ", "title": "Cirque du Soleil: Drawn to Life", "venue": "Walt Disney World", "url": "https://www.ticketmaster.com/event/Z7r9jZ1A7jsuJ", "status": "pass", "notes": "Title confirmed. Mar 19, 2026." },
+            { "id": "tm-rZ7HnEZ1Af7Vx7", "title": "Bikes, Babes & Burlesque", "venue": "Ace Cafe Sanford", "url": "https://www.ticketweb.com/event/bikes-babes-burlesque-ace-cafe-sanford-tickets/14134884", "status": "pass", "notes": "TicketWeb URL. Title + venue + full details confirmed." },
+            { "id": "tm-Z7r9jZ1A74N7b", "title": "Kimberly Akimbo (Touring)", "venue": "Dr. Phillips Performing Arts Center", "url": "https://www.ticketmaster.com/event/Z7r9jZ1A74N7b", "status": "fail", "notes": "404: Page not found. Event likely cancelled/delisted." }
+          ]
+        },
+        "eventbrite": {
+          "totalEvents": 531,
+          "sampledWithUrls": 10,
+          "pass": 10,
+          "partial": 0,
+          "fail": 0,
+          "rate": 1.0,
+          "results": [
+            { "id": "eb-1979001195850", "title": "Fire Fridays #1 Caribbean Party in Orlando Fl", "venue": "Rum Jungle", "url": "https://www.eventbrite.com/e/fire-fridays-1-caribbean-party-in-orlando-fl-tickets-1979001195850", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "eb-1980330731527", "title": "Copy of Musical BINGO Mondays at Aloma Cinema Grill", "venue": "Aloma Cinema Grill", "url": "https://www.eventbrite.com/e/copy-of-musical-bingo-mondays-at-aloma-cinema-grill-in-winter-park-fl-tickets-1980330731527", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "eb-1968209354161", "title": "Winter Birdwatching 101", "venue": "300 Ballard Ave", "url": "https://www.eventbrite.com/e/winter-birdwatching-101-tickets-1968209354161", "status": "pass", "notes": "Title + venue confirmed. WARNING: Ohio event, not Orlando area." },
+            { "id": "eb-1979765942227", "title": "Media and Business Networking", "venue": "Fixtion Restaurant & Bar", "url": "https://www.eventbrite.com/e/media-and-business-networking-elevating-your-potential-orlando-tickets-1979765942227", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "eb-1731354119779", "title": "Wine Down Wednesday at Castle Hotel", "venue": "Castle Hotel, Autograph Collection", "url": "https://www.eventbrite.com/e/wine-down-wednesday-at-castle-hotel-tickets-1731354119779", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "eb-1779870704189", "title": "Confirmed PMP In-Person Training in Orlando, FL", "venue": "101 S Garland Ave", "url": "https://www.eventbrite.com/e/confirmed-pmp-in-person-training-in-orlando-fl-tickets-1779870704189", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "eb-1957620207739", "title": "Paintopia - Jab Decisions (Miami Soca Weekend)", "venue": "Historic Virginia Key Beach Park", "url": "https://www.eventbrite.com/e/paintopia-jab-decisions-miami-soca-weekend-tickets-1957620207739", "status": "pass", "notes": "Title + venue confirmed. WARNING: Miami event, not Orlando area." },
+            { "id": "eb-1982289531350", "title": "FREE Performing Arts Week", "venue": "Oldham Theater Workshop", "url": "https://www.eventbrite.co.uk/e/free-performing-arts-week-tickets-1982289531350", "status": "pass", "notes": "Title + venue confirmed. WARNING: UK event (Oldham, England)." },
+            { "id": "eb-1976324329270", "title": "Performance Management 1 Day Workshop | Orlando, FL", "venue": "For venue details reach us at info@learnerring.com", "url": "https://www.eventbrite.com/e/performance-management-1-day-workshop-orlando-fl-tickets-1976324329270", "status": "pass", "notes": "Title + venue confirmed. No physical venue disclosed." },
+            { "id": "eb-1979986846959", "title": "Rollins Summer Co-Ed Soccer Day Camps 2026", "venue": "Cahall-Sandspur Field", "url": "https://www.eventbrite.com/e/rollins-summer-co-ed-soccer-day-camps-2026-registration-1979986846959", "status": "pass", "notes": "Title + venue confirmed." }
+          ]
+        },
+        "serpapi": {
+          "totalEvents": 407,
+          "sampledWithUrls": 10,
+          "pass": 8,
+          "partial": 2,
+          "fail": 0,
+          "rate": 0.8,
+          "results": [
+            { "id": "serp-florida-groves-music-festival-2-day-pass-10", "title": "Florida Groves Music Festival (2 Day Pass)", "venue": "Central Florida Fair", "url": "https://open.spotify.com/concert/1Osi0LXdoqJy8ZMWNeokAW", "status": "partial", "notes": "Spotify URL shows different event (Motifv). Stale/mismatched URL." },
+            { "id": "serp-florida-everblades-at-orlando-solar-bear-22", "title": "Florida Everblades at Orlando Solar Bears", "venue": "Kia Center", "url": "https://www.floridaeverblades.com/games/2026/02/22/orlando-solar-bears", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "serp-valentine-s-event-13", "title": "Valentine's Event", "venue": "Ocoee Lakeshore Center", "url": "https://www.ocoee.org/Calendar.aspx?EID=7236", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "serp-twilight-mountain-retreat-add-candle-14", "title": "Twilight Mountain Retreat + Add Candle", "venue": "Painting with a Twist", "url": "https://www.paintingwithatwist.com/studio/altamonte-springs/event/4199888/", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "serp-kids-golf-camp-ages-6-17-14", "title": "Kids Golf Camp (Ages 6-17)", "venue": "Deer Island Country Club", "url": "https://www.deerislandcc.com/event/%E2%9B%B3-kids-golf-camp-ages-6-17/2026-02-14/", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "serp-m-family-foundation-s-2026-superhero-rac-23", "title": "M Family Foundation's 2026 Superhero Race Against Cancer 5K", "venue": "1530 Celebration Blvd", "url": "https://runsignup.com/Race/Volunteer/FL/Celebration/SuperheroRaceAgainstCancer", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "serp-african-american-collage-art-14", "title": "African American Collage Art", "venue": "Southeast Branch Library", "url": "https://attend.ocls.org/event/15318729", "status": "partial", "notes": "Title confirmed. Branch name not in extracted text (JS-rendered)." },
+            { "id": "serp-sonata-lake-mary-il-building-sound-trave-13", "title": "Sonata Lake Mary (IL Building) — Sound Traveler Band", "venue": "Sonata Lake Mary", "url": "http://www.soundtravelerband.com/events/2023/11/24/sonata-lake-mary-mc-community-5ex6t-74y5r-kywhm-tg9wf-bxejy-6s884", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "serp-minnesota-golden-gophers-at-stetson-hatt-13", "title": "Minnesota Golden Gophers at Stetson Hatters Baseball", "venue": "Melching Field at Conrad Park", "url": "https://www.viagogo.ca/Sports-Tickets/Baseball/NCAA-Baseball/NCAA-Baseball-Division-1/Sun-Belt-Baseball/Stetson-Hatters-Baseball-Tickets/E-160303277", "status": "pass", "notes": "Title + venue confirmed via viagogo." },
+            { "id": "serp-six-the-musical-6", "title": "SIX The Musical", "venue": "Dr. Phillips Center for the Performing Arts", "url": "https://www.unation.com/event/six-the-musical-61664021/", "status": "pass", "notes": "Title + venue confirmed via UNATION." }
+          ]
+        },
+        "scraper": {
+          "totalEvents": 60,
+          "sampledWithUrls": 10,
+          "pass": 10,
+          "partial": 0,
+          "fail": 0,
+          "rate": 1.0,
+          "results": [
+            { "id": "tkx-0244852f", "title": "I See Stars", "venue": "The Beacham", "url": "https://www.tkx.events/events/i-see-stars-2026-03-13", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "tkx-3c7d7b04", "title": "Blade Rave", "venue": "The Beacham", "url": "https://www.tkx.events/events/blade-rave-2026-03-19", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "tkx-218c9204", "title": "Petey USA", "venue": "The Beacham", "url": "https://www.tkx.events/events/petey-2026-02-27", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "tkx-d64635e6", "title": "Kelsy Karter & The Heroines: The Pleasure Tour", "venue": "The Social", "url": "https://www.tkx.events/events/kelsy-karter--the-heroines-the-pleasure-tour-2026-06-10", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "tkx-f3dda54c", "title": "Raynes", "venue": "The Social", "url": "https://www.tkx.events/events/raynes-2026-03-26", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "tkx-1941ea15", "title": "ADULT.", "venue": "The Social", "url": "https://www.tkx.events/events/adult-2026-04-17", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "tkx-670d7858", "title": "PHONEBOY WITH HEART ATTACK MAN", "venue": "The Beacham", "url": "https://www.tkx.events/events/phoneboy-with-heart-attack-man-2026-04-11", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "tkx-f0ba1e31", "title": "LEXA GATES", "venue": "The Beacham", "url": "https://www.tkx.events/events/lexa-gates-2026-04-22", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "tkx-f9e5107c", "title": "trauma ray + Glixen", "venue": "The Social", "url": "https://www.tkx.events/events/trauma-ray--glixen-2026-04-14", "status": "pass", "notes": "Title + venue confirmed." },
+            { "id": "tkx-95b4544d", "title": "DJ Raphi's 2026 USA Hype Tour", "venue": "The Beacham", "url": "https://www.tkx.events/events/dj-raphis-2026-usa-hype-tour-2026-03-10", "status": "pass", "notes": "Title + venue confirmed." }
+          ]
+        }
+      },
+      "issues": [
+        { "severity": "high", "source": "ticketmaster", "issue": "IDs with Za5ju3rKuq prefix generate URLs that 404. These may be resale/universe events without public event pages.", "affected": 2 },
+        { "severity": "medium", "source": "ticketmaster", "issue": "Kimberly Akimbo (Z7r9jZ1A74N7b) delisted — event likely cancelled.", "affected": 1 },
+        { "severity": "low", "source": "eventbrite", "issue": "Geo-filtering gap: events from Ohio, Miami, and UK found in Orlando dataset.", "affected": 3 },
+        { "severity": "low", "source": "serpapi", "issue": "Spotify concert URL stale/mismatched for Florida Groves Music Festival.", "affected": 1 }
+      ]
+    }
+  ]
+}
