@@ -2271,9 +2271,9 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section id={id} className="animate-section mb-20 scroll-mt-8">
+    <section id={id} className="animate-section mb-10 scroll-mt-8 sm:mb-16 md:mb-20">
       <h2
-        className="mb-8 text-5xl uppercase"
+        className="mb-4 text-5xl uppercase sm:mb-6 md:mb-8"
         style={{
           fontFamily: "var(--font-oswald, 'Oswald', sans-serif)",
           fontWeight: 900,
