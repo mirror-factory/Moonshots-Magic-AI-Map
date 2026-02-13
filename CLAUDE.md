@@ -64,9 +64,9 @@ IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning. Consu
 |  size: 8KB (1 file)
 
 |sync-events|.claude/skills/sync-events
-|  desc: Event sync pipeline — sources (Ticketmaster, Eventbrite, SerpAPI, scrapers), normalizers, dedup, output to events.json. How to run, add sources, test.
+|  desc: Event sync pipeline — sources (Ticketmaster, Eventbrite, SerpAPI, scrapers), normalizers, dedup, output to events.json. URL validation via Chrome MCP tools with persistent results tracking.
 |  contains: SKILL.md
-|  size: ~4KB (1 file)
+|  size: ~6KB (1 file)
 
 |test-suite|.claude/skills/test-suite
 |  desc: Vitest + Playwright testing — commands, file placement, fixtures, AI SDK mock patterns, coverage gates.

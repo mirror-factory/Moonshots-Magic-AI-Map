@@ -96,7 +96,7 @@ Test files:
 
 ## URL Validation
 
-Spot-check that event URLs still resolve to real event pages.
+Spot-check that event URLs still resolve to real event pages. Results are tracked persistently in `scripts/sync-events/validation-results.json`.
 
 ### 1. Generate Manifest
 
@@ -118,26 +118,72 @@ Samples 10 random events per source type (only events with URLs). Manifest shape
 
 ### 2. Chrome-Based Validation (Claude Code)
 
-Using `mcp__claude-in-chrome__*` tools, for each sampled URL:
+Using `mcp__claude-in-chrome__*` tools, validate each sampled URL:
 
-1. Open a new tab → navigate to the URL
-2. Extract page text
-3. Score the result:
-   - **PASS** — page loads, event title or venue appears in page text
-   - **PARTIAL** — page loads but title/venue not found (redirect, renamed, etc.)
-   - **FAIL** — 404, domain error, blocked, or page doesn't load
+**Full procedure:**
 
-### 3. When to Run
+1. Generate manifest: `npx tsx scripts/sync-events/validate-urls.ts --out /tmp/url-manifest.json`
+2. Read the manifest file
+3. For each source type, launch a parallel sub-agent (Task tool, subagent_type: general-purpose) that:
+   a. Gets browser tab context: `mcp__claude-in-chrome__tabs_context_mcp`
+   b. For each sampled URL in the source:
+      - Create a new tab: `mcp__claude-in-chrome__tabs_create_mcp`
+      - Navigate to the URL: `mcp__claude-in-chrome__navigate`
+      - Extract page text: `mcp__claude-in-chrome__get_page_text`
+      - Score: check if event title or venue name appears in page text
+   c. Return results array with per-URL status and notes
+
+**Scoring criteria:**
+- **PASS** — page loads, event title or venue appears in page text
+- **PARTIAL** — page loads but title/venue not found (redirect, renamed, JS-rendered)
+- **FAIL** — 404, domain error, blocked, or page doesn't load
+
+4. Collect results from all sub-agents
+5. Build a validation run JSON with `runId` (YYYY-MM-DD-HHMM format), per-source stats, and issues
+6. Save to persistent results file: `npx tsx scripts/sync-events/validate-urls.ts --save-results /tmp/validation-run.json`
+
+### 3. Persistent Results
+
+Results accumulate in `scripts/sync-events/validation-results.json`:
+
+```json
+{
+  "runs": [
+    {
+      "runId": "2026-02-13-0705",
+      "generatedAt": "2026-02-13T07:05:05.410Z",
+      "validatedAt": "2026-02-13T07:14:18.000Z",
+      "totalSampled": 40,
+      "overall": { "pass": 35, "partial": 2, "fail": 3, "rate": 0.875 },
+      "sources": { "ticketmaster": { "totalEvents": 980, "sampledWithUrls": 10, "pass": 7, "rate": 0.7, "results": [...] } },
+      "issues": [{ "severity": "high", "source": "ticketmaster", "issue": "...", "affected": 2 }]
+    }
+  ]
+}
+```
+
+To save a new run: `npx tsx scripts/sync-events/validate-urls.ts --save-results /tmp/my-run.json`
+
+### 4. When to Run
 
 - After a sync run, before deploying updated `events.json`
 - When investigating broken links reported by users
 - Periodic health check (monthly recommended)
 
-### 4. Interpreting Results
+### 5. Interpreting Results
 
 - **>80% PASS per source** — healthy
 - **50–80%** — source adapter may need URL logic updates
 - **<50%** — source is likely broken or URLs have expired; investigate the fetcher
+
+### 6. Known Issues & Fixes
+
+| Issue | Source | Fix Applied |
+|-------|--------|------------|
+| `Za5ju3rKuq` prefix IDs → 404 URLs | Ticketmaster | `hasStandardTmId()` guard skips fallback URL for resale/Universe IDs |
+| Cancelled/delisted events → 404 | Ticketmaster | Expected — stale events cleaned on next sync |
+| Geo-filtering gap (non-Orlando events) | Eventbrite | Low severity — Eventbrite API location filter is approximate |
+| Stale/mismatched Spotify URLs | SerpAPI | Low severity — Google Events returns whatever link Google indexes |
 
 ## Output
 

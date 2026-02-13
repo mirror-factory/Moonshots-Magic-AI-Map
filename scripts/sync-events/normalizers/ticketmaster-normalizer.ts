@@ -75,6 +75,19 @@ function inferRegion(city?: string, stateCode?: string): string {
 }
 
 /**
+ * Whether a Ticketmaster event ID uses the standard format that resolves
+ * via `https://www.ticketmaster.com/event/{id}`.
+ * IDs starting with `Za5ju3rKuq` are resale/Universe events and the
+ * constructed fallback URL will 404.
+ *
+ * @param id - Raw TM event ID (without `tm-` prefix).
+ * @returns True if the ID can be used to construct a fallback URL.
+ */
+function hasStandardTmId(id: string): boolean {
+  return !id.startsWith("Za5ju3rKuq");
+}
+
+/**
  * Normalize a Ticketmaster event into our EventEntry shape.
  * @param tm - Raw Ticketmaster event object.
  * @returns Normalized EventEntry.
@@ -129,7 +142,7 @@ export function normalizeTmEvent(tm: TmEvent): EventEntry {
     endDate: tm.dates?.end?.dateTime,
     timezone: venue?.timezone ?? tm.dates?.timezone ?? "America/New_York",
     price,
-    url: tm.url || `https://www.ticketmaster.com/event/${tm.id}`,
+    url: tm.url || (hasStandardTmId(tm.id) ? `https://www.ticketmaster.com/event/${tm.id}` : undefined),
     imageUrl: pickBestImage(tm.images),
     tags,
     source: { type: "ticketmaster", fetchedAt: now },

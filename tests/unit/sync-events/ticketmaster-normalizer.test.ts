@@ -127,6 +127,37 @@ describe("normalizeTmEvent", () => {
     expect(result.region).toBe("Winter Park");
   });
 
+  it("uses API url when present", () => {
+    const result = normalizeTmEvent(
+      makeTmEvent({ url: "https://www.ticketmaster.com/custom/event-page" }),
+    );
+    expect(result.url).toBe("https://www.ticketmaster.com/custom/event-page");
+  });
+
+  it("constructs fallback URL for standard TM IDs", () => {
+    const result = normalizeTmEvent(
+      makeTmEvent({ id: "Z7r9jZ1A7jsbp", url: undefined }),
+    );
+    expect(result.url).toBe("https://www.ticketmaster.com/event/Z7r9jZ1A7jsbp");
+  });
+
+  it("omits URL for non-standard Za5ju3rKuq resale IDs without API url", () => {
+    const result = normalizeTmEvent(
+      makeTmEvent({ id: "Za5ju3rKuqZDdItOqg6-sAB_vvfjeNwwDM", url: undefined }),
+    );
+    expect(result.url).toBeUndefined();
+  });
+
+  it("keeps API url even for non-standard IDs when API provides one", () => {
+    const result = normalizeTmEvent(
+      makeTmEvent({
+        id: "Za5ju3rKuqZDdItOqg6-sAB_vvfjeNwwDM",
+        url: "https://universe.com/events/some-event",
+      }),
+    );
+    expect(result.url).toBe("https://universe.com/events/some-event");
+  });
+
   it("falls back to localDate when dateTime missing", () => {
     const result = normalizeTmEvent(
       makeTmEvent({
