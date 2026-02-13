@@ -30,7 +30,7 @@ export function MapHotspots({ events, styleLoaded, isDark = false }: MapHotspots
   useEffect(() => {
     if (!map || !styleLoaded) return;
 
-    const opacity = isDark ? 0.3 : 0.15;
+    const opacity = isDark ? 0.12 : 0.06;
 
     const addHeatmap = () => {
       const geojson: GeoJSON.FeatureCollection = {
@@ -76,9 +76,9 @@ export function MapHotspots({ events, styleLoaded, isDark = false }: MapHotspots
                 "interpolate",
                 ["linear"],
                 ["zoom"],
-                8, 15,
-                10, 30,
-                14, 60,
+                8, 8,
+                10, 16,
+                14, 30,
               ],
               "heatmap-opacity": opacity,
               "heatmap-color": [

@@ -1,8 +1,10 @@
 /**
  * @module components/map/map-status-bar
- * Fixed bottom bar displaying real-time map viewport coordinates
- * (latitude, longitude, zoom, pitch) with integrated theme toggle
- * and settings button.
+ * Map overlay controls split across 4 positions:
+ * - Top center: Date filter chips
+ * - Top right: Theme, 3D, isochrone, settings toggles
+ * - Bottom left: My location button
+ * - Bottom center: Minimal coordinate readout
  */
 
 "use client";
@@ -37,6 +39,7 @@ function useMounted() {
   );
 }
 
+/** Props for {@link MapStatusBar}. */
 interface MapStatusBarProps {
   mode3D?: boolean;
   onToggle3D?: () => void;
@@ -54,7 +57,7 @@ interface MapStatusBarProps {
   onClearAiResults?: () => void;
 }
 
-/** Displays real-time map viewport coordinates in a bottom bar with theme toggle and settings. */
+/** Map overlay controls — filter chips, toolbar, location button, and coordinate readout. */
 export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalization, isochroneActive, isochroneLoading, onToggleIsochrone, activePreset, onPresetChange, aiResultsActive, onClearAiResults }: MapStatusBarProps) {
   const map = useMap();
   const { resolvedTheme, setTheme } = useTheme();
@@ -111,25 +114,36 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
 
   const isDark = mounted && resolvedTheme === "dark";
 
-  // White icons in both modes: bright when active, muted when inactive
-  const activeColor = "#ffffff";
-  const inactiveColor = "rgba(255, 255, 255, 0.55)";
-
   const presets: DatePreset[] = ["all", "today", "weekend", "week", "month"];
+
+  // Shared glass pill styles for top overlays
+  const glassPill = {
+    background: isDark ? "rgba(10, 10, 15, 0.7)" : "rgba(255, 255, 255, 0.8)",
+    border: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(0, 0, 0, 0.12)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+  };
+
+  // Icon colors adapt to theme
+  const iconActive = isDark ? "#ffffff" : "#0a0a0f";
+  const iconMuted = isDark ? "rgba(255, 255, 255, 0.5)" : "rgba(0, 0, 0, 0.45)";
 
   return (
     <>
-      <div className="absolute bottom-0 left-0 right-0 z-10">
-        {/* Date filter chips */}
-        {onPresetChange && (
+      {/* ─── TOP CENTER: Date filter chips ─── */}
+      {onPresetChange && (
+        <div
+          className="absolute left-1/2 top-6 z-20 -translate-x-1/2"
+          style={{ fontFamily: "var(--font-rajdhani)" }}
+        >
           <div
-            className="flex items-center justify-center gap-1.5 px-3 py-1.5"
-            style={{ fontFamily: "var(--font-rajdhani)" }}
+            className="flex items-center gap-1 rounded-full px-1.5 py-1"
+            style={glassPill}
           >
             {aiResultsActive ? (
               <button
                 onClick={onClearAiResults}
-                className="flex items-center gap-1.5 rounded-full px-4 py-1 text-sm font-semibold transition-all hover:opacity-80"
+                className="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition-all hover:opacity-80"
                 style={{
                   background: "#3560FF",
                   color: "#ffffff",
@@ -139,129 +153,137 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
                 <X className="h-3.5 w-3.5" />
               </button>
             ) : (
-              presets.map((preset) => (
-                <button
-                  key={preset}
-                  onClick={() => onPresetChange(preset)}
-                  className="rounded-full px-4 py-1 text-sm font-semibold transition-all hover:opacity-80"
-                  style={{
-                    background: activePreset === preset ? "#3560FF" : "transparent",
-                    color: activePreset === preset ? "#ffffff" : "rgba(255, 255, 255, 0.55)",
-                    border: activePreset === preset ? "1px solid transparent" : "1px solid rgba(255, 255, 255, 0.15)",
-                  }}
-                >
-                  {DATE_PRESET_LABELS[preset]}
-                </button>
-              ))
+              presets.map((preset) => {
+                const isActive = activePreset === preset;
+                return (
+                  <button
+                    key={preset}
+                    onClick={() => onPresetChange(preset)}
+                    className="rounded-full px-3.5 py-1.5 text-sm font-semibold transition-all hover:opacity-80"
+                    style={{
+                      background: isActive ? "#3560FF" : "transparent",
+                      color: isActive
+                        ? "#ffffff"
+                        : isDark
+                          ? "rgba(255, 255, 255, 0.65)"
+                          : "rgba(0, 0, 0, 0.6)",
+                      border: isActive
+                        ? "1px solid transparent"
+                        : isDark
+                          ? "1px solid rgba(255, 255, 255, 0.15)"
+                          : "1px solid rgba(0, 0, 0, 0.15)",
+                    }}
+                  >
+                    {DATE_PRESET_LABELS[preset]}
+                  </button>
+                );
+              })
             )}
           </div>
-        )}
-        <div
-          className="flex items-center justify-center gap-2 px-3 py-1.5 font-mono text-xs backdrop-blur-md sm:gap-4 sm:px-4"
-          style={{
-            background: isDark ? "rgba(10, 10, 15, 0.85)" : "rgba(20, 30, 60, 0.72)",
-            borderTop: "1px solid rgba(255, 255, 255, 0.08)",
-            color: "rgba(255, 255, 255, 0.55)",
-            fontFamily: "var(--font-rajdhani)",
-          }}
-        >
-          <StatusItem label="LAT" value={status.lat.toFixed(4)} activeColor={activeColor} hideLabel />
-          <Separator />
-          <StatusItem label="LNG" value={status.lng.toFixed(4)} activeColor={activeColor} hideLabel />
-          <Separator />
-          <StatusItem label="Z" value={status.zoom.toFixed(1)} activeColor={activeColor} />
-          <Separator />
-          <StatusItem label="P" value={`${status.pitch.toFixed(0)}°`} activeColor={activeColor} />
-          <Separator />
-          {/* My Location */}
-          <button
-            onClick={flyToCurrentLocation}
-            className="flex items-center justify-center transition-colors hover:opacity-70"
-            style={{ color: locating ? activeColor : inactiveColor }}
-            aria-label="Go to my location"
-            title="My location"
-          >
-            {locating ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <LocateFixed className="h-3.5 w-3.5" />
-            )}
-          </button>
-          <Separator />
-          {/* 3D Toggle */}
-          {onToggle3D && (
-            <>
-              <button
-                onClick={onToggle3D}
-                className="flex items-center gap-1 transition-colors hover:opacity-70"
-                style={{ color: mode3D ? activeColor : inactiveColor }}
-                aria-label={mode3D ? "Disable 3D mode" : "Enable 3D mode"}
-                title={mode3D ? "Disable 3D" : "Enable 3D"}
-              >
-                <Box className="h-3.5 w-3.5" />
-                <span className="text-[10px] font-medium">3D</span>
-              </button>
-              <Separator />
-            </>
-          )}
-          {/* Isochrone Toggle */}
-          {onToggleIsochrone && (
-            <>
-              <button
-                onClick={onToggleIsochrone}
-                className="flex items-center gap-1 transition-colors hover:opacity-70"
-                style={{ color: isochroneActive ? activeColor : inactiveColor }}
-                aria-label={isochroneActive ? "Hide travel zones" : "Show travel zones"}
-                title={isochroneActive ? "Hide travel zones" : "Travel zones"}
-              >
-                {isochroneLoading ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Clock className="h-3.5 w-3.5" />
-                )}
-              </button>
-              <Separator />
-            </>
-          )}
-          {/* Theme Toggle */}
-          <button
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-            className="flex items-center justify-center transition-colors hover:opacity-70"
-            style={{ color: activeColor }}
-            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-          >
-            {mounted ? (
-              isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />
-            ) : (
-              <div className="h-3.5 w-3.5" />
-            )}
-          </button>
-          <Separator />
-          {/* Replay Intro Button */}
-          {introContext && (
-            <>
-              <button
-                onClick={() => introContext.showIntro()}
-                className="flex items-center justify-center transition-colors hover:opacity-70"
-                style={{ color: activeColor }}
-                aria-label="Replay welcome experience"
-                title="Replay intro"
-              >
-                <Play className="h-3.5 w-3.5" />
-              </button>
-              <Separator />
-            </>
-          )}
-          {/* Settings Button */}
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="flex items-center justify-center transition-colors hover:opacity-70"
-            style={{ color: inactiveColor }}
-            aria-label="Open settings"
-          >
-            <Settings className="h-3.5 w-3.5" />
-          </button>
         </div>
+      )}
+
+      {/* ─── TOP RIGHT: Toolbar ─── */}
+      <div
+        className="absolute right-4 top-6 z-20 flex items-center gap-1 rounded-full px-1.5 py-1"
+        style={glassPill}
+      >
+        {/* 3D Toggle */}
+        {onToggle3D && (
+          <ToolbarButton
+            onClick={onToggle3D}
+            active={mode3D}
+            activeColor={iconActive}
+            mutedColor={iconMuted}
+            label={mode3D ? "Disable 3D" : "Enable 3D"}
+          >
+            <Box className="h-4 w-4" />
+          </ToolbarButton>
+        )}
+        {/* Isochrone Toggle */}
+        {onToggleIsochrone && (
+          <ToolbarButton
+            onClick={onToggleIsochrone}
+            active={isochroneActive ?? false}
+            activeColor={iconActive}
+            mutedColor={iconMuted}
+            label={isochroneActive ? "Hide travel zones" : "Travel zones"}
+          >
+            {isochroneLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Clock className="h-4 w-4" />
+            )}
+          </ToolbarButton>
+        )}
+        {/* Theme Toggle */}
+        <ToolbarButton
+          onClick={() => setTheme(isDark ? "light" : "dark")}
+          active
+          activeColor={iconActive}
+          mutedColor={iconMuted}
+          label={isDark ? "Light mode" : "Dark mode"}
+        >
+          {mounted ? (
+            isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />
+          ) : (
+            <div className="h-4 w-4" />
+          )}
+        </ToolbarButton>
+        {/* Replay Intro */}
+        {introContext && (
+          <ToolbarButton
+            onClick={() => introContext.showIntro()}
+            active
+            activeColor={iconActive}
+            mutedColor={iconMuted}
+            label="Replay intro"
+          >
+            <Play className="h-4 w-4" />
+          </ToolbarButton>
+        )}
+        {/* Settings */}
+        <ToolbarButton
+          onClick={() => setSettingsOpen(true)}
+          active={false}
+          activeColor={iconActive}
+          mutedColor={iconMuted}
+          label="Settings"
+        >
+          <Settings className="h-4 w-4" />
+        </ToolbarButton>
+      </div>
+
+      {/* ─── BOTTOM LEFT: My Location ─── */}
+      <div className="absolute bottom-4 left-4 z-20">
+        <button
+          onClick={flyToCurrentLocation}
+          className="flex h-10 w-10 items-center justify-center rounded-full shadow-lg transition-all hover:scale-105"
+          style={{
+            ...glassPill,
+            color: locating ? "#3560FF" : iconMuted,
+          }}
+          aria-label="Go to my location"
+          title="My location"
+        >
+          {locating ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <LocateFixed className="h-5 w-5" />
+          )}
+        </button>
+      </div>
+
+      {/* ─── BOTTOM CENTER: Coordinate readout ─── */}
+      <div
+        className="absolute bottom-0 left-1/2 z-10 -translate-x-1/2 rounded-t-lg px-4 py-1 text-[10px] backdrop-blur-md"
+        style={{
+          background: isDark ? "rgba(10, 10, 15, 0.6)" : "rgba(0, 0, 0, 0.35)",
+          color: "rgba(255, 255, 255, 0.5)",
+          fontFamily: "var(--font-rajdhani)",
+        }}
+      >
+        {status.lat.toFixed(4)}, {status.lng.toFixed(4)} · z{status.zoom.toFixed(1)} · {status.pitch.toFixed(0)}°
       </div>
 
       {/* Settings Modal */}
@@ -274,17 +296,31 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
   );
 }
 
-/** Displays a labeled value in the status bar. */
-function StatusItem({ label, value, activeColor, hideLabel }: { label: string; value: string; activeColor: string; hideLabel?: boolean }) {
+/** A single icon button in the top-right toolbar. */
+function ToolbarButton({
+  onClick,
+  active,
+  activeColor,
+  mutedColor,
+  label,
+  children,
+}: {
+  onClick: () => void;
+  active: boolean;
+  activeColor: string;
+  mutedColor: string;
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex items-center gap-1.5">
-      <span className={hideLabel ? "hidden sm:inline" : ""} style={{ color: "rgba(255, 255, 255, 0.35)" }}>{label}</span>
-      <span style={{ color: activeColor }}>{value}</span>
-    </div>
+    <button
+      onClick={onClick}
+      className="flex h-8 w-8 items-center justify-center rounded-full transition-all hover:bg-black/5 dark:hover:bg-white/10"
+      style={{ color: active ? activeColor : mutedColor }}
+      aria-label={label}
+      title={label}
+    >
+      {children}
+    </button>
   );
-}
-
-/** Vertical separator line. */
-function Separator() {
-  return <div className="h-3 w-px" style={{ background: "rgba(255, 255, 255, 0.12)" }} />;
 }

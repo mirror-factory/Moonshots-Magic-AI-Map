@@ -430,7 +430,7 @@ export function CenterChat({
   return (
     <div
       ref={containerRef}
-      className="fixed bottom-4 right-4 z-30 sm:bottom-8 sm:right-8"
+      className="fixed bottom-6 right-4 z-30 sm:bottom-10 sm:right-8"
       style={{ width: "min(420px, 88vw)" }}
     >
       {/* Suggestion tiles - visible only when collapsed and no messages */}

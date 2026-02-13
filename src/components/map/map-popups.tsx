@@ -105,14 +105,24 @@ function clickHTML(props: Record<string, unknown>, coords: [number, number]): st
 
   const btnBase = `
     border:none;
-    padding:7px 0;
-    border-radius:8px;
-    font-size:11px;
+    padding:5px 0;
+    border-radius:6px;
+    font-size:10px;
     font-weight:500;
     cursor:pointer;
     text-align:center;
     transition: opacity 0.15s;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
   `;
+
+  const iconSvg = (d: string) => `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const sparkles = iconSvg(`<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>`);
+  const compass = iconSvg(`<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>`);
+  const info = iconSvg(`<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>`);
+  const zoomIn = iconSvg(`<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/>`);
 
   return `
     <div style="${GLASS_BG} padding:12px; max-width:280px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
@@ -123,23 +133,23 @@ function clickHTML(props: Record<string, unknown>, coords: [number, number]): st
       </div>
       <h3 style="margin:0 0 4px;font-size:14px;font-weight:600;color:#fff;line-height:1.3;">${title}</h3>
       <p style="margin:0 0 2px;font-size:11px;color:rgba(255,255,255,0.5);">${venue}</p>
-      <p style="margin:0 0 12px;font-size:11px;color:rgba(100,160,255,0.9);">${dateStr}</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+      <p style="margin:0 0 10px;font-size:11px;color:rgba(100,160,255,0.9);">${dateStr}</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
         <button class="popup-ask-btn" data-id="${id}" data-title="${safeTitle}"
           style="${btnBase} background:#3560FF;color:#fff;">
-          ✨ Ask Ditto
+          ${sparkles} Ask Ditto
         </button>
         <button class="popup-directions-btn" data-lng="${coords[0]}" data-lat="${coords[1]}" data-title="${safeTitle}"
           style="${btnBase} background:rgba(255,255,255,0.08);color:#e0e4ef;border:1px solid rgba(255,255,255,0.12);">
-          🧭 Directions
+          ${compass} Directions
         </button>
         <button class="popup-detail-btn" data-id="${id}"
           style="${btnBase} background:rgba(255,255,255,0.08);color:#e0e4ef;border:1px solid rgba(255,255,255,0.12);">
-          📋 More Detail
+          ${info} More Detail
         </button>
         <button class="popup-zoom-btn" data-lng="${coords[0]}" data-lat="${coords[1]}"
           style="${btnBase} background:rgba(255,255,255,0.08);color:#e0e4ef;border:1px solid rgba(255,255,255,0.12);">
-          🔍 Zoom In
+          ${zoomIn} Zoom In
         </button>
       </div>
     </div>

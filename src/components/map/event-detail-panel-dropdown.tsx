@@ -12,6 +12,7 @@
 import {
   ArrowLeft,
   Calendar,
+  ExternalLink,
   MapPin,
   Sparkles,
   Map,
@@ -306,6 +307,20 @@ export function EventDetailPanelDropdown({
               <Share2 className="h-4 w-4" />
               <span className="font-medium">Share Event</span>
             </Button>
+
+            {/* Visit Site */}
+            {event.url && (
+              <Button
+                asChild
+                variant="outline"
+                className="h-auto flex-col gap-1 bg-transparent py-2.5 text-xs"
+              >
+                <a href={event.url} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4" />
+                  <span className="font-medium">Visit Site</span>
+                </a>
+              </Button>
+            )}
           </div>
         </div>
       </div>

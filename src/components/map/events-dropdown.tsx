@@ -17,6 +17,7 @@ import {
   ChevronDown,
   Sparkles,
   Filter,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -202,6 +203,18 @@ function VirtualEventList({ events, searchQuery, onEventClick, onShowOnMap }: Vi
                   >
                     {CATEGORY_LABELS[event.category]}
                   </Badge>
+                  {event.url && (
+                    <a
+                      href={event.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex h-7 w-7 items-center justify-center rounded-md opacity-0 transition-all hover:bg-primary/10 group-hover:opacity-100"
+                      title="Visit site"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5 text-primary" />
+                    </a>
+                  )}
                   {onShowOnMap && event.coordinates && (
                     <span
                       role="button"

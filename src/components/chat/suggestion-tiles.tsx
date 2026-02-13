@@ -7,13 +7,13 @@
 
 "use client";
 
-import { useMemo, useRef, useState, useEffect, useCallback } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Music, UtensilsCrossed, Users, MapPin, Clock, Sparkles } from "lucide-react";
 import type { AmbientContext } from "@/lib/context/ambient-context";
 
 interface SuggestionTile {
-  emoji: string;
+  icon: ReactNode;
   label: string;
   subtitle: string;
   query: string;
@@ -21,44 +21,47 @@ interface SuggestionTile {
   affinities: string[];
 }
 
+/** Brand blue for tile icons. */
+const ICON_COLOR = "#3560FF";
+
 const ALL_TILES: SuggestionTile[] = [
   {
-    emoji: "\uD83C\uDFB6",
+    icon: <Music className="h-4 w-4" style={{ color: ICON_COLOR }} />,
     label: "Live music",
     subtitle: "Bands, venues & stages nearby",
     query: "Find live music happening tonight in Orlando",
     affinities: ["evening", "night", "nightlife", "music"],
   },
   {
-    emoji: "\uD83C\uDF55",
+    icon: <UtensilsCrossed className="h-4 w-4" style={{ color: ICON_COLOR }} />,
     label: "Food & drink",
     subtitle: "Tastings, pop-ups & foodie events",
     query: "What food and drink events are happening this week?",
     affinities: ["evening", "afternoon", "food", "weekend"],
   },
   {
-    emoji: "\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67\u200D\uD83D\uDC66",
+    icon: <Users className="h-4 w-4" style={{ color: ICON_COLOR }} />,
     label: "Family fun",
     subtitle: "Kid-friendly adventures",
     query: "Top family-friendly events this month",
     affinities: ["morning", "afternoon", "family", "weekend"],
   },
   {
-    emoji: "\uD83D\uDCA1",
+    icon: <MapPin className="h-4 w-4" style={{ color: ICON_COLOR }} />,
     label: "What's nearby",
     subtitle: "Events close to you",
     query: "What events are happening near me right now?",
     affinities: ["afternoon", "evening"],
   },
   {
-    emoji: "\u23F0",
+    icon: <Clock className="h-4 w-4" style={{ color: ICON_COLOR }} />,
     label: "Starting soon",
     subtitle: "Happening in the next few hours",
     query: "What events are starting in the next 2 hours?",
     affinities: ["evening", "afternoon", "night"],
   },
   {
-    emoji: "\uD83C\uDF1F",
+    icon: <Sparkles className="h-4 w-4" style={{ color: ICON_COLOR }} />,
     label: "Surprise me",
     subtitle: "Something unexpected & fun",
     query: "Surprise me with something unique happening nearby",
@@ -174,7 +177,7 @@ export function SuggestionTiles({ onSelect, context = null }: SuggestionTilesPro
             initial={{ opacity: 0, x: 12 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.05 }}
-            className="flex shrink-0 items-start gap-2.5 rounded-xl px-4 py-3 text-left transition-colors"
+            className="flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-left transition-colors"
             style={{
               width: "calc(50% - 4px)",
               background: "var(--glass-bg)",
@@ -183,7 +186,9 @@ export function SuggestionTiles({ onSelect, context = null }: SuggestionTilesPro
               fontFamily: "var(--font-chakra-petch)",
             }}
           >
-            <span className="text-lg leading-none">{tile.emoji}</span>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: "rgba(53, 96, 255, 0.1)" }}>
+              {tile.icon}
+            </span>
             <div className="min-w-0">
               <span className="text-sm font-medium" style={{ color: "var(--text)" }}>
                 {tile.label}
