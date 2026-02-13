@@ -846,7 +846,7 @@ export function CenterChat({
                             }
 
                             if (part.type === "tool-getDirectionsTool") {
-                              if (part.state === "call" || part.state === "partial-call") {
+                              if (part.state === "input-streaming" || part.state === "input-available") {
                                 return (
                                   <div
                                     key={key}
