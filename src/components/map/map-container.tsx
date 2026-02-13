@@ -483,8 +483,16 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
       }
 
       if (state === "flying" && waypoint) {
-        // Update venue highlight to current waypoint with floating image
-        updateVenueHighlight(map, waypoint.center, waypoint.event.imageUrl);
+        // Update venue highlight to current waypoint with floating card
+        const ev = waypoint.event;
+        const cardInfo: HighlightCardInfo = {
+          title: ev.title,
+          venue: ev.venue,
+          date: new Date(ev.startDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+          source: ev.source.type === "manual" ? "Curated" : ev.source.type.charAt(0).toUpperCase() + ev.source.type.slice(1),
+          price: ev.price?.isFree ? "Free" : ev.price ? `$${ev.price.min}${ev.price.max > ev.price.min ? `–$${ev.price.max}` : ""}` : "See details",
+        };
+        updateVenueHighlight(map, waypoint.center, ev.imageUrl, cardInfo);
 
         // Fly to waypoint
         await animateToWaypoint(map, waypoint);
@@ -960,9 +968,9 @@ const HIGHLIGHT_PULSE_LAYER = "venue-highlight-pulse";
 const HIGHLIGHT_GLOW_LAYER = "venue-highlight-glow";
 const HIGHLIGHT_IMAGE_LAYER = "venue-highlight-image";
 const HIGHLIGHT_IMAGE_ID = "venue-highlight-img";
-const HIGHLIGHT_IMG_WIDTH = 180;
-const HIGHLIGHT_IMG_MAX_HEIGHT = 120;
-const HIGHLIGHT_IMG_MIN_HEIGHT = 80;
+const HIGHLIGHT_CARD_WIDTH = 340;
+const HIGHLIGHT_CARD_HEIGHT = 110;
+const HIGHLIGHT_THUMB_WIDTH = 100;
 
 /** Module-level animation frame ID for the pulse loop. */
 let pulseAnimFrame: number | null = null;
@@ -1008,30 +1016,57 @@ function stopPulseAnimation() {
   }
 }
 
+/** Truncates text to fit within a pixel width using canvas measureText. */
+function truncateText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let t = text;
+  while (t.length > 0 && ctx.measureText(t + "...").width > maxWidth) {
+    t = t.slice(0, -1);
+  }
+  return t + "...";
+}
+
+/** Event info for the flyover highlight card. */
+interface HighlightCardInfo {
+  /** Event title. */
+  title: string;
+  /** Venue name. */
+  venue: string;
+  /** Formatted date string. */
+  date: string;
+  /** Source label. */
+  source: string;
+  /** Price label (e.g. "Free", "$25"). */
+  price: string;
+}
+
 /**
- * Loads an event image, clips it to a rounded rectangle with a small stem
- * pointing downward, and registers it with the MapLibre map instance.
+ * Renders a horizontal flyover card (image left, text right) onto a canvas
+ * and registers it with the MapLibre map instance.
  * @param map - MapLibre map instance.
  * @param url - Image URL to load.
  * @param imageId - ID to register the processed image under.
- * @returns Promise resolving to true if the image was loaded successfully.
+ * @param info - Event text info for the right panel.
+ * @returns Promise resolving to true if rendered successfully.
  */
 async function loadHighlightImage(
   map: maplibregl.Map,
   url: string,
   imageId: string,
+  info?: HighlightCardInfo,
 ): Promise<boolean> {
   return new Promise((resolve) => {
     const img = new window.Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      const w = HIGHLIGHT_IMG_WIDTH;
-      const scaledH = Math.round(img.naturalHeight * (w / img.naturalWidth));
-      // Clamp height to enforce landscape (wider-than-tall) card
-      const h = Math.min(Math.max(scaledH, HIGHLIGHT_IMG_MIN_HEIGHT), HIGHLIGHT_IMG_MAX_HEIGHT);
+      const w = HIGHLIGHT_CARD_WIDTH;
+      const h = HIGHLIGHT_CARD_HEIGHT;
       const stemH = 10;
       const totalH = h + stemH;
       const radius = 14;
+      const thumbW = HIGHLIGHT_THUMB_WIDTH;
+      const textX = thumbW + 12;
+      const textMaxW = w - textX - 12;
 
       const canvas = document.createElement("canvas");
       canvas.width = w;
@@ -1039,41 +1074,72 @@ async function loadHighlightImage(
       const ctx = canvas.getContext("2d");
       if (!ctx) { resolve(false); return; }
 
-      // Centre-crop source when the scaled image exceeds max height
-      const srcW = img.naturalWidth;
-      const srcH = Math.round(h * (img.naturalWidth / w));
-      const srcY = Math.max(0, Math.round((img.naturalHeight - srcH) / 2));
-
-      // Draw rounded image with centre-crop
+      // Card background
       ctx.save();
       ctx.beginPath();
       ctx.roundRect(0, 0, w, h, radius);
       ctx.closePath();
       ctx.clip();
-      ctx.drawImage(img, 0, srcY, srcW, srcH, 0, 0, w, h);
+      ctx.fillStyle = "rgba(10, 10, 15, 0.92)";
+      ctx.fillRect(0, 0, w, h);
+
+      // Left thumbnail — centre-crop to fill thumbW x h
+      const srcAspect = img.naturalWidth / img.naturalHeight;
+      const dstAspect = thumbW / h;
+      let srcX = 0, srcY = 0, srcW = img.naturalWidth, srcH = img.naturalHeight;
+      if (srcAspect > dstAspect) {
+        srcW = Math.round(img.naturalHeight * dstAspect);
+        srcX = Math.round((img.naturalWidth - srcW) / 2);
+      } else {
+        srcH = Math.round(img.naturalWidth / dstAspect);
+        srcY = Math.round((img.naturalHeight - srcH) / 2);
+      }
+      ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, thumbW, h);
       ctx.restore();
 
-      // Stem connector triangle pointing down toward the dot
+      // Right panel text
+      if (info) {
+        // Title (bold, white)
+        ctx.font = "bold 14px sans-serif";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+        ctx.fillText(truncateText(ctx, info.title, textMaxW), textX, 24);
+
+        // Venue (medium, white/70%)
+        ctx.font = "12px sans-serif";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+        ctx.fillText(truncateText(ctx, info.venue, textMaxW), textX, 42);
+
+        // Date (small, white/55%)
+        ctx.font = "11px sans-serif";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+        ctx.fillText(truncateText(ctx, info.date, textMaxW), textX, 60);
+
+        // Source (small, white/40%)
+        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+        ctx.fillText(truncateText(ctx, info.source, textMaxW), textX, 78);
+
+        // Price (bold, accent blue)
+        ctx.font = "bold 13px sans-serif";
+        ctx.fillStyle = info.price === "Free" ? "#00D4AA" : "#66AAF0";
+        ctx.fillText(info.price, textX, 98);
+      }
+
+      // Stem connector triangle
       ctx.beginPath();
       ctx.moveTo(w / 2 - 7, h - 1);
       ctx.lineTo(w / 2, h + stemH);
       ctx.lineTo(w / 2 + 7, h - 1);
       ctx.closePath();
-      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.fillStyle = "rgba(10, 10, 15, 0.92)";
       ctx.fill();
 
-      // Border around the rounded image
+      // Border
       ctx.beginPath();
       ctx.roundRect(0.5, 0.5, w - 1, h - 1, radius);
       ctx.closePath();
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+      ctx.lineWidth = 1.5;
       ctx.stroke();
-
-      // Subtle drop shadow glow beneath card
-      ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
-      ctx.shadowBlur = 8;
-      ctx.shadowOffsetY = 3;
 
       const imageData = ctx.getImageData(0, 0, w, totalH);
 
@@ -1093,15 +1159,17 @@ async function loadHighlightImage(
 
 /**
  * Adds or updates a venue highlight on the map with a pulsating glow
- * and an optional floating event image above the orb.
+ * and an optional floating event card above the orb.
  * @param map - The MapLibre GL map instance.
  * @param coordinates - The venue coordinates [lng, lat].
- * @param imageUrl - Optional event image URL to float above the marker.
+ * @param imageUrl - Optional event image URL for the card thumbnail.
+ * @param cardInfo - Optional event text info for the floating card.
  */
 function updateVenueHighlight(
   map: maplibregl.Map,
   coordinates: [number, number],
   imageUrl?: string,
+  cardInfo?: HighlightCardInfo,
 ) {
   if (!map.getStyle()) return;
 
@@ -1162,7 +1230,7 @@ function updateVenueHighlight(
       map.removeLayer(HIGHLIGHT_IMAGE_LAYER);
     }
 
-    loadHighlightImage(map, imageUrl, HIGHLIGHT_IMAGE_ID).then((ok) => {
+    loadHighlightImage(map, imageUrl, HIGHLIGHT_IMAGE_ID, cardInfo).then((ok) => {
       if (!ok || !map.getStyle() || !map.getSource(HIGHLIGHT_SOURCE)) return;
 
       // Remove stale layer if somehow re-added

@@ -173,6 +173,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
         events={events}
         ambientContext={ambientContext}
         onComplete={handleOnboardingComplete}
+        onDismiss={() => setOnboardingOpen(false)}
       />
       <MapContainer
         events={events}

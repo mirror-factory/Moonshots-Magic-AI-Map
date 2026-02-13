@@ -9,10 +9,11 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { X, Leaf, Zap, Mountain, Baby, Gift, Dog, Rocket } from "lucide-react";
 import type { EventCategory } from "@/lib/registries/types";
 import type { Vibe, PriceRange } from "@/lib/profile";
 import type { AmbientContext } from "@/lib/context/ambient-context";
-import { getProfile, updateProfile } from "@/lib/profile-storage";
+import { getProfile, updateProfile, clearProfile } from "@/lib/profile-storage";
 import { BlurredStars } from "@/components/effects/blurred-stars";
 import { DittoAvatar } from "@/components/chat/ditto-avatar";
 import { VibeTileLarge } from "./vibe-tile-large";
@@ -25,20 +26,20 @@ const VIBE_CATEGORIES: EventCategory[] = [
   "outdoor", "tech", "community", "festival",
 ];
 
-/** Mood options with labels. */
-const MOOD_OPTIONS: { value: Vibe; label: string; emoji: string }[] = [
-  { value: "chill", label: "Chill", emoji: "\uD83E\uDDD8" },
-  { value: "energetic", label: "Energetic", emoji: "\u26A1" },
-  { value: "adventurous", label: "Adventurous", emoji: "\uD83E\uDE82" },
-  { value: "family-friendly", label: "Family-Friendly", emoji: "\uD83D\uDC76" },
+/** Mood options with Lucide icons. */
+const MOOD_OPTIONS: { value: Vibe; label: string; Icon: typeof Leaf }[] = [
+  { value: "chill", label: "Chill", Icon: Leaf },
+  { value: "energetic", label: "Energetic", Icon: Zap },
+  { value: "adventurous", label: "Adventurous", Icon: Mountain },
+  { value: "family-friendly", label: "Family-Friendly", Icon: Baby },
 ];
 
-/** Context chips for the optional step. */
-const CONTEXT_CHIPS: { key: string; label: string; emoji: string }[] = [
-  { key: "free", label: "Free events", emoji: "\uD83C\uDD93" },
-  { key: "kids", label: "Has kids", emoji: "\uD83D\uDC67" },
-  { key: "pets", label: "Has pets", emoji: "\uD83D\uDC36" },
-  { key: "solo", label: "Solo explorer", emoji: "\uD83E\uDDD1\u200D\uD83D\uDE80" },
+/** Context chips with Lucide icons. */
+const CONTEXT_CHIPS: { key: string; label: string; Icon: typeof Gift }[] = [
+  { key: "free", label: "Free events", Icon: Gift },
+  { key: "kids", label: "Has kids", Icon: Baby },
+  { key: "pets", label: "Has pets", Icon: Dog },
+  { key: "solo", label: "Solo explorer", Icon: Rocket },
 ];
 
 interface OnboardingFlowProps {
@@ -50,6 +51,8 @@ interface OnboardingFlowProps {
   ambientContext?: AmbientContext | null;
   /** Called when onboarding completes. */
   onComplete: (categories: EventCategory[]) => void;
+  /** Called when user dismisses onboarding via X button. */
+  onDismiss?: () => void;
 }
 
 /** Order categories based on ambient context (time/weather). */
@@ -106,12 +109,25 @@ export function OnboardingFlow({
   events,
   ambientContext = null,
   onComplete,
+  onDismiss,
 }: OnboardingFlowProps) {
   const [step, setStep] = useState(0);
-  const [name, setName] = useState("");
-  const [selectedCategories, setSelectedCategories] = useState<Set<EventCategory>>(new Set());
-  const [selectedVibes, setSelectedVibes] = useState<Set<Vibe>>(new Set());
-  const [selectedContext, setSelectedContext] = useState<Set<string>>(new Set());
+  const [name, setName] = useState(() => getProfile().name ?? "");
+  const [selectedCategories, setSelectedCategories] = useState<Set<EventCategory>>(
+    () => new Set(getProfile().interests.categories),
+  );
+  const [selectedVibes, setSelectedVibes] = useState<Set<Vibe>>(
+    () => new Set(getProfile().interests.vibes),
+  );
+  const [selectedContext, setSelectedContext] = useState<Set<string>>(() => {
+    const p = getProfile();
+    const ctx = new Set<string>();
+    if (p.interests.priceRange === "free") ctx.add("free");
+    if (p.context.hasKids) ctx.add("kids");
+    if (p.context.hasPets) ctx.add("pets");
+    return ctx;
+  });
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const orderedCategories = useMemo(
     () => orderCategories(VIBE_CATEGORIES, ambientContext),
@@ -202,6 +218,18 @@ export function OnboardingFlow({
         style={{ background: "#050505" }}
       >
         <BlurredStars count={200} />
+
+        {/* X button to dismiss/skip */}
+        <button
+          onClick={() => {
+            localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
+            if (onDismiss) { onDismiss(); } else { onComplete([...selectedCategories]); }
+          }}
+          className="absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-full text-white/40 transition-colors hover:bg-white/10 hover:text-white/80"
+          aria-label="Close onboarding"
+        >
+          <X className="h-5 w-5" />
+        </button>
 
         <div className="flex min-h-full items-center justify-center px-4 py-8 sm:px-6">
           <div className="relative z-10 flex w-full max-w-md flex-col items-center">
@@ -353,7 +381,7 @@ export function OnboardingFlow({
                           fontFamily: "var(--font-chakra-petch)",
                         }}
                       >
-                        {mood.emoji} {mood.label}
+                        <mood.Icon className="mr-1.5 inline h-4 w-4" /> {mood.label}
                       </motion.button>
                     );
                   })}
@@ -417,7 +445,7 @@ export function OnboardingFlow({
                           fontFamily: "var(--font-chakra-petch)",
                         }}
                       >
-                        {chip.emoji} {chip.label}
+                        <chip.Icon className="mr-1.5 inline h-4 w-4" /> {chip.label}
                       </motion.button>
                     );
                   })}
@@ -480,6 +508,69 @@ export function OnboardingFlow({
                 >
                   Explore
                 </button>
+                <button
+                  onClick={() => setShowClearConfirm(true)}
+                  className="mt-2 text-xs text-white/30 transition-colors hover:text-white/60"
+                  style={{ fontFamily: "var(--font-chakra-petch)" }}
+                >
+                  Clear Preferences
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Clear Preferences confirmation modal */}
+          <AnimatePresence>
+            {showClearConfirm && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60"
+              >
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="mx-4 flex w-full max-w-xs flex-col items-center gap-4 rounded-2xl border border-white/10 bg-[#0a0a0f] p-6"
+                >
+                  <h3
+                    className="text-lg tracking-wider text-white"
+                    style={{ fontFamily: "var(--font-bebas-neue)" }}
+                  >
+                    CLEAR ALL PREFERENCES?
+                  </h3>
+                  <p className="text-center text-xs text-white/50" style={{ fontFamily: "var(--font-chakra-petch)" }}>
+                    This will reset your name, interests, and all settings.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowClearConfirm(false)}
+                      className="rounded-xl border border-white/10 px-5 py-2.5 text-sm text-white/70 transition-colors hover:bg-white/5"
+                      style={{ fontFamily: "var(--font-chakra-petch)" }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        clearProfile();
+                        setName("");
+                        setSelectedCategories(new Set());
+                        setSelectedVibes(new Set());
+                        setSelectedContext(new Set());
+                        setStep(0);
+                        setShowClearConfirm(false);
+                      }}
+                      className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-transform hover:scale-105"
+                      style={{
+                        background: "#dc2626",
+                        fontFamily: "var(--font-chakra-petch)",
+                      }}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </motion.div>
               </motion.div>
             )}
           </AnimatePresence>

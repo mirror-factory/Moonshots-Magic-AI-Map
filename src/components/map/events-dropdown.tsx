@@ -282,6 +282,8 @@ export function EventsDropdown({
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
   const [selectedSources, setSelectedSources] = useState<Set<string>>(new Set());
   const [sourceFilterOpen, setSourceFilterOpen] = useState(false);
+  const [selectedVenues, setSelectedVenues] = useState<Set<string>>(new Set());
+  const [venueFilterOpen, setVenueFilterOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -309,6 +311,11 @@ export function EventsDropdown({
       filtered = filtered.filter((e) => selectedSources.has(e.source.type));
     }
 
+    // Venue filter (multi-select)
+    if (selectedVenues.size > 0) {
+      filtered = filtered.filter((e) => selectedVenues.has(e.venue));
+    }
+
     // Custom date range filter
     if (dateFrom) {
       const from = new Date(dateFrom);
@@ -331,10 +338,10 @@ export function EventsDropdown({
     }
 
     return filtered;
-  }, [baseEvents, searchQuery, selectedCategories, selectedSources, dateFrom, dateTo]);
+  }, [baseEvents, searchQuery, selectedCategories, selectedSources, selectedVenues, dateFrom, dateTo]);
 
   const activeFilterCount =
-    selectedCategories.size + selectedSources.size + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0);
+    selectedCategories.size + selectedSources.size + selectedVenues.size + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0);
 
   /** Available categories derived from the base events. */
   const availableCategories = useMemo(() => {
@@ -358,6 +365,17 @@ export function EventsDropdown({
       .map(([source, count]) => ({ source, count }));
   }, [baseEvents]);
 
+  /** Available venues derived from the base events. */
+  const availableVenues = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of baseEvents) {
+      counts.set(e.venue, (counts.get(e.venue) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([venue, count]) => ({ venue, count }));
+  }, [baseEvents]);
+
   // ---- Handlers ----
 
   const handleEventClick = useCallback((event: EventEntry) => {
@@ -374,6 +392,7 @@ export function EventsDropdown({
     setSearchQuery("");
     setSelectedCategories(new Set());
     setSelectedSources(new Set());
+    setSelectedVenues(new Set());
     setDateFrom("");
     setDateTo("");
     setShowFilters(false);
@@ -382,6 +401,7 @@ export function EventsDropdown({
   const clearAllFilters = useCallback(() => {
     setSelectedCategories(new Set());
     setSelectedSources(new Set());
+    setSelectedVenues(new Set());
     setDateFrom("");
     setDateTo("");
   }, []);
@@ -694,6 +714,62 @@ export function EventsDropdown({
                                   </span>
                                   <span className="flex-1 font-medium" style={{ color: "hsl(var(--foreground))" }}>
                                     {SOURCE_LABELS[source] ?? source}
+                                  </span>
+                                  <span className="text-muted-foreground">{count}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  )}
+
+                  {/* Venue multi-select dropdown */}
+                  {availableVenues.length > 1 && (
+                    <div>
+                      <span className="mb-2 block text-xs font-medium text-muted-foreground">Venue</span>
+                      <Popover open={venueFilterOpen} onOpenChange={setVenueFilterOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full justify-between gap-2 bg-background/50 text-xs"
+                          >
+                            {selectedVenues.size > 0
+                              ? `${selectedVenues.size} selected`
+                              : "All venues"}
+                            <ChevronDown className={`h-3 w-3 transition-transform ${venueFilterOpen ? "rotate-180" : ""}`} />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[280px] p-1" align="start" sideOffset={4}>
+                          <div className="max-h-56 overflow-y-auto">
+                            {availableVenues.map(({ venue, count }) => {
+                              const isSelected = selectedVenues.has(venue);
+                              return (
+                                <button
+                                  key={venue}
+                                  onClick={() => {
+                                    setSelectedVenues((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(venue)) next.delete(venue);
+                                      else next.add(venue);
+                                      return next;
+                                    });
+                                  }}
+                                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs transition-colors hover:bg-accent/50"
+                                >
+                                  <span
+                                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded border"
+                                    style={{
+                                      background: isSelected ? "hsl(var(--primary))" : "transparent",
+                                      borderColor: isSelected ? "hsl(var(--primary))" : "hsl(var(--border))",
+                                    }}
+                                  >
+                                    {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                                  </span>
+                                  <span className="flex-1 truncate font-medium" style={{ color: "hsl(var(--foreground))" }}>
+                                    {venue}
                                   </span>
                                   <span className="text-muted-foreground">{count}</span>
                                 </button>

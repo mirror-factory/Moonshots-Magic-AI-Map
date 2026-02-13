@@ -7,23 +7,28 @@
 "use client";
 
 import { motion } from "motion/react";
+import {
+  Music, Palette, Trophy, UtensilsCrossed, Monitor, Users,
+  Baby, Moon, TreePine, GraduationCap, PartyPopper, ShoppingCart,
+  type LucideIcon,
+} from "lucide-react";
 import type { EventCategory } from "@/lib/registries/types";
 import { CATEGORY_COLORS, CATEGORY_LABELS } from "@/lib/map/config";
 
-/** Emoji icon for each category. */
-const CATEGORY_EMOJIS: Partial<Record<EventCategory, string>> = {
-  music: "\uD83C\uDFB6",
-  arts: "\uD83C\uDFA8",
-  sports: "\u26BD",
-  food: "\uD83C\uDF55",
-  tech: "\uD83D\uDCBB",
-  community: "\uD83E\uDD1D",
-  family: "\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67",
-  nightlife: "\uD83C\uDF19",
-  outdoor: "\uD83C\uDFD5\uFE0F",
-  education: "\uD83D\uDCDA",
-  festival: "\uD83C\uDF89",
-  market: "\uD83D\uDED2",
+/** Lucide icon for each category. */
+const CATEGORY_ICONS: Partial<Record<EventCategory, LucideIcon>> = {
+  music: Music,
+  arts: Palette,
+  sports: Trophy,
+  food: UtensilsCrossed,
+  tech: Monitor,
+  community: Users,
+  family: Baby,
+  nightlife: Moon,
+  outdoor: TreePine,
+  education: GraduationCap,
+  festival: PartyPopper,
+  market: ShoppingCart,
 };
 
 /** Short descriptors for each category. */
@@ -55,7 +60,7 @@ interface VibeTileLargeProps {
 export function VibeTileLarge({ category, selected, onToggle }: VibeTileLargeProps) {
   const color = CATEGORY_COLORS[category];
   const label = CATEGORY_LABELS[category];
-  const emoji = CATEGORY_EMOJIS[category] ?? "\u2728";
+  const Icon = CATEGORY_ICONS[category];
   const desc = CATEGORY_DESCRIPTIONS[category] ?? "";
 
   return (
@@ -70,7 +75,11 @@ export function VibeTileLarge({ category, selected, onToggle }: VibeTileLargePro
         boxShadow: selected ? `0 0 24px ${color}40` : "none",
       }}
     >
-      <span className="text-xl sm:text-2xl">{emoji}</span>
+      {Icon ? (
+        <Icon className="h-6 w-6 sm:h-7 sm:w-7" style={{ color: selected ? color : "rgba(255, 255, 255, 0.7)" }} />
+      ) : (
+        <span className="text-xl sm:text-2xl" style={{ color: selected ? color : "rgba(255, 255, 255, 0.7)" }}>&#10024;</span>
+      )}
       <span
         className="text-sm font-medium"
         style={{
