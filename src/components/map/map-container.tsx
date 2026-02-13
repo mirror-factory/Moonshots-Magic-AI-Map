@@ -94,6 +94,8 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
   const introPromiseRef = useRef<Promise<void> | null>(null);
   const ambientOrbitRef = useRef<number>(0);
   const ambientStoppedRef = useRef<boolean>(false);
+  /** Global clear-selection callback — only one selection (popup or show-on-map) active at a time. */
+  const clearSelectionRef = useRef<(() => void) | null>(null);
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
@@ -710,6 +712,9 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
 
   // Cinematic "show on map" — fly to event with rotation + info card
   const showOnMapOrbitRef = useRef<number>(0);
+  const showOnMapDismissRef = useRef<HTMLButtonElement | null>(null);
+  const showOnMapRenderRef = useRef<(() => void) | null>(null);
+  const showOnMapCoordsRef = useRef<[number, number] | null>(null);
 
   /** Handles cinematic show-on-map: fly to event, show card, start gentle orbit. */
   const handleShowEventOnMap = useCallback(
@@ -719,10 +724,14 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
       const event = events.find((e) => e.id === eventId);
       if (!event) return;
 
+      // ── Clear ANY existing selection (popup click OR previous show-on-map) ──
+      clearSelectionRef.current?.();
+
       // Stop ambient orbit if running
       ambientStoppedRef.current = true;
       cancelAnimationFrame(ambientOrbitRef.current);
-      cancelAnimationFrame(showOnMapOrbitRef.current);
+
+      const coords = event.coordinates as [number, number];
 
       // Build card info for the highlight
       const cardInfo: HighlightCardInfo = buildCardInfo({
@@ -734,11 +743,66 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
       });
 
       // Show highlight card + golden pulse on the dot
-      selectEventHighlight(map, event.coordinates as [number, number], event.imageUrl, cardInfo);
+      selectEventHighlight(map, coords, event.imageUrl, cardInfo);
+
+      // ── Create dismiss X button (screen-space positioned) ──
+      showOnMapCoordsRef.current = coords;
+      const dismissEl = document.createElement("button");
+      dismissEl.className = "venue-dismiss-btn";
+      dismissEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+      dismissEl.style.cssText = `
+        position: absolute; z-index: 10; display: flex; align-items: center;
+        justify-content: center; width: 22px; height: 22px; border-radius: 50%;
+        background: rgba(0,0,0,0.75); border: 1.5px solid rgba(255,255,255,0.3);
+        color: #fff; cursor: pointer; backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px); transition: background 0.15s;
+        pointer-events: auto;
+      `;
+      dismissEl.addEventListener("mouseenter", () => { dismissEl.style.background = "rgba(220,50,50,0.85)"; });
+      dismissEl.addEventListener("mouseleave", () => { dismissEl.style.background = "rgba(0,0,0,0.75)"; });
+      showOnMapDismissRef.current = dismissEl;
+
+      const positionDismiss = () => {
+        if (!showOnMapDismissRef.current || !showOnMapCoordsRef.current) return;
+        const pt = map.project(showOnMapCoordsRef.current);
+        showOnMapDismissRef.current.style.left = `${pt.x - 11}px`;
+        showOnMapDismissRef.current.style.top = `${pt.y - 11}px`;
+      };
+
+      showOnMapRenderRef.current = positionDismiss;
+      map.getCanvasContainer().appendChild(dismissEl);
+      positionDismiss();
+      map.on("render", positionDismiss);
+
+      // ── Local cleanup function for THIS selection ──
+      const cleanupThisSelection = () => {
+        cancelAnimationFrame(showOnMapOrbitRef.current);
+        showOnMapOrbitRef.current = 0;
+        if (showOnMapRenderRef.current) {
+          map.off("render", showOnMapRenderRef.current);
+          showOnMapRenderRef.current = null;
+        }
+        showOnMapDismissRef.current?.remove();
+        showOnMapDismissRef.current = null;
+        showOnMapCoordsRef.current = null;
+        deselectEventHighlight(map);
+        if (clearSelectionRef.current === cleanupThisSelection) {
+          clearSelectionRef.current = null;
+        }
+      };
+
+      // Register as the active selection
+      clearSelectionRef.current = cleanupThisSelection;
+
+      // Wire dismiss button click
+      dismissEl.addEventListener("click", (evt) => {
+        evt.stopPropagation();
+        cleanupThisSelection();
+      });
 
       // Fly to the event with cinematic pitch
       map.flyTo({
-        center: event.coordinates as [number, number],
+        center: coords,
         zoom: 16,
         pitch: 55,
         bearing: map.getBearing(),
@@ -747,10 +811,12 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
 
       // Start gentle orbit after camera arrives
       map.once("moveend", () => {
+        if (!showOnMapDismissRef.current) return; // Selection already cleared
         let lastTime = performance.now();
         const ORBIT_SPEED = 2; // degrees per second
 
         const orbit = (now: number) => {
+          if (!showOnMapDismissRef.current) return; // Selection cleared mid-orbit
           const dt = (now - lastTime) / 1000;
           lastTime = now;
           const bearing = map.getBearing() + ORBIT_SPEED * dt;
@@ -760,9 +826,10 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
 
         showOnMapOrbitRef.current = requestAnimationFrame(orbit);
 
-        // Stop orbit on user interaction
+        // Stop orbit on user interaction (keep selection active)
         const stopOrbit = () => {
           cancelAnimationFrame(showOnMapOrbitRef.current);
+          showOnMapOrbitRef.current = 0;
           map.off("mousedown", stopOrbit);
           map.off("touchstart", stopOrbit);
           map.off("wheel", stopOrbit);
@@ -895,7 +962,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
 
         <MapMarkers events={events} styleLoaded={styleLoaded} isDark={isDark} visibleEventIds={effectiveEventIds} highlightedEventIds={highlightedEventIds} />
         <MapHotspots events={events} styleLoaded={styleLoaded} isDark={isDark} />
-        <MapPopups onAskAbout={onAskAbout} onGetDirections={handleGetDirections} onOpenDetail={handleOpenDetail} />
+        <MapPopups onAskAbout={onAskAbout} onGetDirections={handleGetDirections} onOpenDetail={handleOpenDetail} clearSelectionRef={clearSelectionRef} />
         <MapDirections route={directionsRoute} origin={directionsOrigin} destination={directionsDestination} />
         <MapIsochrone result={isochroneResult} events={events} />
         <MapStatusBar

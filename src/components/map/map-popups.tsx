@@ -6,11 +6,14 @@
  * Hover: floating card above the marker (no pulse, disappears on mouse leave).
  * Click: card + golden pulsating orb + auto-rotation orbit. Selection persists
  * through map drag/pan — only the X dismiss button removes it.
+ *
+ * Uses a shared {@link clearSelectionRef} so that only one selection
+ * (popup-click OR show-on-map) is active at any time.
  */
 
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, type MutableRefObject } from "react";
 import maplibregl from "maplibre-gl";
 import { useMap } from "./use-map";
 import {
@@ -29,10 +32,12 @@ interface MapPopupsProps {
   onGetDirections?: (coordinates: [number, number], eventTitle: string) => void;
   /** Callback when user clicks "More Detail" — opens the events dropdown. */
   onOpenDetail?: (eventId: string) => void;
+  /** Shared ref — only one selection (popup-click or show-on-map) active at a time. */
+  clearSelectionRef?: MutableRefObject<(() => void) | null>;
 }
 
 /** Handles hover and click popup interactions on the events map layer. */
-export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopupsProps) {
+export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail, clearSelectionRef }: MapPopupsProps) {
   const map = useMap();
 
   /** Whether a selection (click) is currently active. */
@@ -47,6 +52,8 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopu
   const orbitFrameRef = useRef<number>(0);
   /** Track selected event ID to prevent re-selecting same event. */
   const selectedEventIdRef = useRef<string | null>(null);
+  /** Whether this component owns the shared clearSelectionRef. */
+  const ownsSelectionRef = useRef(false);
 
   /** Stops the orbit animation loop. */
   const stopOrbit = useCallback(() => {
@@ -73,7 +80,12 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopu
     removeDismissButton();
     isSelectedRef.current = false;
     selectedEventIdRef.current = null;
-  }, [map, stopOrbit, removeDismissButton]);
+    // Unregister from shared ref if we own it
+    if (ownsSelectionRef.current && clearSelectionRef) {
+      clearSelectionRef.current = null;
+      ownsSelectionRef.current = false;
+    }
+  }, [map, stopOrbit, removeDismissButton, clearSelectionRef]);
 
   useEffect(() => {
     if (!map) return;
@@ -124,8 +136,12 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopu
       // If clicking same event, ignore
       if (selectedEventIdRef.current === eventId) return;
 
-      // Clear any existing selection first
-      clearSelection();
+      // ── Clear ANY existing selection (previous popup OR show-on-map) ──
+      if (clearSelectionRef?.current) {
+        clearSelectionRef.current();
+      } else {
+        clearSelection();
+      }
 
       const coords = (feature.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
 
@@ -159,21 +175,11 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopu
       dismissEl.className = "venue-dismiss-btn";
       dismissEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
       dismissEl.style.cssText = `
-        position: absolute;
-        z-index: 10;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
-        background: rgba(0, 0, 0, 0.75);
-        border: 1.5px solid rgba(255, 255, 255, 0.3);
-        color: #fff;
-        cursor: pointer;
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        transition: background 0.15s;
+        position: absolute; z-index: 10; display: flex; align-items: center;
+        justify-content: center; width: 22px; height: 22px; border-radius: 50%;
+        background: rgba(0,0,0,0.75); border: 1.5px solid rgba(255,255,255,0.3);
+        color: #fff; cursor: pointer; backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px); transition: background 0.15s;
         pointer-events: auto;
       `;
       dismissEl.addEventListener("mouseenter", () => {
@@ -201,6 +207,12 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopu
       map.getCanvasContainer().appendChild(dismissEl);
       positionDismiss();
       map.on("render", positionDismiss);
+
+      // Register as the active selection in the shared ref
+      if (clearSelectionRef) {
+        clearSelectionRef.current = clearSelection;
+        ownsSelectionRef.current = true;
+      }
 
       // Fly to the event with cinematic pitch
       map.flyTo({
@@ -242,15 +254,21 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopu
       });
     };
 
-    // ── Click on empty map area: clear selection ──────────────────────
+    // ── Click on empty map area: clear any selection (popup or show-on-map) ──
     const handleMapClick = (e: maplibregl.MapMouseEvent) => {
-      if (!isSelectedRef.current) return;
+      const hasAnySelection = isSelectedRef.current || clearSelectionRef?.current;
+      if (!hasAnySelection) return;
 
       // Check if click was on the events layer — if so, handleClick handles it
       const features = map.queryRenderedFeatures(e.point, { layers: ["events-layer"] });
       if (features.length > 0) return;
 
-      clearSelection();
+      // Clear via shared ref (covers both popup and show-on-map selections)
+      if (clearSelectionRef?.current) {
+        clearSelectionRef.current();
+      } else {
+        clearSelection();
+      }
     };
 
     map.on("mousemove", "events-layer", handleMouseMove);
@@ -268,7 +286,7 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopu
       deselectEventHighlight(map);
       removeDismissButton();
     };
-  }, [map, onAskAbout, onGetDirections, onOpenDetail, clearSelection, stopOrbit, removeDismissButton]);
+  }, [map, onAskAbout, onGetDirections, onOpenDetail, clearSelection, clearSelectionRef, stopOrbit, removeDismissButton]);
 
   return null;
 }
