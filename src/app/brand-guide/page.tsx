@@ -160,50 +160,13 @@ function AnimatedLogo({ className, width = 750, height = 250 }: { className?: st
       gsap.set(path, { opacity: 0.15 });
     });
 
-    // Group paths by word: MOONSHOTS, &, MAGIC
-    const moonshotsGroup = [0, 5, 4, 2, 10, 7, 8, 14, 11]; // MOONSHOTS
-    const ampersandGroup = [6]; // &
-    const magicGroup = [1, 9, 15, 12, 13]; // MAGIC
-
-    // Animate word by word: MOONSHOTS → & → MAGIC
-    const timeline = gsap.timeline({ delay: 0.5 });
-
-    // 1. Light up MOONSHOTS (all at once)
-    timeline.to(
-      moonshotsGroup.map(i => paths[i]),
-      {
-        opacity: 1,
-        duration: 0.4,
-        ease: "power2.out",
-      },
-      0
-    );
-
-    // 2. Then light up & (after MOONSHOTS)
-    timeline.to(
-      paths[ampersandGroup[0]],
-      {
-        opacity: 1,
-        duration: 0.3,
-        ease: "power2.out",
-      },
-      0.5
-    );
-
-    // 3. Finally light up MAGIC (after &)
-    timeline.to(
-      magicGroup.map(i => paths[i]),
-      {
-        opacity: 1,
-        duration: 0.4,
-        ease: "power2.out",
-      },
-      0.9
-    );
-
-    return () => {
-      timeline.kill();
-    };
+    // Light up all paths at once instantly
+    gsap.to(paths, {
+      opacity: 1,
+      duration: 0.3,
+      ease: "power2.out",
+      delay: 0.3,
+    });
   }, []);
 
   return (
@@ -545,7 +508,7 @@ export default function BrandGuidePage() {
         <div className="relative">
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="flex items-center justify-center rounded-lg p-3 text-sm font-medium transition-all hover:scale-105"
+            className="group flex items-center justify-center rounded-lg p-3 text-sm font-medium transition-all hover:scale-105 hover:border-brand-primary/30"
             style={{
               background: "rgba(255, 255, 255, 0.03)",
               backdropFilter: "blur(8px)",
@@ -554,7 +517,7 @@ export default function BrandGuidePage() {
               color: "var(--text-dim)",
             }}
           >
-            <Settings className="h-5 w-5" />
+            <Settings className="h-5 w-5 transition-colors group-hover:text-brand-primary" />
           </button>
 
           {menuOpen && (
@@ -1883,18 +1846,18 @@ export default function BrandGuidePage() {
           href="/.claude/skills/brand-guide/SKILL.md"
           download="moonshots-magic-brand-guide.md"
           onClick={() => setShowToast(false)}
-          className="fixed bottom-6 left-1/2 z-[200] -translate-x-1/2 animate-in slide-in-from-bottom-4 fade-in duration-500"
+          className="fixed bottom-6 left-1/2 z-[200] -translate-x-1/2 animate-in slide-in-from-bottom-4 fade-in duration-500 group"
         >
           <div
-            className="flex items-center gap-2 rounded-full px-3 py-1.5 transition-all hover:bg-white/10"
+            className="flex items-center gap-2 rounded-full px-3 py-1.5 transition-all"
             style={{
               background: "rgba(255, 255, 255, 0.05)",
               backdropFilter: "blur(8px)",
               border: "1px solid rgba(255, 255, 255, 0.08)",
             }}
           >
-            <Download className="h-3 w-3" style={{ color: "rgba(255, 255, 255, 0.5)" }} />
-            <span className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+            <Download className="h-3 w-3 transition-colors group-hover:text-brand-primary" style={{ color: "rgba(255, 255, 255, 0.5)" }} />
+            <span className="text-xs transition-colors group-hover:text-brand-primary" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
               Tap here to download brand guide for AI
             </span>
           </div>
