@@ -58,57 +58,83 @@ export function EventCard({ event, onShowOnMap }: EventCardProps) {
       ? `$${event.price.min}${event.price.max > event.price.min ? `–$${event.price.max}` : ""}`
       : "";
 
+  /** Dark blurred background — event image or branded placeholder gradient. */
+  const bgImage = event.imageUrl
+    ? `url(${event.imageUrl})`
+    : "linear-gradient(135deg, rgba(53, 96, 255, 0.25) 0%, rgba(0, 20, 60, 0.6) 50%, rgba(53, 96, 255, 0.15) 100%)";
+
   return (
     <div
-      className="flex h-[160px] flex-col justify-between rounded-xl border p-3"
+      className="relative flex h-[160px] flex-col justify-between overflow-hidden rounded-xl border p-3"
       style={{
-        background: "var(--glass-bg)",
         borderColor: "var(--glass-border)",
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
       }}
     >
-      {/* Title */}
-      <h4
-        className="line-clamp-2 text-sm font-semibold leading-tight"
-        style={{ color: "var(--text)" }}
-      >
-        {event.title}
-      </h4>
+      {/* Background layer: image or gradient */}
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: bgImage,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          filter: event.imageUrl ? "blur(8px) brightness(0.3)" : "none",
+          transform: event.imageUrl ? "scale(1.15)" : undefined,
+        }}
+      />
+      {/* Dark scrim for legibility */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: event.imageUrl
+            ? "linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.7) 100%)"
+            : "rgba(10, 10, 15, 0.55)",
+        }}
+      />
 
-      {/* Details */}
-      <div className="mt-1.5 space-y-1">
-        <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--text-dim)" }}>
-          <MapPin className="h-3 w-3 shrink-0" style={{ color: "var(--text-muted)" }} />
-          <span className="truncate">{event.venue}</span>
-        </div>
-        <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--text-dim)" }}>
-          <Calendar className="h-3 w-3 shrink-0" style={{ color: "var(--text-muted)" }} />
-          <span>{dateStr} · {timeStr}</span>
-        </div>
-        {priceLabel && (
-          <div className="flex items-center gap-1.5 text-[11px]">
-            <Tag className="h-3 w-3 shrink-0" style={{ color: "var(--text-muted)" }} />
-            <span style={{ color: event.price?.isFree ? "#00D4AA" : "var(--text-dim)" }}>
-              {priceLabel}
-            </span>
+      {/* Content (above bg) */}
+      <div className="relative z-10 flex h-full flex-col justify-between">
+        {/* Title */}
+        <h4
+          className="line-clamp-2 text-sm font-semibold leading-tight"
+          style={{ color: "#ffffff" }}
+        >
+          {event.title}
+        </h4>
+
+        {/* Details */}
+        <div className="mt-1.5 space-y-1">
+          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "rgba(255,255,255,0.6)" }}>
+            <MapPin className="h-3 w-3 shrink-0" style={{ color: "rgba(255,255,255,0.4)" }} />
+            <span className="truncate">{event.venue}</span>
           </div>
+          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "rgba(255,255,255,0.6)" }}>
+            <Calendar className="h-3 w-3 shrink-0" style={{ color: "rgba(255,255,255,0.4)" }} />
+            <span>{dateStr} · {timeStr}</span>
+          </div>
+          {priceLabel && (
+            <div className="flex items-center gap-1.5 text-[11px]">
+              <Tag className="h-3 w-3 shrink-0" style={{ color: "rgba(255,255,255,0.4)" }} />
+              <span style={{ color: event.price?.isFree ? "#00D4AA" : "rgba(255,255,255,0.6)" }}>
+                {priceLabel}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Learn More button */}
+        {hasCoords && onShowOnMap && (
+          <button
+            onClick={() => onShowOnMap(event.coordinates!, event.title, event.id)}
+            className="mt-2 w-full rounded-lg py-1.5 text-[11px] font-medium transition-colors hover:opacity-90"
+            style={{
+              background: BRAND_BLUE,
+              color: "#ffffff",
+            }}
+          >
+            Learn More
+          </button>
         )}
       </div>
-
-      {/* Learn More button */}
-      {hasCoords && onShowOnMap && (
-        <button
-          onClick={() => onShowOnMap(event.coordinates!, event.title, event.id)}
-          className="mt-2 w-full rounded-lg py-1.5 text-[11px] font-medium transition-colors hover:opacity-90"
-          style={{
-            background: BRAND_BLUE,
-            color: "#ffffff",
-          }}
-        >
-          Learn More
-        </button>
-      )}
     </div>
   );
 }
