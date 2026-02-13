@@ -190,7 +190,7 @@ function VirtualEventList({ events, searchQuery, onEventClick, onShowOnMap }: Vi
               <div className="absolute bottom-0 left-0 top-0 w-0 bg-primary/20 transition-all duration-200 group-hover:w-1" />
               <div className="flex items-start justify-between gap-3 pl-2">
                 <div className="min-w-0 flex-1">
-                  <h3 className="mb-1.5 line-clamp-1 text-sm font-medium text-foreground transition-colors group-hover:text-primary">
+                  <h3 className="mb-1.5 line-clamp-1 text-[11px] font-medium text-foreground transition-colors group-hover:text-primary">
                     {event.title}
                   </h3>
                   <div className="mb-1 flex items-center gap-3 text-xs text-muted-foreground">
