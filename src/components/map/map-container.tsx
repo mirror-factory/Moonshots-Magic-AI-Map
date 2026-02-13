@@ -824,17 +824,17 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
         }} />
 
         {/* Corner stars with shooting stars */}
-        <div className="pointer-events-none absolute left-0 top-0 z-[5] h-96 w-96 overflow-hidden">
-          <Stars count={30} shootingStars={1} />
+        <div className="pointer-events-none absolute left-0 top-0 z-[5] h-64 w-64 overflow-hidden opacity-90">
+          <Stars count={50} shootingStars={3} />
         </div>
-        <div className="pointer-events-none absolute right-0 top-0 z-[5] h-96 w-96 overflow-hidden">
-          <Stars count={30} shootingStars={1} />
+        <div className="pointer-events-none absolute right-0 top-0 z-[5] h-64 w-64 overflow-hidden opacity-90">
+          <Stars count={50} shootingStars={3} />
         </div>
-        <div className="pointer-events-none absolute bottom-0 left-0 z-[5] h-96 w-96 overflow-hidden">
-          <Stars count={30} shootingStars={1} />
+        <div className="pointer-events-none absolute bottom-0 left-0 z-[5] h-64 w-64 overflow-hidden opacity-90">
+          <Stars count={50} shootingStars={3} />
         </div>
-        <div className="pointer-events-none absolute bottom-0 right-0 z-[5] h-96 w-96 overflow-hidden">
-          <Stars count={30} shootingStars={1} />
+        <div className="pointer-events-none absolute bottom-0 right-0 z-[5] h-64 w-64 overflow-hidden opacity-90">
+          <Stars count={50} shootingStars={3} />
         </div>
 
         <div
