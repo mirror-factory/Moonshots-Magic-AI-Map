@@ -32,7 +32,7 @@ export function Stars({ count = 100, shootingStars = 0 }: StarsProps) {
     // Regular twinkling stars with slow forward motion
     const stars = Array.from({ length: count }, () => {
       const star = document.createElement("div");
-      const size = Math.random() * 3.5 + 1.5;
+      const size = Math.random() * 1.7 + 0.8;
       const isBlue = Math.random() > 0.6; // 40% blue, 60% white
       const depth = Math.random(); // 0-1, closer stars move faster
 
@@ -44,8 +44,8 @@ export function Stars({ count = 100, shootingStars = 0 }: StarsProps) {
         border-radius: 50%;
         left: ${Math.random() * 100}%;
         top: ${Math.random() * 100}%;
-        opacity: ${Math.random() * 0.6 + 0.4};
-        box-shadow: 0 0 ${Math.random() * 6 + 3}px currentColor;
+        opacity: ${Math.random() * 0.3 + 0.2};
+        box-shadow: 0 0 ${Math.random() * 2 + 1}px currentColor;
         pointer-events: none;
       `;
       star.dataset.depth = depth.toString();
