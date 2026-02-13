@@ -55,6 +55,10 @@ export interface EventsDropdownProps {
   onAskAbout?: (eventTitle: string) => void;
   /** Callback fired when the user requests to show an event on the map. */
   onShowOnMap?: (event: EventEntry) => void;
+  /** Event ID to auto-open in the detail view (from map popup "More Detail"). */
+  detailEventId?: string | null;
+  /** Clears the externally-set detail event ID. */
+  onClearDetailEvent?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -243,6 +247,8 @@ export function EventsDropdown({
   onPresetChange,
   onAskAbout,
   onShowOnMap,
+  detailEventId,
+  onClearDetailEvent,
 }: EventsDropdownProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -353,6 +359,21 @@ export function EventsDropdown({
     },
     [onShowOnMap, handleClose],
   );
+
+  // Auto-open when detailEventId is set externally (e.g. from map popup "More Detail").
+  // Uses the React-approved "previous value state" pattern to adjust state when props change.
+  const [prevDetailEventId, setPrevDetailEventId] = useState<string | null>(null);
+  if (detailEventId !== prevDetailEventId) {
+    setPrevDetailEventId(detailEventId ?? null);
+    if (detailEventId) {
+      const match = events.find((e) => e.id === detailEventId);
+      if (match) {
+        setOpen(true);
+        setSelectedEvent(match);
+      }
+      onClearDetailEvent?.();
+    }
+  }
 
   // ---- Render ----
 

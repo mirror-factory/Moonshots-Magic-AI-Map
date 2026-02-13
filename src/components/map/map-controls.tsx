@@ -41,6 +41,10 @@ interface MapControlsProps {
   /** Callback when user changes the date filter preset. */
   onPresetChange?: (preset: DatePreset) => void;
   onAskAbout?: (eventTitle: string) => void;
+  /** Event ID to auto-open in the dropdown detail view. */
+  detailEventId?: string | null;
+  /** Clear the externally-set detail event ID. */
+  onClearDetailEvent?: () => void;
 }
 
 /** Slide-out panel with AI-highlighted event list and navigation. */
@@ -54,6 +58,8 @@ export function MapControls({
   activePreset,
   onPresetChange,
   onAskAbout,
+  detailEventId,
+  onClearDetailEvent,
 }: MapControlsProps) {
   const map = useMap();
   const [selectedEvent, setSelectedEvent] = useState<EventEntry | null>(null);
@@ -104,6 +110,8 @@ export function MapControls({
           onPresetChange={onPresetChange}
           onAskAbout={onAskAbout}
           onShowOnMap={handleShowOnMap}
+          detailEventId={detailEventId}
+          onClearDetailEvent={onClearDetailEvent}
         />
       </div>
 

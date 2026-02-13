@@ -138,21 +138,42 @@ export function EventDetailPanelDropdown({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {/* Event Header */}
-        <div className="space-y-3">
-          <Badge
-            variant="outline"
-            style={{
-              background:
-                "color-mix(in srgb, var(--brand-primary) 10%, transparent)",
-              color: "var(--brand-primary)",
-              borderColor:
-                "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
-            }}
+      <div className="flex-1 overflow-y-auto space-y-6">
+        {/* Hero Image */}
+        {event.imageUrl && (
+          <div
+            className="relative h-44 w-full bg-cover bg-center"
+            style={{ backgroundImage: `url(${event.imageUrl})` }}
           >
-            {CATEGORY_LABELS[event.category]}
-          </Badge>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            <Badge
+              className="absolute bottom-3 left-4 text-xs"
+              style={{
+                background: "var(--brand-primary)",
+                color: "#fff",
+              }}
+            >
+              {CATEGORY_LABELS[event.category]}
+            </Badge>
+          </div>
+        )}
+
+        {/* Event Header */}
+        <div className="space-y-3 px-6">
+          {!event.imageUrl && (
+            <Badge
+              variant="outline"
+              style={{
+                background:
+                  "color-mix(in srgb, var(--brand-primary) 10%, transparent)",
+                color: "var(--brand-primary)",
+                borderColor:
+                  "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
+              }}
+            >
+              {CATEGORY_LABELS[event.category]}
+            </Badge>
+          )}
           <h2
             className="text-2xl font-bold text-balance leading-tight"
             style={{ color: "var(--text)" }}
@@ -162,7 +183,7 @@ export function EventDetailPanelDropdown({
         </div>
 
         {/* Event Details */}
-        <div className="space-y-3 text-sm">
+        <div className="space-y-3 text-sm px-6">
           <div className="flex items-start gap-3">
             <Calendar
               className="h-5 w-5 flex-shrink-0 mt-0.5"
@@ -209,10 +230,12 @@ export function EventDetailPanelDropdown({
           )}
         </div>
 
-        <Separator />
+        <div className="px-6">
+          <Separator />
+        </div>
 
         {/* Description */}
-        <div className="space-y-2">
+        <div className="space-y-2 px-6">
           <h3 className="font-semibold" style={{ color: "var(--text)" }}>
             About this event
           </h3>
@@ -224,10 +247,12 @@ export function EventDetailPanelDropdown({
           </p>
         </div>
 
-        <Separator />
+        <div className="px-6">
+          <Separator />
+        </div>
 
-        {/* Quick Actions */}
-        <div className="space-y-3">
+        {/* Quick Actions — 2x2 grid */}
+        <div className="space-y-3 px-6 pb-6">
           <h3
             className="font-semibold text-sm"
             style={{ color: "var(--text)" }}
@@ -235,64 +260,53 @@ export function EventDetailPanelDropdown({
             Quick Actions
           </h3>
 
-          {/* Ask Ditto - Primary Action */}
-          <Button
-            onClick={() => onAskDitto(`__EVENT__:${event.id}:${event.title}`)}
-            className="w-full justify-start gap-3 h-auto py-3"
-            style={{
-              background: "var(--brand-primary)",
-              color: "var(--brand-primary-foreground)",
-            }}
-          >
-            <Sparkles className="h-5 w-5" />
-            <div className="text-left">
-              <div className="font-medium">Ask Ditto</div>
-              <div className="text-xs opacity-90">
-                Get AI assistance about this event
-              </div>
-            </div>
-          </Button>
-
-          {/* Show on Map */}
-          {onShowMap && event.coordinates && (
+          <div className="grid grid-cols-2 gap-2">
+            {/* Ask Ditto */}
             <Button
-              onClick={() => onShowMap(event)}
-              variant="outline"
-              className="w-full justify-start gap-3 h-auto py-3 bg-transparent"
+              onClick={() => onAskDitto(`__EVENT__:${event.id}:${event.title}`)}
+              className="h-auto flex-col gap-1 py-2.5 text-xs"
+              style={{
+                background: "var(--brand-primary)",
+                color: "var(--brand-primary-foreground)",
+              }}
             >
-              <Map className="h-5 w-5" />
-              <div className="text-left">
-                <div className="font-medium">Show on Map</div>
-                <div className="text-xs text-muted-foreground">
-                  View location and get directions
-                </div>
-              </div>
+              <Sparkles className="h-4 w-4" />
+              <span className="font-medium">Ask Ditto</span>
             </Button>
-          )}
 
-          {/* Add to Calendar */}
-          <div className="w-full [&>*]:w-full [&_button]:w-full [&_button]:justify-start [&_button]:gap-3 [&_button]:h-auto [&_button]:py-3">
-            <AddToCalendarButton
-              event={event}
-              variant="outline"
-              size="default"
-            />
-          </div>
+            {/* Show on Map */}
+            {onShowMap && event.coordinates ? (
+              <Button
+                onClick={() => onShowMap(event)}
+                variant="outline"
+                className="h-auto flex-col gap-1 bg-transparent py-2.5 text-xs"
+              >
+                <Map className="h-4 w-4" />
+                <span className="font-medium">Show on Map</span>
+              </Button>
+            ) : (
+              <div />
+            )}
 
-          {/* Share Event */}
-          <Button
-            onClick={handleShare}
-            variant="outline"
-            className="w-full justify-start gap-3 h-auto py-3 bg-transparent"
-          >
-            <Share2 className="h-5 w-5" />
-            <div className="text-left">
-              <div className="font-medium">Share Event</div>
-              <div className="text-xs text-muted-foreground">
-                Copy link to clipboard
-              </div>
+            {/* Add to Calendar */}
+            <div className="[&>*]:w-full [&_button]:h-auto [&_button]:flex-col [&_button]:gap-1 [&_button]:py-2.5 [&_button]:text-xs">
+              <AddToCalendarButton
+                event={event}
+                variant="outline"
+                size="default"
+              />
             </div>
-          </Button>
+
+            {/* Share Event */}
+            <Button
+              onClick={handleShare}
+              variant="outline"
+              className="h-auto flex-col gap-1 bg-transparent py-2.5 text-xs"
+            >
+              <Share2 className="h-4 w-4" />
+              <span className="font-medium">Share Event</span>
+            </Button>
+          </div>
         </div>
       </div>
     </div>

@@ -1,8 +1,8 @@
 /**
  * @module components/map/map-popups
- * Handles click-to-popup interactions on the events layer. Shows event
- * details in a MapLibre popup with an "Ask about this" button that bridges
- * to the chat panel.
+ * Handles hover and click popup interactions on the events layer.
+ * Hover: lightweight frosted-glass tooltip with event name, image, date.
+ * Click: pinned popup with action buttons (Ask Ditto, Directions, Detail).
  */
 
 "use client";
@@ -13,19 +13,185 @@ import { useMap } from "./use-map";
 import { CATEGORY_LABELS } from "@/lib/map/config";
 import type { EventCategory } from "@/lib/registries/types";
 
+/** Props for {@link MapPopups}. */
 interface MapPopupsProps {
+  /** Callback when user clicks "Ask about this". */
   onAskAbout?: (eventTitle: string) => void;
+  /** Callback when user clicks "Directions". */
   onGetDirections?: (coordinates: [number, number], eventTitle: string) => void;
+  /** Callback when user clicks "More Detail" — opens the events dropdown. */
+  onOpenDetail?: (eventId: string) => void;
 }
 
-/** Handles click-to-popup interactions on the events map layer. */
-export function MapPopups({ onAskAbout, onGetDirections }: MapPopupsProps) {
+/**
+ * Format an ISO date string into a short display string.
+ * @param iso - ISO 8601 date string.
+ * @returns Formatted string like "Fri, Feb 14 · 7:00 PM".
+ */
+function fmtDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/** Shared frosted-glass CSS for popups. */
+const GLASS_BG = `
+  background: rgba(15, 15, 20, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  color: #e0e4ef;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+`;
+
+/**
+ * Build hover tooltip HTML.
+ * @param props - GeoJSON feature properties.
+ * @returns HTML string for the hover popup.
+ */
+function hoverHTML(props: Record<string, unknown>): string {
+  const title = String(props.title ?? "");
+  const venue = String(props.venue ?? "");
+  const dateStr = fmtDate(String(props.startDate ?? ""));
+  const imageUrl = String(props.imageUrl ?? "");
+  const category = String(props.category ?? "");
+  const categoryLabel = CATEGORY_LABELS[category as EventCategory] ?? category;
+  const color = String(props.color ?? "#888");
+
+  const imgBlock = imageUrl
+    ? `<img src="${imageUrl}" style="width:100%;height:80px;object-fit:cover;border-radius:8px;margin-bottom:8px;" />`
+    : "";
+
+  return `
+    <div style="${GLASS_BG} padding:10px; max-width:240px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
+      ${imgBlock}
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+        <span style="font-size:10px;font-weight:500;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.5px;">${categoryLabel}</span>
+      </div>
+      <h3 style="margin:0 0 4px;font-size:13px;font-weight:600;color:#fff;line-height:1.3;">${title}</h3>
+      <p style="margin:0 0 2px;font-size:11px;color:rgba(255,255,255,0.5);">${venue}</p>
+      <p style="margin:0;font-size:11px;color:rgba(100,160,255,0.9);">${dateStr}</p>
+    </div>
+  `;
+}
+
+/**
+ * Build click popup HTML with action buttons.
+ * @param props - GeoJSON feature properties.
+ * @param coords - [lng, lat] coordinates for directions.
+ * @returns HTML string for the pinned click popup.
+ */
+function clickHTML(props: Record<string, unknown>, coords: [number, number]): string {
+  const title = String(props.title ?? "");
+  const venue = String(props.venue ?? "");
+  const dateStr = fmtDate(String(props.startDate ?? ""));
+  const imageUrl = String(props.imageUrl ?? "");
+  const category = String(props.category ?? "");
+  const categoryLabel = CATEGORY_LABELS[category as EventCategory] ?? category;
+  const color = String(props.color ?? "#888");
+  const id = String(props.id ?? "");
+  const safeTitle = title.replace(/"/g, "&quot;");
+
+  const imgBlock = imageUrl
+    ? `<img src="${imageUrl}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;margin-bottom:10px;" />`
+    : "";
+
+  const btnBase = `
+    border:none;
+    padding:7px 0;
+    border-radius:8px;
+    font-size:11px;
+    font-weight:500;
+    cursor:pointer;
+    text-align:center;
+    transition: opacity 0.15s;
+  `;
+
+  return `
+    <div style="${GLASS_BG} padding:12px; max-width:280px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
+      ${imgBlock}
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+        <span style="font-size:10px;font-weight:500;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.5px;">${categoryLabel}</span>
+      </div>
+      <h3 style="margin:0 0 4px;font-size:14px;font-weight:600;color:#fff;line-height:1.3;">${title}</h3>
+      <p style="margin:0 0 2px;font-size:11px;color:rgba(255,255,255,0.5);">${venue}</p>
+      <p style="margin:0 0 12px;font-size:11px;color:rgba(100,160,255,0.9);">${dateStr}</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <button class="popup-ask-btn" data-id="${id}" data-title="${safeTitle}"
+          style="${btnBase} background:#3560FF;color:#fff;">
+          ✨ Ask Ditto
+        </button>
+        <button class="popup-directions-btn" data-lng="${coords[0]}" data-lat="${coords[1]}" data-title="${safeTitle}"
+          style="${btnBase} background:rgba(255,255,255,0.08);color:#e0e4ef;border:1px solid rgba(255,255,255,0.12);">
+          🧭 Directions
+        </button>
+        <button class="popup-detail-btn" data-id="${id}"
+          style="${btnBase} background:rgba(255,255,255,0.08);color:#e0e4ef;border:1px solid rgba(255,255,255,0.12);">
+          📋 More Detail
+        </button>
+        <button class="popup-zoom-btn" data-lng="${coords[0]}" data-lat="${coords[1]}"
+          style="${btnBase} background:rgba(255,255,255,0.08);color:#e0e4ef;border:1px solid rgba(255,255,255,0.12);">
+          🔍 Zoom In
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+/** Handles hover and click popup interactions on the events map layer. */
+export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopupsProps) {
   const map = useMap();
-  const popupRef = useRef<maplibregl.Popup | null>(null);
+  const hoverPopupRef = useRef<maplibregl.Popup | null>(null);
+  const clickPopupRef = useRef<maplibregl.Popup | null>(null);
+  const isClickedRef = useRef(false);
 
   useEffect(() => {
     if (!map) return;
 
+    // ---- Hover tooltip ----
+    const handleMouseMove = (e: maplibregl.MapLayerMouseEvent) => {
+      if (isClickedRef.current) return; // Don't show hover when click popup is open
+      const features = e.features;
+      if (!features?.length) return;
+
+      const feature = features[0];
+      const props = feature.properties;
+      if (!props) return;
+
+      const coords = (feature.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
+
+      map.getCanvas().style.cursor = "pointer";
+
+      if (!hoverPopupRef.current) {
+        hoverPopupRef.current = new maplibregl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          maxWidth: "260px",
+          offset: 14,
+          className: "event-hover-popup",
+        });
+      }
+
+      hoverPopupRef.current
+        .setLngLat(coords)
+        .setHTML(hoverHTML(props))
+        .addTo(map);
+    };
+
+    const handleMouseLeave = () => {
+      map.getCanvas().style.cursor = "";
+      hoverPopupRef.current?.remove();
+    };
+
+    // ---- Click popup ----
     const handleClick = (e: maplibregl.MapLayerMouseEvent) => {
       const features = e.features;
       if (!features?.length) return;
@@ -36,81 +202,28 @@ export function MapPopups({ onAskAbout, onGetDirections }: MapPopupsProps) {
 
       const coords = (feature.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
 
-      // Format date
-      const date = new Date(props.startDate);
-      const dateStr = date.toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      });
+      // Remove hover popup
+      hoverPopupRef.current?.remove();
+      isClickedRef.current = true;
 
-      const categoryLabel = CATEGORY_LABELS[props.category as EventCategory] ?? props.category;
-      const priceLabel = props.isFree === true || props.isFree === "true" ? "Free" : "Paid";
+      // Remove previous click popup
+      clickPopupRef.current?.remove();
 
-      const html = `
-        <div style="font-family: var(--font-geist-sans), sans-serif;">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-            <span style="
-              display: inline-block;
-              padding: 2px 8px;
-              border-radius: 4px;
-              font-size: 11px;
-              font-weight: 500;
-              background: var(--category-${props.category});
-              color: #000;
-            ">${categoryLabel}</span>
-            <span style="font-size: 11px; color: var(--text-dim);">${priceLabel}</span>
-          </div>
-          <h3 style="margin: 0 0 6px; font-size: 15px; font-weight: 600; color: var(--text);">${props.title}</h3>
-          <p style="margin: 0 0 4px; font-size: 12px; color: var(--text-dim);">${props.venue}</p>
-          <p style="margin: 0 0 10px; font-size: 12px; color: var(--text-dim);">${dateStr}</p>
-          <div style="display: flex; gap: 6px;">
-            <button
-              class="popup-ask-btn"
-              data-id="${props.id}"
-              data-title="${props.title.replace(/"/g, "&quot;")}"
-              style="
-                background: var(--brand-primary);
-                color: var(--brand-primary-foreground);
-                border: none;
-                padding: 6px 12px;
-                border-radius: 6px;
-                font-size: 12px;
-                font-weight: 500;
-                cursor: pointer;
-                flex: 1;
-              "
-            >Ask about this</button>
-            <button
-              class="popup-directions-btn"
-              data-lng="${coords[0]}"
-              data-lat="${coords[1]}"
-              data-title="${props.title.replace(/"/g, "&quot;")}"
-              style="
-                background: var(--surface-2);
-                color: var(--text);
-                border: 1px solid var(--border-color);
-                padding: 6px 12px;
-                border-radius: 6px;
-                font-size: 12px;
-                font-weight: 500;
-                cursor: pointer;
-                white-space: nowrap;
-              "
-            >Directions</button>
-          </div>
-        </div>
-      `;
-
-      popupRef.current?.remove();
-      popupRef.current = new maplibregl.Popup({ closeOnClick: true, maxWidth: "320px" })
+      clickPopupRef.current = new maplibregl.Popup({
+        closeOnClick: true,
+        maxWidth: "300px",
+        offset: 14,
+        className: "event-click-popup",
+      })
         .setLngLat(coords)
-        .setHTML(html)
+        .setHTML(clickHTML(props, coords))
         .addTo(map);
 
-      // Wire up button clicks after popup is added to DOM
+      clickPopupRef.current.on("close", () => {
+        isClickedRef.current = false;
+      });
+
+      // Wire up buttons
       setTimeout(() => {
         const askBtn = document.querySelector(".popup-ask-btn");
         if (askBtn && onAskAbout) {
@@ -118,7 +231,7 @@ export function MapPopups({ onAskAbout, onGetDirections }: MapPopupsProps) {
             const id = askBtn.getAttribute("data-id") ?? "";
             const title = askBtn.getAttribute("data-title") ?? "";
             onAskAbout(id ? `__EVENT__:${id}:${title}` : title);
-            popupRef.current?.remove();
+            clickPopupRef.current?.remove();
           });
         }
 
@@ -129,31 +242,43 @@ export function MapPopups({ onAskAbout, onGetDirections }: MapPopupsProps) {
             const lat = parseFloat(dirBtn.getAttribute("data-lat") ?? "0");
             const title = dirBtn.getAttribute("data-title") ?? "";
             onGetDirections([lng, lat], title);
-            popupRef.current?.remove();
+            clickPopupRef.current?.remove();
+          });
+        }
+
+        const detailBtn = document.querySelector(".popup-detail-btn");
+        if (detailBtn && onOpenDetail) {
+          detailBtn.addEventListener("click", () => {
+            const id = detailBtn.getAttribute("data-id") ?? "";
+            onOpenDetail(id);
+            clickPopupRef.current?.remove();
+          });
+        }
+
+        const zoomBtn = document.querySelector(".popup-zoom-btn");
+        if (zoomBtn) {
+          zoomBtn.addEventListener("click", () => {
+            const lng = parseFloat(zoomBtn.getAttribute("data-lng") ?? "0");
+            const lat = parseFloat(zoomBtn.getAttribute("data-lat") ?? "0");
+            map.flyTo({ center: [lng, lat], zoom: 17, pitch: 60, duration: 1500 });
+            clickPopupRef.current?.remove();
           });
         }
       }, 50);
     };
 
-    // Change cursor on hover
-    const handleMouseEnter = () => {
-      map.getCanvas().style.cursor = "pointer";
-    };
-    const handleMouseLeave = () => {
-      map.getCanvas().style.cursor = "";
-    };
-
-    map.on("click", "events-layer", handleClick);
-    map.on("mouseenter", "events-layer", handleMouseEnter);
+    map.on("mousemove", "events-layer", handleMouseMove);
     map.on("mouseleave", "events-layer", handleMouseLeave);
+    map.on("click", "events-layer", handleClick);
 
     return () => {
-      map.off("click", "events-layer", handleClick);
-      map.off("mouseenter", "events-layer", handleMouseEnter);
+      map.off("mousemove", "events-layer", handleMouseMove);
       map.off("mouseleave", "events-layer", handleMouseLeave);
-      popupRef.current?.remove();
+      map.off("click", "events-layer", handleClick);
+      hoverPopupRef.current?.remove();
+      clickPopupRef.current?.remove();
     };
-  }, [map, onAskAbout, onGetDirections]);
+  }, [map, onAskAbout, onGetDirections, onOpenDetail]);
 
   return null;
 }

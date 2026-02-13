@@ -319,6 +319,43 @@
   color: var(--text-dim) !important;
 }
 
+/* Event hover/click popup — frosted glass, no default chrome */
+.event-hover-popup .maplibregl-popup-content,
+.event-click-popup .maplibregl-popup-content {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: inherit !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  min-width: auto;
+  max-width: none;
+}
+
+.event-hover-popup .maplibregl-popup-tip,
+.event-click-popup .maplibregl-popup-tip {
+  display: none !important;
+}
+
+.event-click-popup .maplibregl-popup-close-button {
+  color: rgba(255, 255, 255, 0.5) !important;
+  font-size: 16px !important;
+  padding: 2px 6px !important;
+  right: 6px !important;
+  top: 6px !important;
+  z-index: 10;
+}
+
+.event-click-popup .maplibregl-popup-close-button:hover {
+  color: #fff !important;
+  background: transparent !important;
+}
+
+.event-hover-popup .maplibregl-popup-close-button {
+  display: none !important;
+}
+
+/* Legacy popup fallback styling */
 .maplibregl-popup-content {
   background: var(--surface) !important;
   border: 1px solid var(--border-color) !important;

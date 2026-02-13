@@ -602,6 +602,12 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
     onDirectionsRequest?.(handleGetDirections);
   }, [onDirectionsRequest, handleGetDirections]);
 
+  // Open event detail in the dropdown from a map popup click
+  const [detailEventId, setDetailEventId] = useState<string | null>(null);
+  const handleOpenDetail = useCallback((eventId: string) => {
+    setDetailEventId(eventId);
+  }, []);
+
   // Handle AI-driven filter changes (preset and/or category)
   const handleFilterChange = useCallback(
     (preset?: DatePreset) => {
@@ -700,11 +706,13 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
           activePreset={activePreset}
           onPresetChange={setActivePreset}
           onAskAbout={onAskAbout}
+          detailEventId={detailEventId}
+          onClearDetailEvent={() => setDetailEventId(null)}
         />
 
         <MapMarkers events={events} styleLoaded={styleLoaded} isDark={isDark} visibleEventIds={effectiveEventIds} highlightedEventIds={highlightedEventIds} />
         <MapHotspots events={events} styleLoaded={styleLoaded} isDark={isDark} />
-        <MapPopups onAskAbout={onAskAbout} onGetDirections={handleGetDirections} />
+        <MapPopups onAskAbout={onAskAbout} onGetDirections={handleGetDirections} onOpenDetail={handleOpenDetail} />
         <MapDirections route={directionsRoute} origin={directionsOrigin} destination={directionsDestination} />
         <MapIsochrone result={isochroneResult} events={events} />
         <MapStatusBar

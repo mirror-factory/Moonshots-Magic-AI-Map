@@ -17,6 +17,7 @@ export interface EventFeatureProperties {
   startDate: string;
   isFree: boolean;
   featured: boolean;
+  imageUrl: string;
 }
 
 /**
@@ -47,6 +48,7 @@ export function eventsToGeoJSON(
         startDate: event.startDate,
         isFree: event.price?.isFree ?? false,
         featured: event.featured ?? false,
+        imageUrl: event.imageUrl ?? "",
       },
     })),
   };
