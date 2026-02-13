@@ -54,7 +54,6 @@ import {
   deselectEventHighlight,
   buildCardInfo,
 } from "@/lib/map/venue-highlight";
-import { Stars } from "@/components/effects/stars";
 
 /** Default isochrone time ranges in minutes. */
 const ISOCHRONE_MINUTES: number[] = [5, 10, 15, 30];
@@ -940,9 +939,6 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
           background: "radial-gradient(circle at bottom right, rgba(0, 99, 205, 0.3) 0%, transparent 60%)",
           filter: "blur(60px)"
         }} />
-
-        {/* Stars overlay */}
-        <Stars count={120} shootingStars={3} />
 
         <div
           ref={containerRef}
