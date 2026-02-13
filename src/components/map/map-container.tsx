@@ -9,18 +9,15 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode } from "react";
-import { useTheme } from "next-themes";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MapContext } from "./use-map";
 import {
-  MAP_STYLES_BY_THEME,
   DEFAULT_CENTER,
   DEFAULT_ZOOM,
   DEFAULT_PITCH,
   DEFAULT_BEARING,
-  getTerrainSourceUrl,
-  TERRAIN_CONFIG,
+  fetchMapStyle,
 } from "@/lib/map/config";
 import { MapStatusBar } from "./map-status-bar";
 import { MapControls } from "./map-controls";
@@ -47,6 +44,8 @@ import { playFlyoverIntro, stopFlyoverAudio } from "@/lib/flyover/flyover-audio"
 import { getDirections, type DirectionsResult, type TravelProfile } from "@/lib/map/routing";
 import { getIsochrone, type IsochroneResult } from "@/lib/map/isochrone";
 import { type DatePreset, getEventsForPreset } from "@/lib/map/event-filters";
+import { flyToPoint, fitBoundsToPoints } from "@/lib/map/camera-utils";
+import { startBackgroundMusic, stopBackgroundMusic } from "@/lib/audio/background-music";
 import type { EventCategory } from "@/lib/registries/types";
 import {
   type HighlightCardInfo,
@@ -54,6 +53,7 @@ import {
   deselectEventHighlight,
   buildCardInfo,
 } from "@/lib/map/venue-highlight";
+import { Stars } from "@/components/effects/stars";
 
 /** Default isochrone time ranges in minutes. */
 const ISOCHRONE_MINUTES: number[] = [5, 10, 15, 30];
@@ -92,12 +92,10 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
   const flyoverAbortRef = useRef<boolean>(false);
   const introPlayingRef = useRef<boolean>(false);
   const introPromiseRef = useRef<Promise<void> | null>(null);
-  const ambientOrbitRef = useRef<number>(0);
-  const ambientStoppedRef = useRef<boolean>(false);
   /** Global clear-selection callback — only one selection (popup or show-on-map) active at a time. */
   const clearSelectionRef = useRef<(() => void) | null>(null);
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
+  // Map is always rendered in dark mode regardless of system theme
+  const isDark = true;
 
   // Directions state
   const [directionsRoute, setDirectionsRoute] = useState<DirectionsResult | null>(null);
@@ -123,139 +121,50 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
   const aiResultsActive = (highlightedEventIds?.length ?? 0) > 0;
   const effectiveEventIds = aiResultsActive ? highlightedEventIds! : defaultEventIds;
 
-  // Initialize map
+  // Initialize map — pre-fetch style to avoid MapLibre hitting 503s
   useEffect(() => {
     if (!containerRef.current) return;
+    let cancelled = false;
+    let mapInstance: maplibregl.Map | null = null;
 
-    const instance = new maplibregl.Map({
-      container: containerRef.current,
-      style: isDark ? MAP_STYLES_BY_THEME.dark : MAP_STYLES_BY_THEME.light,
-      center: DEFAULT_CENTER,
-      zoom: DEFAULT_ZOOM,
-      pitch: DEFAULT_PITCH,
-      bearing: DEFAULT_BEARING,
-      attributionControl: {},
-    });
+    (async () => {
+      // Pre-fetch style JSON with retry + fallback (prevents MapLibre 503 crash)
+      const styleJson = await fetchMapStyle(isDark);
+      if (cancelled || !containerRef.current) return;
 
-    // Zoom/rotate controls moved to custom bottom-left toolbar (MapStatusBar)
-    instance.addControl(
-      new maplibregl.ScaleControl({ maxWidth: 150 }),
-      "bottom-right",
-    );
+      mapInstance = new maplibregl.Map({
+        container: containerRef.current,
+        style: styleJson as maplibregl.StyleSpecification,
+        center: DEFAULT_CENTER,
+        zoom: DEFAULT_ZOOM,
+        pitch: DEFAULT_PITCH,
+        bearing: DEFAULT_BEARING,
+        attributionControl: {},
+        maxTileCacheSize: 50,
+        fadeDuration: 0,
+      });
 
-    // Track when style is loaded + apply blue tint
-    instance.on("style.load", () => {
-      tintMapGrayscale(instance, isDark);
-      setStyleLoaded(true);
-    });
+      // Zoom/rotate controls moved to custom bottom-left toolbar (MapStatusBar)
+      mapInstance.addControl(
+        new maplibregl.ScaleControl({ maxWidth: 150 }),
+        "bottom-right",
+      );
 
-    setMap(instance);
+      // Track when style is loaded
+      mapInstance.on("style.load", () => {
+        setStyleLoaded(true);
+      });
+
+      setMap(mapInstance);
+    })();
 
     return () => {
-      cancelAnimationFrame(ambientOrbitRef.current);
-      instance.remove();
+      cancelled = true;
+      mapInstance?.remove();
     };
     // Only run on mount - theme changes handled separately
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Ambient cinematic orbit — continuous slow rotation on load, stops on user interaction
-  useEffect(() => {
-    if (!map || !styleLoaded || ambientStoppedRef.current) return;
-
-    const ROTATION_SPEED = 1.2; // degrees per second (slow cinematic orbit)
-    const ORBIT_RADIUS = 0.003; // lng/lat radius of circular drift around Lake Eola
-    let lastTime = performance.now();
-
-    const stopAmbient = () => {
-      ambientStoppedRef.current = true;
-      cancelAnimationFrame(ambientOrbitRef.current);
-      map.off("mousedown", stopAmbient);
-      map.off("touchstart", stopAmbient);
-      map.off("wheel", stopAmbient);
-    };
-
-    // Stop on any user interaction
-    map.on("mousedown", stopAmbient);
-    map.on("touchstart", stopAmbient);
-    map.on("wheel", stopAmbient);
-
-    const animate = (now: number) => {
-      if (ambientStoppedRef.current) return;
-
-      const dt = (now - lastTime) / 1000;
-      lastTime = now;
-
-      const bearing = map.getBearing() + ROTATION_SPEED * dt;
-
-      // Slow circular orbit around Lake Eola center
-      const t = now / 1000;
-      const orbitAngle = t * 0.04; // ~90s per full circle
-      const centerLng = DEFAULT_CENTER[0] + Math.sin(orbitAngle) * ORBIT_RADIUS;
-      const centerLat = DEFAULT_CENTER[1] + Math.cos(orbitAngle) * ORBIT_RADIUS;
-
-      map.easeTo({
-        bearing,
-        center: [centerLng, centerLat],
-        duration: 0,
-        animate: false,
-      });
-
-      ambientOrbitRef.current = requestAnimationFrame(animate);
-    };
-
-    ambientOrbitRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      cancelAnimationFrame(ambientOrbitRef.current);
-      map.off("mousedown", stopAmbient);
-      map.off("touchstart", stopAmbient);
-      map.off("wheel", stopAmbient);
-    };
-  }, [map, styleLoaded]);
-
-  // React to theme changes — only reload style when theme actually changes
-  const prevThemeRef = useRef(isDark);
-  useEffect(() => {
-    if (!map) return;
-
-    // Skip if the theme hasn't changed (avoids wiping custom layers)
-    if (prevThemeRef.current === isDark) return;
-    prevThemeRef.current = isDark;
-
-    const newStyle = isDark ? MAP_STYLES_BY_THEME.dark : MAP_STYLES_BY_THEME.light;
-
-    // Store current view state
-    const center = map.getCenter();
-    const zoom = map.getZoom();
-    const pitch = map.getPitch();
-    const bearing = map.getBearing();
-
-    // Mark style as not loaded during transition
-    setStyleLoaded(false);
-
-    // Change style and restore view
-    map.setStyle(newStyle);
-
-    map.once("style.load", () => {
-      // Restore view
-      map.setCenter(center);
-      map.setZoom(zoom);
-      map.setPitch(pitch);
-      map.setBearing(bearing);
-
-      // Apply blue tint to light-mode basemap
-      tintMapGrayscale(map, isDark);
-
-      // Mark style as loaded
-      setStyleLoaded(true);
-
-      // Re-apply 3D mode if it was enabled
-      if (mode3D) {
-        add3DLayers(map, isDark);
-      }
-    });
-  }, [map, isDark, mode3D]);
 
   // Handle 3D mode toggle (terrain, buildings, three.js markers)
   useEffect(() => {
@@ -265,26 +174,13 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
       add3DLayers(map, isDark);
       map.easeTo({ pitch: 50, duration: 1000 });
 
-      // Dynamic import keeps three.js (~150KB gz) out of initial bundle
-      import("@/lib/map/three-layer").then(({ createThreeLayer, THREE_LAYER_ID }) => {
-        if (!map.getLayer(THREE_LAYER_ID)) {
-          const layer = createThreeLayer(events);
-          map.addLayer(layer);
-          console.log("[3D] Three.js marker layer added");
-        }
-      }).catch((err) => console.error("[3D] Failed to load three.js layer:", err));
+      // Three.js marker layer disabled — the second WebGL context competes
+      // with MapLibre for GPU resources and causes significant lag.
+      // Re-enable when performance is optimized or on high-end GPUs.
     } else {
       // Only tear down if 3D layers were previously added
-      const has3D = map.getLayer("3d-buildings") || map.getSource("terrain-dem");
+      const has3D = map.getLayer("3d-buildings");
       if (has3D) {
-        // Remove three.js layer first (before removing terrain source it may reference)
-        import("@/lib/map/three-layer").then(({ THREE_LAYER_ID }) => {
-          if (map.getLayer(THREE_LAYER_ID)) {
-            map.removeLayer(THREE_LAYER_ID);
-            console.log("[3D] Three.js marker layer removed");
-          }
-        }).catch(() => {});
-
         remove3DLayers(map);
         map.easeTo({ pitch: 0, duration: 1000 });
       }
@@ -317,15 +213,8 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
     if (!map || !highlightedEventIds?.length) return;
     const highlighted = events.filter((e) => highlightedEventIds.includes(e.id));
     if (highlighted.length === 0) return;
-    if (highlighted.length === 1) {
-      map.flyTo({ center: highlighted[0].coordinates, zoom: 14, duration: 1200 });
-      return;
-    }
-    const bounds = new maplibregl.LngLatBounds();
-    for (const e of highlighted) {
-      bounds.extend(e.coordinates as [number, number]);
-    }
-    map.fitBounds(bounds, { padding: 100, duration: 1200 });
+    const coords = highlighted.map((e) => e.coordinates as [number, number]);
+    void fitBoundsToPoints(map, coords, { padding: 100, duration: 1200 });
   }, [map, highlightedEventIds, events]);
 
   const handleToggle3D = useCallback(() => {
@@ -342,10 +231,6 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
         console.warn("[Flyover] Map not ready, cannot start tour");
         return;
       }
-
-      // Stop ambient orbit if running
-      ambientStoppedRef.current = true;
-      cancelAnimationFrame(ambientOrbitRef.current);
 
       // Find events by ID, cap at 5 to keep flyover concise and avoid TTS overload
       const MAX_FLYOVER_EVENTS = 5;
@@ -372,6 +257,9 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
       console.log("[Flyover] Tour started, state:", started.state);
       setFlyoverProgress(started);
       flyoverAbortRef.current = false;
+
+      // Start ambient background music for flyover
+      startBackgroundMusic("flyover");
 
       // Start intro audio immediately and track when it finishes
       // Waypoint audio will wait for this to complete
@@ -579,6 +467,8 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
         if (next.state === "complete") {
           // Remove highlight before outro
           deselectEventHighlight(map);
+          // Fade out background music
+          void stopBackgroundMusic();
           // Outro animation
           const center = calculateCenter(waypoints.map((w) => w.center));
           await outroAnimation(map, center);
@@ -606,6 +496,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
     introPromiseRef.current = null;
     stopFlyoverAudio();
     stopSpeaking();
+    void stopBackgroundMusic();
     setFlyoverProgress((prev) => (prev ? stopFlyoverState(prev) : null));
   }, []);
 
@@ -681,6 +572,16 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
     onDirectionsRequest?.(handleGetDirections);
   }, [onDirectionsRequest, handleGetDirections]);
 
+  /** Gets directions to an event from the user's current location. */
+  const handleEventDirections = useCallback(
+    (event: EventEntry) => {
+      if (event.coordinates) {
+        handleGetDirections(event.coordinates as [number, number]);
+      }
+    },
+    [handleGetDirections],
+  );
+
   // Open event detail in the dropdown from a map popup click
   const [detailEventId, setDetailEventId] = useState<string | null>(null);
   const handleOpenDetail = useCallback((eventId: string) => {
@@ -726,10 +627,6 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
 
       // ── Clear ANY existing selection (popup click OR previous show-on-map) ──
       clearSelectionRef.current?.();
-
-      // Stop ambient orbit if running
-      ambientStoppedRef.current = true;
-      cancelAnimationFrame(ambientOrbitRef.current);
 
       const coords = event.coordinates as [number, number];
 
@@ -801,8 +698,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
       });
 
       // Fly to the event with cinematic pitch
-      map.flyTo({
-        center: coords,
+      void flyToPoint(map, coords, {
         zoom: 16,
         pitch: 55,
         bearing: map.getBearing(),
@@ -913,32 +809,33 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
   return (
     <MapContext value={map}>
       <div className="relative h-full w-full">
-        {/* Corner vignette effect */}
+        {/* Corner vignette + blue glow — single composited layer (no blur filter) */}
         <div className="pointer-events-none absolute inset-0 z-10" style={{
           background: `
-            radial-gradient(ellipse 500px 500px at top left, rgba(0, 0, 0, 0.6) 0%, transparent 70%),
-            radial-gradient(ellipse 500px 500px at top right, rgba(0, 0, 0, 0.6) 0%, transparent 70%),
-            radial-gradient(ellipse 500px 500px at bottom left, rgba(0, 0, 0, 0.6) 0%, transparent 70%),
-            radial-gradient(ellipse 500px 500px at bottom right, rgba(0, 0, 0, 0.6) 0%, transparent 70%)
+            radial-gradient(ellipse 500px 500px at top left, rgba(0, 0, 0, 0.85) 0%, transparent 70%),
+            radial-gradient(ellipse 500px 500px at top right, rgba(0, 0, 0, 0.85) 0%, transparent 70%),
+            radial-gradient(ellipse 500px 500px at bottom left, rgba(0, 0, 0, 0.85) 0%, transparent 70%),
+            radial-gradient(ellipse 500px 500px at bottom right, rgba(0, 0, 0, 0.85) 0%, transparent 70%),
+            radial-gradient(ellipse 600px 600px at top left, rgba(0, 99, 205, 0.12) 0%, transparent 50%),
+            radial-gradient(ellipse 600px 600px at top right, rgba(0, 99, 205, 0.12) 0%, transparent 50%),
+            radial-gradient(ellipse 600px 600px at bottom left, rgba(0, 99, 205, 0.12) 0%, transparent 50%),
+            radial-gradient(ellipse 600px 600px at bottom right, rgba(0, 99, 205, 0.12) 0%, transparent 50%)
           `,
         }} />
-        {/* Corner blue glows */}
-        <div className="pointer-events-none absolute left-0 top-0 z-10 h-96 w-96 opacity-40" style={{
-          background: "radial-gradient(circle at top left, rgba(0, 99, 205, 0.3) 0%, transparent 60%)",
-          filter: "blur(60px)"
-        }} />
-        <div className="pointer-events-none absolute right-0 top-0 z-10 h-96 w-96 opacity-40" style={{
-          background: "radial-gradient(circle at top right, rgba(0, 99, 205, 0.3) 0%, transparent 60%)",
-          filter: "blur(60px)"
-        }} />
-        <div className="pointer-events-none absolute bottom-0 left-0 z-10 h-96 w-96 opacity-40" style={{
-          background: "radial-gradient(circle at bottom left, rgba(0, 99, 205, 0.3) 0%, transparent 60%)",
-          filter: "blur(60px)"
-        }} />
-        <div className="pointer-events-none absolute bottom-0 right-0 z-10 h-96 w-96 opacity-40" style={{
-          background: "radial-gradient(circle at bottom right, rgba(0, 99, 205, 0.3) 0%, transparent 60%)",
-          filter: "blur(60px)"
-        }} />
+
+        {/* Corner stars with shooting stars */}
+        <div className="pointer-events-none absolute left-0 top-0 z-[5] h-96 w-96 overflow-hidden">
+          <Stars count={30} shootingStars={1} />
+        </div>
+        <div className="pointer-events-none absolute right-0 top-0 z-[5] h-96 w-96 overflow-hidden">
+          <Stars count={30} shootingStars={1} />
+        </div>
+        <div className="pointer-events-none absolute bottom-0 left-0 z-[5] h-96 w-96 overflow-hidden">
+          <Stars count={30} shootingStars={1} />
+        </div>
+        <div className="pointer-events-none absolute bottom-0 right-0 z-[5] h-96 w-96 overflow-hidden">
+          <Stars count={30} shootingStars={1} />
+        </div>
 
         <div
           ref={containerRef}
@@ -956,6 +853,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
           onPresetChange={setActivePreset}
           onAskAbout={onAskAbout}
           onShowEventOnMap={handleShowEventOnMap}
+          onGetDirections={handleEventDirections}
           detailEventId={detailEventId}
           onClearDetailEvent={() => setDetailEventId(null)}
         />
@@ -978,6 +876,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
           onClearAiResults={onClearHighlights}
           onLocationChange={onLocationChange}
         />
+
 
         {/* Directions panel */}
         {(directionsRoute || directionsLoading || directionsError) && (
@@ -1025,34 +924,6 @@ function add3DLayers(map: maplibregl.Map, isDark: boolean) {
   const sourceNames = Object.keys(style?.sources || {});
   console.log("[3D] Available sources:", sourceNames);
 
-  // --- Terrain ---
-  const terrainUrl = getTerrainSourceUrl();
-  if (terrainUrl && !map.getSource("terrain-dem")) {
-    map.addSource("terrain-dem", {
-      type: "raster-dem",
-      tiles: [terrainUrl],
-      tileSize: 256,
-      maxzoom: 14,
-    });
-    map.setTerrain({ source: "terrain-dem", exaggeration: TERRAIN_CONFIG.exaggeration });
-
-    // Hillshade layer for depth
-    if (!map.getLayer("terrain-hillshade")) {
-      map.addLayer({
-        id: "terrain-hillshade",
-        type: "hillshade",
-        source: "terrain-dem",
-        paint: {
-          "hillshade-illumination-direction": TERRAIN_CONFIG.hillshadeDirection,
-          "hillshade-exaggeration": 0.3,
-          "hillshade-shadow-color": isDark ? "#000000" : "#3a3a3a",
-          "hillshade-highlight-color": isDark ? "#2a2a2a" : "#f0f0f0",
-        },
-      });
-    }
-    console.log("[3D] Terrain + hillshade added");
-  }
-
   // --- 3D buildings ---
   // Remove flat building layers from the style (e.g. CARTO Dark Matter has "building" + "building-top")
   // so they don't render over our 3D extrusion layer.
@@ -1066,7 +937,7 @@ function add3DLayers(map: maplibregl.Map, isDark: boolean) {
     const sources = style?.sources || {};
     let buildingSource: string | undefined;
 
-    for (const name of ["openmaptiles", "carto", "composite"]) {
+    for (const name of ["maptiler_planet", "openmaptiles", "carto", "composite"]) {
       if (sources[name]) {
         buildingSource = name;
         break;
@@ -1111,24 +982,16 @@ function add3DLayers(map: maplibregl.Map, isDark: boolean) {
         source: buildingSource,
         "source-layer": "building",
         type: "fill-extrusion",
-        minzoom: 13,
+        minzoom: 14,
         paint: {
-          "fill-extrusion-color": isDark
-            ? [
-                "interpolate", ["linear"], heightExpr,
-                0, "#1a1a1a", 50, "#2a2a2a", 100, "#383838", 200, "#484848",
-              ]
-            : [
-                "interpolate", ["linear"], heightExpr,
-                0, "#b0b0b0", 50, "#c0c0c0", 100, "#cccccc", 200, "#d8d8d8",
-              ],
-          "fill-extrusion-height": [
-            "interpolate", ["linear"], ["zoom"],
-            13, 0, 14.5, ["*", heightExpr, 2.5],
+          "fill-extrusion-color": isDark ? "#2a2a2a" : "#c8c8c8",
+          "fill-extrusion-height": heightExpr,
+          "fill-extrusion-base": [
+            "coalesce",
+            ["get", "render_min_height"],
+            0,
           ],
-          "fill-extrusion-base": ["get", "render_min_height"],
-          "fill-extrusion-opacity": isDark ? 0.9 : 0.88,
-          "fill-extrusion-vertical-gradient": true,
+          "fill-extrusion-opacity": 0.7,
         },
       },
       labelLayerId,
@@ -1174,52 +1037,4 @@ function remove3DLayers(map: maplibregl.Map) {
  * @param map - The MapLibre GL map instance.
  * @param isDark - Whether dark theme is active.
  */
-function tintMapGrayscale(map: maplibregl.Map, isDark: boolean) {
-  if (!map.isStyleLoaded()) return;
-
-  const set = (layerId: string, prop: string, value: unknown) => {
-    if (map.getLayer(layerId)) {
-      try { map.setPaintProperty(layerId, prop, value); } catch { /* skip */ }
-    }
-  };
-
-  if (!isDark) {
-    // --- Light mode (Positron): already grayscale, minor tweaks ---
-    // Slightly cooler background
-    set("background", "background-color", "#eaeaea");
-
-    // Desaturate any remaining green in parks/land
-    for (const id of ["landcover", "landuse", "park_national_park", "park_nature_reserve", "landcover-grass", "landcover-wood"]) {
-      set(id, "fill-color", "#dcdcdc");
-    }
-
-    // Water — muted cool gray instead of Positron's light blue
-    set("water", "fill-color", "#c0c8d0");
-    set("water_shadow", "fill-color", "rgba(180, 188, 196, 1)");
-
-    // Buildings
-    set("building", "fill-color", "#d4d4d4");
-    set("building-top", "fill-color", "#dadada");
-  } else {
-    // --- Dark mode: Dark Matter blue-blacks → neutral dark grays ---
-    set("background", "background-color", "#1a1a1a");
-
-    for (const id of ["landcover", "landuse"]) {
-      set(id, "fill-color", "#222222");
-    }
-
-    set("building", "fill-color", "#2a2a2a");
-    set("building-top", "fill-color", "#303030");
-
-    // Water — dark gray with slight coolness
-    set("water", "fill-color", "#252a30");
-    set("water_shadow", "fill-color", "rgba(30, 35, 42, 1)");
-
-    // Roads — subtle light grays
-    for (const id of ["road_trunk_primary", "road_secondary_tertiary", "road_minor"]) {
-      set(id, "line-color", "#3a3a3a");
-    }
-    set("road_major_motorway", "line-color", "#404040");
-  }
-}
 
