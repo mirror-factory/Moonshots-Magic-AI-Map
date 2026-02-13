@@ -68,6 +68,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
   const [highlightedEventIds, setHighlightedEventIds] = useState<string[]>([]);
   const [presentationActive, setPresentationActive] = useState(false);
   const openDetailHandlerRef = useRef<((eventId: string) => void) | null>(null);
+  const showOnMapHandlerRef = useRef<((eventId: string) => void) | null>(null);
 
   // Fetch ambient context on mount
   useEffect(() => {
@@ -162,8 +163,13 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
     openDetailHandlerRef.current = handler;
   }, []);
 
-  const handleOpenEventDetail = useCallback((eventId: string) => {
-    openDetailHandlerRef.current?.(eventId);
+  const handleShowOnMapRequest = useCallback((handler: (eventId: string) => void) => {
+    showOnMapHandlerRef.current = handler;
+  }, []);
+
+  /** Cinematic show on map — fly + card + rotation. */
+  const handleShowEventOnMap = useCallback((eventId: string) => {
+    showOnMapHandlerRef.current?.(eventId);
   }, []);
 
   return (
@@ -183,6 +189,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
         onFilterChangeRequest={handleFilterChangeRequest}
         onStartPersonalization={handleStartPersonalization}
         onOpenDetailRequest={handleOpenDetailRequest}
+        onShowOnMapRequest={handleShowOnMapRequest}
         highlightedEventIds={highlightedEventIds}
         onClearHighlights={handleClearHighlights}
       >
@@ -206,7 +213,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
               onHighlightEvents={setHighlightedEventIds}
               onStartPresentation={handleStartPresentation}
               onChangeFilter={handleChangeFilter}
-              onOpenEventDetail={handleOpenEventDetail}
+              onShowEventOnMap={handleShowEventOnMap}
               ambientContext={ambientContext}
             />
           )}

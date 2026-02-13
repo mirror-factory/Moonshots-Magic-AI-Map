@@ -99,8 +99,15 @@ export function MapControls({
 
   return (
     <>
-      {/* Top-left header: Logo dropdown */}
-      <div className="absolute left-4 top-6 z-20 flex items-center gap-2">
+      {/* Top-left header: Logo dropdown with backdrop blur */}
+      <div
+        className="absolute left-4 top-6 z-20 flex items-center gap-2 rounded-2xl px-2 py-1"
+        style={{
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          background: "rgba(0, 0, 0, 0.15)",
+        }}
+      >
         <EventsDropdown
           events={events}
           highlightedEventIds={highlightedEventIds}

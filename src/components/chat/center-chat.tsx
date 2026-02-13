@@ -87,8 +87,8 @@ interface CenterChatProps {
   onStartPresentation?: () => void;
   /** Called to change the active date/category filter on the map. */
   onChangeFilter?: (preset?: DatePreset, category?: EventCategory) => void;
-  /** Called to open the event detail panel for a specific event. */
-  onOpenEventDetail?: (eventId: string) => void;
+  /** Called for cinematic show-on-map: fly + card + rotation. */
+  onShowEventOnMap?: (eventId: string) => void;
   /** Ambient context for personalization. */
   ambientContext?: AmbientContext | null;
 }
@@ -114,7 +114,7 @@ export function CenterChat({
   onHighlightEvents,
   onStartPresentation,
   onChangeFilter,
-  onOpenEventDetail,
+  onShowEventOnMap,
   ambientContext = null,
 }: CenterChatProps) {
   const [expanded, setExpanded] = useState(false);
@@ -126,14 +126,19 @@ export function CenterChat({
   const greetingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const map = useMap();
 
-  /** Show an event on the map and open its detail card. */
+  /** Show an event on the map with cinematic fly + rotation + card. */
   const handleShowOnMap = useCallback(
     (coordinates: [number, number], _title?: string, eventId?: string) => {
       void _title;
-      map?.flyTo({ center: coordinates, zoom: 15, duration: 1500 });
-      if (eventId) onOpenEventDetail?.(eventId);
+      if (eventId && onShowEventOnMap) {
+        // Use cinematic handler: fly + card + gentle orbit
+        onShowEventOnMap(eventId);
+      } else {
+        // Fallback: simple flyTo for coordinates without event ID
+        map?.flyTo({ center: coordinates, zoom: 15, duration: 1500 });
+      }
     },
-    [map, onOpenEventDetail],
+    [map, onShowEventOnMap],
   );
 
   /** Trigger directions from the card. */

@@ -7,7 +7,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "motion/react";
-import { Play, Pause, ChevronRight, MapPin, Calendar, ArrowLeft } from "lucide-react";
+import { Play, Pause, ChevronRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { FlyoverProgress, FlyoverWaypoint } from "@/lib/flyover/flyover-engine";
 
@@ -24,67 +24,7 @@ interface FlyoverOverlayProps {
   onJumpTo?: (index: number) => void;
 }
 
-/**
- * Formats a date string for display.
- * @param dateStr - ISO date string.
- * @returns Formatted date.
- */
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-/** Floating event card shown at each waypoint - positioned center-bottom for visibility. */
-function FlyoverCard({ waypoint }: { waypoint: FlyoverWaypoint }) {
-  const { event } = waypoint;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 40, scale: 0.9 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 40, scale: 0.9 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
-      className="absolute bottom-32 left-1/2 z-20 w-[90%] max-w-lg -translate-x-1/2 overflow-hidden rounded-2xl shadow-2xl backdrop-blur-lg"
-      style={{
-        background: "rgba(0, 0, 0, 0.85)",
-        border: "1px solid rgba(255, 255, 255, 0.15)",
-      }}
-    >
-      <div className="flex">
-        {/* Image thumbnail on left */}
-        {event.imageUrl && (
-          <div
-            className="h-28 w-28 shrink-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${event.imageUrl})` }}
-          />
-        )}
-
-        {/* Content on right */}
-        <div className="flex flex-1 flex-col justify-center p-4">
-          <h3 className="mb-1.5 text-base font-semibold leading-tight text-white">
-            {event.title}
-          </h3>
-
-          <div className="flex flex-wrap gap-3 text-sm text-white/70">
-            <span className="flex items-center gap-1">
-              <MapPin className="h-3.5 w-3.5" />
-              {event.venue}
-            </span>
-            <span className="flex items-center gap-1">
-              <Calendar className="h-3.5 w-3.5" />
-              {formatDate(event.startDate)}
-            </span>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-/** Caption/narration text display - positioned below event card. */
+/** Caption/narration text display - positioned center-bottom. */
 function CaptionBar({ text }: { text: string }) {
   return (
     <motion.div
@@ -154,7 +94,6 @@ export function FlyoverOverlay({
   onJumpTo,
 }: FlyoverOverlayProps) {
   const isActive = progress.state !== "idle" && progress.state !== "complete";
-  const currentWaypoint = progress.waypoints[progress.currentIndex];
 
   return (
     <AnimatePresence>
@@ -192,15 +131,15 @@ export function FlyoverOverlay({
 
               {/* Controls */}
               <div className="flex items-center gap-1">
-                {/* Back/Exit button - prominent on the left */}
+                {/* End Tour button - intentional, red-tinted */}
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-white hover:bg-white/10 hover:text-white"
+                  className="h-8 gap-1 rounded-full px-3 text-xs font-medium text-red-400 hover:bg-red-500/20 hover:text-red-300"
                   onClick={onStop}
-                  title="Exit tour"
+                  title="End tour"
                 >
-                  <ArrowLeft className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5" />
+                  End
                 </Button>
                 <div className="mx-1 h-4 w-px bg-white/20" />
                 <Button
@@ -229,13 +168,6 @@ export function FlyoverOverlay({
               </div>
             </div>
           </div>
-
-          {/* Event card */}
-          <AnimatePresence mode="wait">
-            {currentWaypoint && (
-              <FlyoverCard key={currentWaypoint.eventId} waypoint={currentWaypoint} />
-            )}
-          </AnimatePresence>
 
           {/* Caption bar */}
           <AnimatePresence>

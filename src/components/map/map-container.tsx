@@ -63,6 +63,8 @@ interface MapContainerProps {
   onFilterChangeRequest?: (handler: (preset?: DatePreset, category?: EventCategory) => void) => void;
   /** Registers a handler that opens an event detail from external callers. */
   onOpenDetailRequest?: (handler: (eventId: string) => void) => void;
+  /** Registers a handler for cinematic "show on map" with rotation + card. */
+  onShowOnMapRequest?: (handler: (eventId: string) => void) => void;
   onStartPersonalization?: () => void;
   /** Event IDs currently highlighted by the AI chat. */
   highlightedEventIds?: string[];
@@ -72,7 +74,7 @@ interface MapContainerProps {
 }
 
 /** Renders the root map with MapLibre GL and composes child layers. */
-export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirectionsRequest, onFilterChangeRequest, onOpenDetailRequest, onStartPersonalization, highlightedEventIds, onClearHighlights, children }: MapContainerProps) {
+export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirectionsRequest, onFilterChangeRequest, onOpenDetailRequest, onShowOnMapRequest, onStartPersonalization, highlightedEventIds, onClearHighlights, children }: MapContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<maplibregl.Map | null>(null);
   const [styleLoaded, setStyleLoaded] = useState(false);
@@ -125,7 +127,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
       attributionControl: {},
     });
 
-    instance.addControl(new maplibregl.NavigationControl(), "top-right");
+    // Zoom/rotate controls moved to custom bottom-left toolbar (MapStatusBar)
     instance.addControl(
       new maplibregl.ScaleControl({ maxWidth: 150 }),
       "bottom-right",
@@ -278,6 +280,27 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
       }
     }
   }, [map, mode3D, isDark, styleLoaded, events]);
+
+  // Lock map during flyover: disable pan/rotate, allow zoom only
+  useEffect(() => {
+    if (!map) return;
+    const isFlyoverActive = flyoverProgress &&
+      flyoverProgress.state !== "idle" &&
+      flyoverProgress.state !== "complete";
+
+    if (isFlyoverActive) {
+      map.dragPan.disable();
+      map.dragRotate.disable();
+      map.keyboard.disable();
+      map.touchZoomRotate.disableRotation();
+    } else {
+      map.dragPan.enable();
+      map.dragRotate.enable();
+      map.keyboard.enable();
+      map.touchZoomRotate.enableRotation();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Only react to state changes, not full progress object
+  }, [map, flyoverProgress?.state]);
 
   // Fit map to highlighted events when they change
   useEffect(() => {
@@ -676,6 +699,79 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
   useEffect(() => {
     onOpenDetailRequest?.(handleOpenDetail);
   }, [onOpenDetailRequest, handleOpenDetail]);
+
+  // Cinematic "show on map" — fly to event with rotation + info card
+  const showOnMapOrbitRef = useRef<number>(0);
+
+  /** Handles cinematic show-on-map: fly to event, show card, start gentle orbit. */
+  const handleShowEventOnMap = useCallback(
+    (eventId: string) => {
+      if (!map || !styleLoaded) return;
+
+      const event = events.find((e) => e.id === eventId);
+      if (!event) return;
+
+      // Stop ambient orbit if running
+      ambientStoppedRef.current = true;
+      cancelAnimationFrame(ambientOrbitRef.current);
+      cancelAnimationFrame(showOnMapOrbitRef.current);
+
+      // Build card info for the highlight
+      const cardInfo: HighlightCardInfo = {
+        title: event.title,
+        venue: event.venue,
+        date: new Date(event.startDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+        source: event.source.type === "manual" ? "Curated" : event.source.type.charAt(0).toUpperCase() + event.source.type.slice(1),
+        price: event.price?.isFree ? "Free" : event.price ? `$${event.price.min}${event.price.max > event.price.min ? `–$${event.price.max}` : ""}` : "See details",
+      };
+
+      // Show highlight card on the dot
+      updateVenueHighlight(map, event.coordinates as [number, number], event.imageUrl, cardInfo);
+
+      // Fly to the event with cinematic pitch
+      map.flyTo({
+        center: event.coordinates as [number, number],
+        zoom: 16,
+        pitch: 55,
+        bearing: map.getBearing(),
+        duration: 2000,
+      });
+
+      // Start gentle orbit after camera arrives
+      map.once("moveend", () => {
+        let lastTime = performance.now();
+        const ORBIT_SPEED = 2; // degrees per second
+
+        const orbit = (now: number) => {
+          const dt = (now - lastTime) / 1000;
+          lastTime = now;
+          const bearing = map.getBearing() + ORBIT_SPEED * dt;
+          map.easeTo({ bearing, duration: 0, animate: false });
+          showOnMapOrbitRef.current = requestAnimationFrame(orbit);
+        };
+
+        showOnMapOrbitRef.current = requestAnimationFrame(orbit);
+
+        // Stop orbit on user interaction
+        const stopOrbit = () => {
+          cancelAnimationFrame(showOnMapOrbitRef.current);
+          map.off("mousedown", stopOrbit);
+          map.off("touchstart", stopOrbit);
+          map.off("wheel", stopOrbit);
+        };
+
+        map.on("mousedown", stopOrbit);
+        map.on("touchstart", stopOrbit);
+        map.on("wheel", stopOrbit);
+      });
+    },
+    [map, styleLoaded, events],
+  );
+
+  // Register show-on-map handler with parent
+  useEffect(() => {
+    onShowOnMapRequest?.(handleShowEventOnMap);
+  }, [onShowOnMapRequest, handleShowEventOnMap]);
 
   const handleDirectionsProfileChange = useCallback(
     (profile: TravelProfile) => {

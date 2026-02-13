@@ -39,7 +39,7 @@ const SOURCE_LABELS: Record<string, string> = {
   ticketmaster: "Ticketmaster",
   eventbrite: "Eventbrite",
   serpapi: "Google Events",
-  scraper: "Web Scraper",
+  scraper: "TKX",
   predicthq: "PredictHQ",
   overpass: "OpenStreetMap",
 };
@@ -463,7 +463,7 @@ export function EventsDropdown({
               />
               {/* Light-mode logo (black + blue) */}
               <Image
-                src="/moonshots-magic-logo-light-blue.svg"
+                src="/moonshots-magic-logo-light.svg"
                 alt="Moonshots & Magic"
                 width={160}
                 height={48}

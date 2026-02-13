@@ -13,9 +13,8 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
 import maplibregl from "maplibre-gl";
-import { Sun, Moon, Settings, Play, Box, Clock, Loader2, X, LocateFixed } from "lucide-react";
+import { Sun, Moon, Settings, Box, Clock, Loader2, X, LocateFixed, Plus, Minus, RotateCw } from "lucide-react";
 import { useMap } from "./use-map";
-import { useIntro } from "@/app/map-with-chat";
 import { SettingsModal } from "@/components/settings/settings-modal";
 import { type DatePreset, DATE_PRESET_LABELS } from "@/lib/map/event-filters";
 
@@ -189,10 +188,11 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
   const map = useMap();
   const { resolvedTheme, setTheme } = useTheme();
   const mounted = useMounted();
-  const introContext = useIntro();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [locating, setLocating] = useState(false);
   const [hasLocation, setHasLocation] = useState(false);
+  const [autoRotating, setAutoRotating] = useState(false);
+  const autoRotateRef = useRef<number>(0);
   const userCoordsRef = useRef<[number, number] | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const [status, setStatus] = useState<MapStatus>({
@@ -301,6 +301,45 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
     );
   }, [map]);
 
+  // Auto-rotate animation
+  useEffect(() => {
+    if (!map || !autoRotating) {
+      cancelAnimationFrame(autoRotateRef.current);
+      return;
+    }
+
+    let lastTime = performance.now();
+    const SPEED = 1.5; // degrees per second
+
+    const animate = (now: number) => {
+      if (!autoRotating) return;
+      const dt = (now - lastTime) / 1000;
+      lastTime = now;
+      const bearing = map.getBearing() + SPEED * dt;
+      map.easeTo({ bearing, duration: 0, animate: false });
+      autoRotateRef.current = requestAnimationFrame(animate);
+    };
+
+    autoRotateRef.current = requestAnimationFrame(animate);
+
+    return () => cancelAnimationFrame(autoRotateRef.current);
+  }, [map, autoRotating]);
+
+  /** Toggle auto-rotation on/off. */
+  const toggleAutoRotate = useCallback(() => {
+    setAutoRotating((prev) => !prev);
+  }, []);
+
+  /** Zoom in one level. */
+  const zoomIn = useCallback(() => {
+    map?.zoomIn({ duration: 300 });
+  }, [map]);
+
+  /** Zoom out one level. */
+  const zoomOut = useCallback(() => {
+    map?.zoomOut({ duration: 300 });
+  }, [map]);
+
   const isDark = mounted && resolvedTheme === "dark";
 
   const presets: DatePreset[] = ["all", "today", "weekend", "week", "month"];
@@ -377,7 +416,31 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
         className="absolute bottom-4 left-4 z-20 flex flex-col gap-1 rounded-full px-1 py-1.5"
         style={glassPill}
       >
-        {/* My Location (always first) */}
+        {/* Zoom In */}
+        <ToolbarButton
+          onClick={zoomIn}
+          active
+          activeColor={iconActive}
+          mutedColor={iconMuted}
+          label="Zoom in"
+        >
+          <Plus className="h-4 w-4" />
+        </ToolbarButton>
+        {/* Zoom Out */}
+        <ToolbarButton
+          onClick={zoomOut}
+          active
+          activeColor={iconActive}
+          mutedColor={iconMuted}
+          label="Zoom out"
+        >
+          <Minus className="h-4 w-4" />
+        </ToolbarButton>
+
+        {/* Divider */}
+        <div className="mx-auto h-px w-5" style={{ background: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)" }} />
+
+        {/* My Location */}
         <ToolbarButton
           onClick={flyToCurrentLocation}
           active={hasLocation}
@@ -391,6 +454,16 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
             <LocateFixed className="h-4 w-4" />
           )}
         </ToolbarButton>
+        {/* Auto-Rotate */}
+        <ToolbarButton
+          onClick={toggleAutoRotate}
+          active={autoRotating}
+          activeColor="#3560FF"
+          mutedColor={iconMuted}
+          label={autoRotating ? "Stop rotation" : "Auto-rotate"}
+        >
+          <RotateCw className={`h-4 w-4 ${autoRotating ? "animate-spin" : ""}`} style={autoRotating ? { animationDuration: "3s" } : undefined} />
+        </ToolbarButton>
         {/* 3D Toggle */}
         {onToggle3D && (
           <ToolbarButton
@@ -403,6 +476,10 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
             <Box className="h-4 w-4" />
           </ToolbarButton>
         )}
+
+        {/* Divider */}
+        <div className="mx-auto h-px w-5" style={{ background: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)" }} />
+
         {/* Travel Zones (Isochrone) */}
         {onToggleIsochrone && (
           <ToolbarButton
@@ -433,18 +510,6 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
             <div className="h-4 w-4" />
           )}
         </ToolbarButton>
-        {/* Replay Intro */}
-        {introContext && (
-          <ToolbarButton
-            onClick={() => introContext.showIntro()}
-            active
-            activeColor={iconActive}
-            mutedColor={iconMuted}
-            label="Replay intro"
-          >
-            <Play className="h-4 w-4" />
-          </ToolbarButton>
-        )}
         {/* Settings */}
         <ToolbarButton
           onClick={() => setSettingsOpen(true)}
