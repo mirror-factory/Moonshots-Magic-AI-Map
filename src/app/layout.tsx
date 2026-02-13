@@ -52,7 +52,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${geistMono.variable} ${bebasNeue.variable} ${chakraPetch.variable} ${rajdhani.variable} antialiased`}
       >
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+        <ThemeProvider attribute="class" forcedTheme="dark" enableSystem={false}>
           {children}
         </ThemeProvider>
       </body>

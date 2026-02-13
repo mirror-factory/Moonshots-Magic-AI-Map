@@ -1,19 +1,16 @@
 /**
  * @module components/map/map-status-bar
- * Map overlay controls split across 4 positions:
+ * Map overlay controls split across 3 positions:
  * - Top center: Date filter chips
- * - Top right: Theme, 3D, isochrone, settings toggles
- * - Bottom left: My location button
+ * - Bottom left: Vertical toolbar (zoom, location, rotate, 3D, isochrone, settings)
  * - Bottom center: Minimal coordinate readout
  */
 
 "use client";
 
 import { useEffect, useState, useRef, useCallback, Fragment } from "react";
-import { useTheme } from "next-themes";
-import { useSyncExternalStore } from "react";
 import maplibregl from "maplibre-gl";
-import { Sun, Moon, Settings, Box, Clock, Loader2, X, LocateFixed, Plus, Minus, RotateCw } from "lucide-react";
+import { Settings, Box, Clock, Loader2, X, LocateFixed, Plus, Minus, RotateCw } from "lucide-react";
 import { useMap } from "./use-map";
 import { SettingsModal } from "@/components/settings/settings-modal";
 import { type DatePreset, DATE_PRESET_LABELS } from "@/lib/map/event-filters";
@@ -25,19 +22,6 @@ interface MapStatus {
   pitch: number;
 }
 
-/** Subscribe to nothing - we just need to know if we're mounted. */
-function subscribe() {
-  return () => {};
-}
-
-/** Returns true only on the client, false during SSR. */
-function useMounted() {
-  return useSyncExternalStore(
-    subscribe,
-    () => true,
-    () => false
-  );
-}
 
 // ── User Location Marker ──────────────────────────────────────────────
 const USER_LOC_SOURCE = "user-location-source";
@@ -186,8 +170,6 @@ interface MapStatusBarProps {
 /** Map overlay controls — filter chips, toolbar, location button, and coordinate readout. */
 export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalization, isochroneActive, isochroneLoading, onToggleIsochrone, activePreset, onPresetChange, aiResultsActive, onClearAiResults }: MapStatusBarProps) {
   const map = useMap();
-  const { resolvedTheme, setTheme } = useTheme();
-  const mounted = useMounted();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [locating, setLocating] = useState(false);
   const [hasLocation, setHasLocation] = useState(false);
@@ -340,7 +322,7 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
     map?.zoomOut({ duration: 300 });
   }, [map]);
 
-  const isDark = mounted && resolvedTheme === "dark";
+  const isDark = true; // Dark mode is forced globally
 
   const presets: DatePreset[] = ["all", "today", "weekend", "week", "month"];
 
@@ -498,20 +480,6 @@ export function MapStatusBar({ mode3D = false, onToggle3D, onStartPersonalizatio
             )}
           </ToolbarButton>
         )}
-        {/* Theme Toggle */}
-        <ToolbarButton
-          onClick={() => setTheme(isDark ? "light" : "dark")}
-          active
-          activeColor={iconActive}
-          mutedColor={iconMuted}
-          label={isDark ? "Light mode" : "Dark mode"}
-        >
-          {mounted ? (
-            isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />
-          ) : (
-            <div className="h-4 w-4" />
-          )}
-        </ToolbarButton>
         {/* Settings */}
         <ToolbarButton
           onClick={() => setSettingsOpen(true)}

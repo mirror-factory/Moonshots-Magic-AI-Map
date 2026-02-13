@@ -1,17 +1,25 @@
 /**
  * @module components/map/map-popups
- * Handles hover and click popup interactions on the events layer.
- * Hover: lightweight frosted-glass tooltip with event name, image, date.
- * Click: pinned popup with action buttons (Ask Ditto, Directions, Detail).
+ * Handles hover and click interactions on the events layer using canvas-rendered
+ * flyover-style cards from the shared venue-highlight module.
+ *
+ * Hover: floating card above the marker (no pulse, disappears on mouse leave).
+ * Click: card + golden pulsating orb + auto-rotation orbit. Selection persists
+ * through map drag/pan — only the X dismiss button removes it.
  */
 
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import maplibregl from "maplibre-gl";
 import { useMap } from "./use-map";
-import { CATEGORY_LABELS } from "@/lib/map/config";
-import type { EventCategory } from "@/lib/registries/types";
+import {
+  showHoverCard,
+  removeHoverCard,
+  selectEventHighlight,
+  deselectEventHighlight,
+  buildCardInfo,
+} from "@/lib/map/venue-highlight";
 
 /** Props for {@link MapPopups}. */
 interface MapPopupsProps {
@@ -23,168 +31,47 @@ interface MapPopupsProps {
   onOpenDetail?: (eventId: string) => void;
 }
 
-/**
- * Format an ISO date string into a short display string.
- * @param iso - ISO 8601 date string.
- * @returns Formatted string like "Fri, Feb 14 · 7:00 PM".
- */
-function fmtDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-/** Shared frosted-glass CSS for popups. */
-const GLASS_BG = `
-  background: rgba(15, 15, 20, 0.82);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
-  color: #e0e4ef;
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
-`;
-
-/** Branded placeholder gradient for events without images. */
-const PLACEHOLDER_BG = `
-  background: linear-gradient(135deg, rgba(0, 99, 205, 0.3) 0%, rgba(53, 96, 255, 0.15) 50%, rgba(0, 99, 205, 0.25) 100%);
-  backdrop-filter: blur(8px);
-  display:flex;align-items:center;justify-content:center;
-`;
-
-/**
- * Build hover tooltip HTML.
- * @param props - GeoJSON feature properties.
- * @returns HTML string for the hover popup.
- */
-function hoverHTML(props: Record<string, unknown>): string {
-  const title = String(props.title ?? "");
-  const venue = String(props.venue ?? "");
-  const dateStr = fmtDate(String(props.startDate ?? ""));
-  const imageUrl = String(props.imageUrl ?? "");
-  const category = String(props.category ?? "");
-  const categoryLabel = CATEGORY_LABELS[category as EventCategory] ?? category;
-  const color = String(props.color ?? "#888");
-
-  const imgBlock = imageUrl
-    ? `<img src="${imageUrl}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;margin-bottom:8px;" />`
-    : `<div style="width:100%;height:60px;border-radius:8px;margin-bottom:8px;${PLACEHOLDER_BG}">
-         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
-       </div>`;
-
-  return `
-    <div style="${GLASS_BG} padding:10px; max-width:240px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
-      ${imgBlock}
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></span>
-        <span style="font-size:10px;font-weight:500;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.5px;">${categoryLabel}</span>
-      </div>
-      <h3 style="margin:0 0 4px;font-size:13px;font-weight:600;color:#fff;line-height:1.3;">${title}</h3>
-      <p style="margin:0 0 2px;font-size:11px;color:rgba(255,255,255,0.5);">${venue}</p>
-      <p style="margin:0;font-size:11px;color:rgba(100,160,255,0.9);">${dateStr}</p>
-    </div>
-  `;
-}
-
-/**
- * Build click popup HTML with action buttons.
- * @param props - GeoJSON feature properties.
- * @param coords - [lng, lat] coordinates for directions.
- * @returns HTML string for the pinned click popup.
- */
-function clickHTML(props: Record<string, unknown>, coords: [number, number]): string {
-  const title = String(props.title ?? "");
-  const venue = String(props.venue ?? "");
-  const dateStr = fmtDate(String(props.startDate ?? ""));
-  const imageUrl = String(props.imageUrl ?? "");
-  const category = String(props.category ?? "");
-  const categoryLabel = CATEGORY_LABELS[category as EventCategory] ?? category;
-  const color = String(props.color ?? "#888");
-  const id = String(props.id ?? "");
-  const url = String(props.url ?? "");
-  const safeTitle = title.replace(/"/g, "&quot;");
-
-  const imgBlock = imageUrl
-    ? `<img src="${imageUrl}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:10px;" />`
-    : `<div style="width:100%;height:80px;border-radius:8px;margin-bottom:10px;${PLACEHOLDER_BG}">
-         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
-       </div>`;
-
-  const btnBase = `
-    border:none;
-    padding:5px 0;
-    border-radius:6px;
-    font-size:10px;
-    font-weight:500;
-    cursor:pointer;
-    text-align:center;
-    transition: opacity 0.15s;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:4px;
-  `;
-
-  const iconSvg = (d: string) => `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
-  const sparkles = iconSvg(`<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>`);
-  const compass = iconSvg(`<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>`);
-  const info = iconSvg(`<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>`);
-  const extLink = iconSvg(`<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>`);
-
-  const visitSiteBtn = url
-    ? `<a class="popup-visit-btn" href="${url}" target="_blank" rel="noopener noreferrer"
-         style="${btnBase} background:rgba(255,255,255,0.08);color:#e0e4ef;border:1px solid rgba(255,255,255,0.12);text-decoration:none;">
-         ${extLink} Visit Site
-       </a>`
-    : `<div></div>`;
-
-  return `
-    <div style="${GLASS_BG} padding:12px; max-width:280px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
-      ${imgBlock}
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></span>
-        <span style="font-size:10px;font-weight:500;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.5px;">${categoryLabel}</span>
-      </div>
-      <h3 style="margin:0 0 4px;font-size:14px;font-weight:600;color:#fff;line-height:1.3;">${title}</h3>
-      <p style="margin:0 0 2px;font-size:11px;color:rgba(255,255,255,0.5);">${venue}</p>
-      <p style="margin:0 0 10px;font-size:11px;color:rgba(100,160,255,0.9);">${dateStr}</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-        <button class="popup-ask-btn" data-id="${id}" data-title="${safeTitle}"
-          style="${btnBase} background:#3560FF;color:#fff;">
-          ${sparkles} Ask Ditto
-        </button>
-        <button class="popup-directions-btn" data-lng="${coords[0]}" data-lat="${coords[1]}" data-title="${safeTitle}"
-          style="${btnBase} background:rgba(255,255,255,0.08);color:#e0e4ef;border:1px solid rgba(255,255,255,0.12);">
-          ${compass} Directions
-        </button>
-        <button class="popup-detail-btn" data-id="${id}"
-          style="${btnBase} background:rgba(255,255,255,0.08);color:#e0e4ef;border:1px solid rgba(255,255,255,0.12);">
-          ${info} More Detail
-        </button>
-        ${visitSiteBtn}
-      </div>
-    </div>
-  `;
-}
-
 /** Handles hover and click popup interactions on the events map layer. */
 export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopupsProps) {
   const map = useMap();
-  const hoverPopupRef = useRef<maplibregl.Popup | null>(null);
-  const clickPopupRef = useRef<maplibregl.Popup | null>(null);
-  const isClickedRef = useRef(false);
+
+  /** Whether a selection (click) is currently active. */
+  const isSelectedRef = useRef(false);
+  /** The DOM marker with the X dismiss button. */
+  const dismissMarkerRef = useRef<maplibregl.Marker | null>(null);
+  /** Animation frame ID for the orbit loop. */
+  const orbitFrameRef = useRef<number>(0);
+  /** Track selected event ID to prevent re-selecting same event. */
+  const selectedEventIdRef = useRef<string | null>(null);
+
+  /** Stops the orbit animation loop. */
+  const stopOrbit = useCallback(() => {
+    cancelAnimationFrame(orbitFrameRef.current);
+    orbitFrameRef.current = 0;
+  }, []);
+
+  /** Removes the dismiss (X) marker from the map. */
+  const removeDismissMarker = useCallback(() => {
+    dismissMarkerRef.current?.remove();
+    dismissMarkerRef.current = null;
+  }, []);
+
+  /** Clears the entire selection: card, pulse, orbit, X marker. */
+  const clearSelection = useCallback(() => {
+    if (!map) return;
+    stopOrbit();
+    deselectEventHighlight(map);
+    removeDismissMarker();
+    isSelectedRef.current = false;
+    selectedEventIdRef.current = null;
+  }, [map, stopOrbit, removeDismissMarker]);
 
   useEffect(() => {
     if (!map) return;
 
-    // ---- Hover tooltip ----
+    // ── Hover: canvas card (no pulse) ──────────────────────────────────
     const handleMouseMove = (e: maplibregl.MapLayerMouseEvent) => {
-      if (isClickedRef.current) return; // Don't show hover when click popup is open
+      if (isSelectedRef.current) return; // Don't show hover when selection is active
       const features = e.features;
       if (!features?.length) return;
 
@@ -196,28 +83,25 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopu
 
       map.getCanvas().style.cursor = "pointer";
 
-      if (!hoverPopupRef.current) {
-        hoverPopupRef.current = new maplibregl.Popup({
-          closeButton: false,
-          closeOnClick: false,
-          maxWidth: "260px",
-          offset: 14,
-          className: "event-hover-popup",
-        });
-      }
+      const cardInfo = buildCardInfo({
+        title: String(props.title ?? ""),
+        venue: String(props.venue ?? ""),
+        startDate: String(props.startDate ?? ""),
+        source: String(props.sourceType ?? ""),
+        price: props.priceJson ? JSON.parse(String(props.priceJson)) : null,
+      });
 
-      hoverPopupRef.current
-        .setLngLat(coords)
-        .setHTML(hoverHTML(props))
-        .addTo(map);
+      showHoverCard(map, coords, String(props.imageUrl ?? ""), cardInfo);
     };
 
     const handleMouseLeave = () => {
       map.getCanvas().style.cursor = "";
-      hoverPopupRef.current?.remove();
+      if (!isSelectedRef.current) {
+        removeHoverCard(map);
+      }
     };
 
-    // ---- Click popup ----
+    // ── Click: canvas card + golden pulse + orbit ──────────────────────
     const handleClick = (e: maplibregl.MapLayerMouseEvent) => {
       const features = e.features;
       if (!features?.length) return;
@@ -226,77 +110,144 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail }: MapPopu
       const props = feature.properties;
       if (!props) return;
 
+      const eventId = String(props.id ?? "");
+
+      // If clicking same event, ignore
+      if (selectedEventIdRef.current === eventId) return;
+
+      // Clear any existing selection first
+      clearSelection();
+
       const coords = (feature.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
 
-      // Remove hover popup
-      hoverPopupRef.current?.remove();
-      isClickedRef.current = true;
+      // Remove hover card
+      removeHoverCard(map);
 
-      // Remove previous click popup
-      clickPopupRef.current?.remove();
+      // Mark as selected
+      isSelectedRef.current = true;
+      selectedEventIdRef.current = eventId;
 
-      clickPopupRef.current = new maplibregl.Popup({
-        closeOnClick: true,
-        maxWidth: "300px",
-        offset: 14,
-        className: "event-click-popup",
-      })
-        .setLngLat(coords)
-        .setHTML(clickHTML(props, coords))
-        .addTo(map);
-
-      clickPopupRef.current.on("close", () => {
-        isClickedRef.current = false;
+      // Build card info
+      const cardInfo = buildCardInfo({
+        title: String(props.title ?? ""),
+        venue: String(props.venue ?? ""),
+        startDate: String(props.startDate ?? ""),
+        source: String(props.sourceType ?? ""),
+        price: props.priceJson ? JSON.parse(String(props.priceJson)) : null,
       });
 
-      // Wire up buttons
-      setTimeout(() => {
-        const askBtn = document.querySelector(".popup-ask-btn");
-        if (askBtn && onAskAbout) {
-          askBtn.addEventListener("click", () => {
-            const id = askBtn.getAttribute("data-id") ?? "";
-            const title = askBtn.getAttribute("data-title") ?? "";
-            onAskAbout(id ? `__EVENT__:${id}:${title}` : title);
-            clickPopupRef.current?.remove();
-          });
-        }
+      // Show the highlight: canvas card + golden pulsating orb
+      selectEventHighlight(map, coords, String(props.imageUrl ?? ""), cardInfo);
 
-        const dirBtn = document.querySelector(".popup-directions-btn");
-        if (dirBtn && onGetDirections) {
-          dirBtn.addEventListener("click", () => {
-            const lng = parseFloat(dirBtn.getAttribute("data-lng") ?? "0");
-            const lat = parseFloat(dirBtn.getAttribute("data-lat") ?? "0");
-            const title = dirBtn.getAttribute("data-title") ?? "";
-            onGetDirections([lng, lat], title);
-            clickPopupRef.current?.remove();
-          });
-        }
+      // Open the detail panel in the dropdown for action buttons
+      if (onOpenDetail && eventId) {
+        onOpenDetail(eventId);
+      }
 
-        const detailBtn = document.querySelector(".popup-detail-btn");
-        if (detailBtn && onOpenDetail) {
-          detailBtn.addEventListener("click", () => {
-            const id = detailBtn.getAttribute("data-id") ?? "";
-            onOpenDetail(id);
-            clickPopupRef.current?.remove();
-          });
-        }
+      // Add X dismiss marker at the event location
+      const dismissEl = document.createElement("button");
+      dismissEl.className = "venue-dismiss-btn";
+      dismissEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+      dismissEl.style.cssText = `
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.75);
+        border: 1.5px solid rgba(255, 255, 255, 0.3);
+        color: #fff;
+        cursor: pointer;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        transition: background 0.15s, transform 0.15s;
+      `;
+      dismissEl.addEventListener("mouseenter", () => {
+        dismissEl.style.background = "rgba(220, 50, 50, 0.85)";
+        dismissEl.style.transform = "scale(1.1)";
+      });
+      dismissEl.addEventListener("mouseleave", () => {
+        dismissEl.style.background = "rgba(0, 0, 0, 0.75)";
+        dismissEl.style.transform = "scale(1)";
+      });
+      dismissEl.addEventListener("click", (evt) => {
+        evt.stopPropagation();
+        clearSelection();
+      });
 
-        // Visit Site is an <a> tag — no JS handler needed
-      }, 50);
+      dismissMarkerRef.current = new maplibregl.Marker({ element: dismissEl, anchor: "center" })
+        .setLngLat(coords)
+        .setOffset([0, 0])
+        .addTo(map);
+
+      // Fly to the event with cinematic pitch
+      map.flyTo({
+        center: coords,
+        zoom: Math.max(map.getZoom(), 15),
+        pitch: 55,
+        duration: 1500,
+      });
+
+      // Start gentle orbit after camera arrives
+      map.once("moveend", () => {
+        if (!isSelectedRef.current) return;
+
+        let lastTime = performance.now();
+        const ORBIT_SPEED = 2; // degrees per second
+
+        const orbit = (now: number) => {
+          if (!isSelectedRef.current) return;
+          const dt = (now - lastTime) / 1000;
+          lastTime = now;
+          const bearing = map.getBearing() + ORBIT_SPEED * dt;
+          map.easeTo({ bearing, duration: 0, animate: false });
+          orbitFrameRef.current = requestAnimationFrame(orbit);
+        };
+
+        orbitFrameRef.current = requestAnimationFrame(orbit);
+
+        // Stop orbit on user interaction (but keep selection)
+        const pauseOrbit = () => {
+          stopOrbit();
+          map.off("mousedown", pauseOrbit);
+          map.off("touchstart", pauseOrbit);
+          map.off("wheel", pauseOrbit);
+        };
+
+        map.on("mousedown", pauseOrbit);
+        map.on("touchstart", pauseOrbit);
+        map.on("wheel", pauseOrbit);
+      });
+    };
+
+    // ── Click on empty map area: clear selection ──────────────────────
+    const handleMapClick = (e: maplibregl.MapMouseEvent) => {
+      if (!isSelectedRef.current) return;
+
+      // Check if click was on the events layer — if so, handleClick handles it
+      const features = map.queryRenderedFeatures(e.point, { layers: ["events-layer"] });
+      if (features.length > 0) return;
+
+      clearSelection();
     };
 
     map.on("mousemove", "events-layer", handleMouseMove);
     map.on("mouseleave", "events-layer", handleMouseLeave);
     map.on("click", "events-layer", handleClick);
+    map.on("click", handleMapClick);
 
     return () => {
       map.off("mousemove", "events-layer", handleMouseMove);
       map.off("mouseleave", "events-layer", handleMouseLeave);
       map.off("click", "events-layer", handleClick);
-      hoverPopupRef.current?.remove();
-      clickPopupRef.current?.remove();
+      map.off("click", handleMapClick);
+      stopOrbit();
+      removeHoverCard(map);
+      deselectEventHighlight(map);
+      removeDismissMarker();
     };
-  }, [map, onAskAbout, onGetDirections, onOpenDetail]);
+  }, [map, onAskAbout, onGetDirections, onOpenDetail, clearSelection, stopOrbit, removeDismissMarker]);
 
   return null;
 }

@@ -19,6 +19,10 @@ export interface EventFeatureProperties {
   featured: boolean;
   imageUrl: string;
   url: string;
+  /** Source type label (e.g. "manual", "scraper"). */
+  sourceType: string;
+  /** JSON-encoded price object or empty string. */
+  priceJson: string;
 }
 
 /**
@@ -51,6 +55,8 @@ export function eventsToGeoJSON(
         featured: event.featured ?? false,
         imageUrl: event.imageUrl ?? "",
         url: event.url ?? "",
+        sourceType: typeof event.source === "object" ? event.source?.type ?? "" : String(event.source ?? ""),
+        priceJson: event.price ? JSON.stringify(event.price) : "",
       },
     })),
   };
