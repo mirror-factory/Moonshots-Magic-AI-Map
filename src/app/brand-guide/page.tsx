@@ -502,7 +502,7 @@ export default function BrandGuidePage() {
   }, [showEffects]);
 
   return (
-    <div ref={heroRef} className="overflow-x-hidden bg-background">
+    <div ref={heroRef} className="w-full max-w-[100vw] overflow-x-hidden bg-background">
       {/* Effects Control Menu */}
       <div ref={effectsMenuRef} className="fixed left-6 bottom-6 z-[100]">
         <div className="relative">
@@ -739,14 +739,14 @@ export default function BrandGuidePage() {
 
         {showEffects && <div className="grain-texture absolute inset-0 z-10" />}
 
-        <div className="relative z-20 mx-auto max-w-6xl pt-16">
+        <div className="relative z-20 mx-auto max-w-6xl px-4 pt-16 sm:px-6">
           <div className="mb-8 text-center">
             {/* Dark backdrop for text visibility */}
             <div
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
               style={{
-                width: "900px",
-                height: "500px",
+                width: "min(900px, 90vw)",
+                height: "min(500px, 60vh)",
                 background: "radial-gradient(ellipse, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.3) 50%, transparent 70%)",
                 filter: "blur(60px)",
                 pointerEvents: "none",
@@ -757,8 +757,8 @@ export default function BrandGuidePage() {
             <div
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
               style={{
-                width: "800px",
-                height: "400px",
+                width: "min(800px, 80vw)",
+                height: "min(400px, 50vh)",
                 background: "radial-gradient(circle, rgba(0, 99, 205, 0.4) 0%, transparent 70%)",
                 filter: "blur(80px)",
                 pointerEvents: "none",
@@ -779,13 +779,14 @@ export default function BrandGuidePage() {
             </p>
 
             {/* Logo SVG with glow effects - Animated version */}
-            <div className="hero-title relative mb-4 flex justify-center">
+            <div className="hero-title relative mb-4 flex justify-center px-4">
               <div
                 style={{
                   filter: "drop-shadow(0 0 60px rgba(0, 99, 205, 0.6)) drop-shadow(0 0 120px rgba(0, 99, 205, 0.4)) drop-shadow(0 0 180px rgba(0, 99, 205, 0.2))",
                 }}
+                className="w-full max-w-[280px] sm:max-w-[400px] md:max-w-[550px] lg:max-w-[750px]"
               >
-                <AnimatedLogo className="h-auto w-[750px]" width={750} height={250} />
+                <AnimatedLogo className="h-auto w-full" width={750} height={250} />
               </div>
             </div>
 
@@ -800,7 +801,7 @@ export default function BrandGuidePage() {
             </p>
           </div>
           <p
-            className="hero-description mx-auto max-w-3xl text-center text-xl leading-relaxed"
+            className="hero-description mx-auto max-w-3xl px-4 text-center text-base leading-relaxed sm:text-lg md:text-xl"
             style={{
               color: "var(--text)",
               fontFamily: "var(--font-chakra-petch, sans-serif)",
