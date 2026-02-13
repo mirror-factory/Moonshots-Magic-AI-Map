@@ -917,10 +917,10 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
         {/* Corner vignette effect */}
         <div className="pointer-events-none absolute inset-0 z-10" style={{
           background: `
-            radial-gradient(ellipse 600px 600px at top left, transparent 0%, rgba(0, 0, 0, 0.7) 100%),
-            radial-gradient(ellipse 600px 600px at top right, transparent 0%, rgba(0, 0, 0, 0.7) 100%),
-            radial-gradient(ellipse 600px 600px at bottom left, transparent 0%, rgba(0, 0, 0, 0.7) 100%),
-            radial-gradient(ellipse 600px 600px at bottom right, transparent 0%, rgba(0, 0, 0, 0.7) 100%)
+            radial-gradient(ellipse 500px 500px at top left, rgba(0, 0, 0, 0.6) 0%, transparent 70%),
+            radial-gradient(ellipse 500px 500px at top right, rgba(0, 0, 0, 0.6) 0%, transparent 70%),
+            radial-gradient(ellipse 500px 500px at bottom left, rgba(0, 0, 0, 0.6) 0%, transparent 70%),
+            radial-gradient(ellipse 500px 500px at bottom right, rgba(0, 0, 0, 0.6) 0%, transparent 70%)
           `,
         }} />
         {/* Corner blue glows */}
