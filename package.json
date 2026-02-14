@@ -22,7 +22,8 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "check-stories": "sh scripts/check-stories.sh",
-    "sync-events": "tsx --env-file=.env.local scripts/sync-events/index.ts"
+    "sync-events": "tsx --env-file=.env.local scripts/sync-events/index.ts",
+    "validate-events": "tsx scripts/validate-events.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.32",
