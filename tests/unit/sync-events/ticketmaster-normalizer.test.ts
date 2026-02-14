@@ -127,35 +127,35 @@ describe("normalizeTmEvent", () => {
     expect(result.region).toBe("Winter Park");
   });
 
-  it("uses API url when present", () => {
+  it("always uses canonical ticketmaster.com URL regardless of API url", () => {
     const result = normalizeTmEvent(
-      makeTmEvent({ url: "https://www.ticketmaster.com/custom/event-page" }),
+      makeTmEvent({ url: "https://www.ticketweb.com/some-event" }),
     );
-    expect(result.url).toBe("https://www.ticketmaster.com/custom/event-page");
+    expect(result.url).toBe("https://www.ticketmaster.com/event/G5v0Z9gHcK7dP");
   });
 
-  it("constructs fallback URL for standard TM IDs", () => {
+  it("constructs canonical URL for standard TM IDs", () => {
     const result = normalizeTmEvent(
       makeTmEvent({ id: "Z7r9jZ1A7jsbp", url: undefined }),
     );
     expect(result.url).toBe("https://www.ticketmaster.com/event/Z7r9jZ1A7jsbp");
   });
 
-  it("omits URL for non-standard Za5ju3rKuq resale IDs without API url", () => {
+  it("constructs canonical URL for Za5ju3rKuq resale IDs", () => {
     const result = normalizeTmEvent(
       makeTmEvent({ id: "Za5ju3rKuqZDdItOqg6-sAB_vvfjeNwwDM", url: undefined }),
     );
-    expect(result.url).toBeUndefined();
+    expect(result.url).toBe("https://www.ticketmaster.com/event/Za5ju3rKuqZDdItOqg6-sAB_vvfjeNwwDM");
   });
 
-  it("keeps API url even for non-standard IDs when API provides one", () => {
+  it("uses canonical URL even when API provides third-party URL", () => {
     const result = normalizeTmEvent(
       makeTmEvent({
         id: "Za5ju3rKuqZDdItOqg6-sAB_vvfjeNwwDM",
         url: "https://universe.com/events/some-event",
       }),
     );
-    expect(result.url).toBe("https://universe.com/events/some-event");
+    expect(result.url).toBe("https://www.ticketmaster.com/event/Za5ju3rKuqZDdItOqg6-sAB_vvfjeNwwDM");
   });
 
   it("falls back to localDate when dateTime missing", () => {
