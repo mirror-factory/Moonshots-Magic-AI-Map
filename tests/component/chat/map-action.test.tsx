@@ -2,13 +2,24 @@ import { render, screen } from "@testing-library/react";
 import { MapAction } from "@/components/chat/map-action";
 
 const mockFlyTo = vi.fn();
+const mockOn = vi.fn();
+const mockOff = vi.fn();
+const mockFitBounds = vi.fn();
 vi.mock("@/components/map/use-map", () => ({
-  useMap: () => ({ flyTo: mockFlyTo }),
+  useMap: () => ({
+    flyTo: mockFlyTo,
+    fitBounds: mockFitBounds,
+    on: mockOn,
+    off: mockOff,
+  }),
 }));
 
 describe("MapAction", () => {
   beforeEach(() => {
     mockFlyTo.mockClear();
+    mockOn.mockClear();
+    mockOff.mockClear();
+    mockFitBounds.mockClear();
   });
 
   it('renders "Flying to location" for action "flyTo"', () => {
