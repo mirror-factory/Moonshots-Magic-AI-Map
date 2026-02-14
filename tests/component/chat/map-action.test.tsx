@@ -5,12 +5,14 @@ const mockFlyTo = vi.fn();
 const mockOn = vi.fn();
 const mockOff = vi.fn();
 const mockFitBounds = vi.fn();
+const mockStop = vi.fn();
 vi.mock("@/components/map/use-map", () => ({
   useMap: () => ({
     flyTo: mockFlyTo,
     fitBounds: mockFitBounds,
     on: mockOn,
     off: mockOff,
+    stop: mockStop,
   }),
 }));
 

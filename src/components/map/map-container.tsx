@@ -53,7 +53,6 @@ import {
   deselectEventHighlight,
   buildCardInfo,
 } from "@/lib/map/venue-highlight";
-import { Stars } from "@/components/effects/stars";
 
 /** Default isochrone time ranges in minutes. */
 const ISOCHRONE_MINUTES: number[] = [5, 10, 15, 30];
@@ -104,6 +103,10 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
   const [directionsProfile, setDirectionsProfile] = useState<TravelProfile>("driving-car");
   const [directionsLoading, setDirectionsLoading] = useState(false);
   const [directionsError, setDirectionsError] = useState<string | null>(null);
+  /** Current step coordinate for the green navigation dot. */
+  const [directionsStepCoord, setDirectionsStepCoord] = useState<[number, number] | null>(null);
+  /** Whether the origin came from actual GPS (true) or map center fallback (false). */
+  const [directionsOriginIsGps, setDirectionsOriginIsGps] = useState(false);
 
   // Isochrone state
   const [isochroneResult, setIsochroneResult] = useState<IsochroneResult | null>(null);
@@ -142,6 +145,8 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
         attributionControl: {},
         maxTileCacheSize: 50,
         fadeDuration: 0,
+        // Restrict viewport to Central Florida region
+        maxBounds: [[-83.5, 27.0], [-79.5, 30.0]],
       });
 
       // Zoom/rotate controls moved to custom bottom-left toolbar (MapStatusBar)
@@ -541,30 +546,45 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
 
   const handleGetDirections = useCallback(
     (coordinates: [number, number]) => {
+      // ── Clear any active map selection (show-on-map highlight, popup orbit, etc.) ──
+      clearSelectionRef.current?.();
+
+      // Show loading panel immediately (before geolocation resolves)
+      setDirectionsLoading(true);
+      setDirectionsError(null);
+      setDirectionsRoute(null);
+      setDirectionsDestination(coordinates);
+      setDirectionsStepCoord(null);
+      setDirectionsOriginIsGps(false);
+
       // Get user's current location via Geolocation API
       if (!navigator.geolocation) {
-        setDirectionsError("Geolocation is not supported by your browser");
+        setDirectionsError("Geolocation is not supported by your browser. Please enable location services.");
+        setDirectionsLoading(false);
         return;
       }
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const origin: [number, number] = [position.coords.longitude, position.coords.latitude];
-          setDirectionsDestination(coordinates);
+          console.log("[Directions] GPS origin:", origin, "accuracy:", position.coords.accuracy, "m");
+          setDirectionsOriginIsGps(true);
           fetchDirections(origin, coordinates, directionsProfile);
         },
-        () => {
-          // Fallback: use map center as origin
-          if (map) {
-            const center = map.getCenter();
-            fetchDirections([center.lng, center.lat], coordinates, directionsProfile);
-          } else {
-            setDirectionsError("Could not determine your location");
-          }
+        (geoErr) => {
+          console.warn("[Directions] Geolocation failed:", geoErr.code, geoErr.message);
+          // Show error — do NOT silently fall back to map center
+          const reason = geoErr.code === 1
+            ? "Location permission denied. Please allow location access in your browser settings."
+            : geoErr.code === 3
+              ? "Location request timed out. Please check your GPS signal and try again."
+              : "Could not determine your location. Please check location settings.";
+          setDirectionsError(reason);
+          setDirectionsLoading(false);
         },
-        { enableHighAccuracy: true, timeout: 5000 },
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 },
       );
     },
-    [directionsProfile, fetchDirections, map],
+    [directionsProfile, fetchDirections],
   );
 
   // Register directions handler with parent
@@ -712,7 +732,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
         const ORBIT_SPEED = 2; // degrees per second
 
         const orbit = (now: number) => {
-          if (!showOnMapDismissRef.current) return; // Selection cleared mid-orbit
+          if (!showOnMapDismissRef.current || showOnMapOrbitRef.current === 0) return; // Selection cleared mid-orbit
           const dt = (now - lastTime) / 1000;
           lastTime = now;
           const bearing = map.getBearing() + ORBIT_SPEED * dt;
@@ -760,7 +780,27 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
     setDirectionsDestination(null);
     setDirectionsError(null);
     setDirectionsLoading(false);
+    setDirectionsStepCoord(null);
+    setDirectionsOriginIsGps(false);
   }, []);
+
+  /** Fly the map camera to a step coordinate and update the green navigation dot. */
+  const handleFlyToStep = useCallback(
+    (coordinate: [number, number]) => {
+      // Cancel any active show-on-map orbit so it doesn't fight the flyTo
+      clearSelectionRef.current?.();
+      setDirectionsStepCoord(coordinate);
+      if (!map) return;
+      map.stop();
+      map.flyTo({
+        center: coordinate,
+        zoom: 19,
+        pitch: 60,
+        duration: 1200,
+      });
+    },
+    [map],
+  );
 
   // --- Isochrone handlers ---
   const handleToggleIsochrone = useCallback(() => {
@@ -823,19 +863,6 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
           `,
         }} />
 
-        {/* Corner stars with shooting stars */}
-        <div className="pointer-events-none absolute left-0 top-0 z-[5] h-48 w-48 overflow-hidden opacity-90">
-          <Stars count={50} shootingStars={3} />
-        </div>
-        <div className="pointer-events-none absolute right-0 top-0 z-[5] h-48 w-48 overflow-hidden opacity-90">
-          <Stars count={50} shootingStars={3} />
-        </div>
-        <div className="pointer-events-none absolute bottom-0 left-0 z-[5] h-48 w-48 overflow-hidden opacity-90">
-          <Stars count={50} shootingStars={3} />
-        </div>
-        <div className="pointer-events-none absolute bottom-0 right-0 z-[5] h-48 w-48 overflow-hidden opacity-90">
-          <Stars count={50} shootingStars={3} />
-        </div>
 
         <div
           ref={containerRef}
@@ -854,14 +881,16 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
           onAskAbout={onAskAbout}
           onShowEventOnMap={handleShowEventOnMap}
           onGetDirections={handleEventDirections}
+          onGetDirectionsToCoord={handleGetDirections}
           detailEventId={detailEventId}
           onClearDetailEvent={() => setDetailEventId(null)}
+          directionsActive={directionsRoute !== null || directionsLoading || !!directionsError}
         />
 
         <MapMarkers events={events} styleLoaded={styleLoaded} isDark={isDark} visibleEventIds={effectiveEventIds} highlightedEventIds={highlightedEventIds} />
         <MapHotspots events={events} styleLoaded={styleLoaded} isDark={isDark} />
         <MapPopups onAskAbout={onAskAbout} onGetDirections={handleGetDirections} onOpenDetail={handleOpenDetail} clearSelectionRef={clearSelectionRef} />
-        <MapDirections route={directionsRoute} origin={directionsOrigin} destination={directionsDestination} />
+        <MapDirections route={directionsRoute} origin={directionsOrigin} destination={directionsDestination} stepCoordinate={directionsStepCoord} />
         <MapIsochrone result={isochroneResult} events={events} />
         <MapStatusBar
           mode3D={mode3D}
@@ -889,6 +918,9 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
             error={directionsError}
             origin={directionsOrigin}
             destination={directionsDestination}
+            onFlyToStep={handleFlyToStep}
+            originIsGps={directionsOriginIsGps}
+            onRetryLocation={directionsDestination ? () => handleGetDirections(directionsDestination) : undefined}
           />
         )}
 
