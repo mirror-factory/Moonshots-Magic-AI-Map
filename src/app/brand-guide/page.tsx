@@ -8,11 +8,14 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 import { PRESENTATION_LANDMARKS } from "@/data/presentation-landmarks";
 import { Stars } from "@/components/effects/stars";
+import { Sparkles } from "@/components/effects/sparkles";
+import { AnimatePresence, motion } from "motion/react";
 import {
   Rocket,
   Sparkles as SparklesIcon,
@@ -201,28 +204,35 @@ function AnimatedLogo({ className, width = 750, height = 250 }: { className?: st
 
 /** Brand guide page (public, no auth required). */
 export default function BrandGuidePage() {
+  const router = useRouter();
   const heroRef = useRef<HTMLDivElement>(null);
   const footerRef = useRef<HTMLElement>(null);
   const effectsMenuRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
 
   // Individual effect controls with localStorage persistence
-  const [showBackgroundImages, setShowBackgroundImages] = useState(() => {
-    if (typeof window === "undefined") return true;
-    const saved = localStorage.getItem("brand-guide-bg-images");
-    return saved !== null ? JSON.parse(saved) : true;
-  });
-  const [showStars, setShowStars] = useState(() => {
-    if (typeof window === "undefined") return true;
-    const saved = localStorage.getItem("brand-guide-stars");
-    return saved !== null ? JSON.parse(saved) : true;
-  });
-  const [showEffects, setShowEffects] = useState(() => {
-    if (typeof window === "undefined") return true;
-    const saved = localStorage.getItem("brand-guide-effects");
-    return saved !== null ? JSON.parse(saved) : true;
-  });
+  // Start with default values to prevent hydration mismatch, then sync with localStorage
+  const [showBackgroundImages, setShowBackgroundImages] = useState(false);
+  const [showStars, setShowStars] = useState(true);
+  const [showEffects, setShowEffects] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Sync with localStorage after mount to prevent hydration mismatch
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const bgImages = localStorage.getItem("brand-guide-bg-images");
+    if (bgImages !== null) setShowBackgroundImages(JSON.parse(bgImages));
+
+    const stars = localStorage.getItem("brand-guide-stars");
+    if (stars !== null) setShowStars(JSON.parse(stars));
+
+    const effects = localStorage.getItem("brand-guide-effects");
+    if (effects !== null) setShowEffects(JSON.parse(effects));
+    // This is intentionally reading from localStorage on mount - not a cascading render issue
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+  }, []);
 
   // Show toast after 3 seconds, hide after 8 more seconds
   useEffect(() => {
@@ -259,6 +269,17 @@ export default function BrandGuidePage() {
     localStorage.setItem("brand-guide-effects", JSON.stringify(newValue));
   };
 
+  // Handle explore events transition
+  const handleExploreEvents = () => {
+    setIsTransitioning(true);
+    // Set flag for map page to show transition
+    sessionStorage.setItem("show-transition", "true");
+    // Wait for fade-in, then navigate (give map time to load)
+    setTimeout(() => {
+      router.push("/");
+    }, 1000);
+  };
+
   // Fade out effects menu on scroll
   useEffect(() => {
     const handleScroll = () => {
@@ -273,11 +294,35 @@ export default function BrandGuidePage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Scroll-triggered nav bar
   useEffect(() => {
-    // Skip heavy animations if effects are disabled
-    if (!showEffects) return;
+    if (!navRef.current || !heroRef.current) return;
 
-    // Hero animations
+    const handleScroll = () => {
+      if (!navRef.current || !heroRef.current) return;
+      const heroHeight = heroRef.current.offsetHeight;
+      const scrollY = window.scrollY;
+
+      // Show nav after scrolling past hero
+      if (scrollY > heroHeight - 100) {
+        navRef.current.style.opacity = "1";
+        navRef.current.style.visibility = "visible";
+        navRef.current.style.pointerEvents = "auto";
+      } else {
+        navRef.current.style.opacity = "0";
+        navRef.current.style.visibility = "hidden";
+        navRef.current.style.pointerEvents = "none";
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    handleScroll(); // Initial check
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    // Core animations - always run (background images, lighting, hero entrance)
     const ctx = gsap.context(() => {
       gsap.from(".hero-title", {
         opacity: 0,
@@ -318,32 +363,40 @@ export default function BrandGuidePage() {
         ease: "power2.out",
       });
 
-      // Sticky nav fade in on scroll - starts near end of hero, fully visible by color palette
-      ScrollTrigger.create({
-        trigger: heroRef.current,
-        start: "40% top",
-        end: "bottom top",
-        scrub: 0.5,
-        onUpdate: (self) => {
-          const progress = self.progress;
-          gsap.to(".brand-nav", {
-            opacity: progress,
-            y: -10 + progress * 10,
-            duration: 0.3,
-            ease: "none",
-            pointerEvents: progress > 0.5 ? "auto" : "none",
-          });
-        },
-        onLeaveBack: () => {
-          gsap.to(".brand-nav", {
-            opacity: 0,
-            y: -10,
-            duration: 0.4,
-            ease: "power2.in",
-            pointerEvents: "none",
-          });
-        },
-      });
+      // Wait for nav element to exist, then set initial transparent state
+      const navElement = document.querySelector(".brand-nav");
+      if (navElement) {
+        gsap.set(navElement, {
+          backgroundColor: "transparent",
+          backdropFilter: "none",
+          borderBottom: "none",
+        });
+
+        // Nav bar background fades in when exiting hero
+        ScrollTrigger.create({
+          trigger: heroRef.current,
+          start: "bottom top",
+          end: "bottom top",
+          onEnter: () => {
+            gsap.to(navElement, {
+              backgroundColor: "rgba(5, 5, 5, 0.8)",
+              backdropFilter: "blur(20px)",
+              borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+              duration: 0.3,
+              ease: "power2.out",
+            });
+          },
+          onLeaveBack: () => {
+            gsap.to(navElement, {
+              backgroundColor: "transparent",
+              backdropFilter: "none",
+              borderBottom: "none",
+              duration: 0.3,
+              ease: "power2.in",
+            });
+          },
+        });
+      }
 
       // Initial dark overlay that fades out to lighten images
       gsap.to(".initial-dark-overlay", {
@@ -353,9 +406,10 @@ export default function BrandGuidePage() {
         ease: "power2.inOut",
       });
 
-      // Independent zoom animations for background columns - faster and more noticeable
+      // Independent zoom animations for background columns - faster and more noticeable with vertical movement
       gsap.to(".background-zoom-left", {
         scale: 1.2,
+        y: 30,
         duration: 15,
         repeat: -1,
         yoyo: true,
@@ -364,6 +418,7 @@ export default function BrandGuidePage() {
 
       gsap.to(".background-zoom-center", {
         scale: 1.25,
+        y: 40,
         duration: 18,
         repeat: -1,
         yoyo: true,
@@ -372,6 +427,7 @@ export default function BrandGuidePage() {
 
       gsap.to(".background-zoom-right", {
         scale: 1.2,
+        y: 35,
         duration: 16,
         repeat: -1,
         yoyo: true,
@@ -500,7 +556,7 @@ export default function BrandGuidePage() {
     }, heroRef);
 
     return () => ctx.revert();
-  }, [showEffects]);
+  }, []); // Run once on mount
 
   return (
     <div ref={heroRef} className="w-full max-w-[100vw] overflow-x-hidden bg-background">
@@ -602,7 +658,7 @@ export default function BrandGuidePage() {
                 fill
                 className="object-cover"
                 style={{
-                  filter: "grayscale(1) blur(3px) brightness(0.65)",
+                  filter: "grayscale(1) blur(3px) brightness(0.45)",
                   objectPosition: "center 60%",
                 }}
                 priority
@@ -612,7 +668,7 @@ export default function BrandGuidePage() {
             <div className="initial-dark-overlay absolute inset-0 bg-black/20" />
             {/* Periodic highlight pulse */}
             <div
-              className="background-highlight-left absolute inset-0 bg-white/10"
+              className="background-highlight-left absolute inset-0 bg-white/15"
               style={{ opacity: 0 }}
             />
             {/* Gradient blend on right edge */}
@@ -638,7 +694,7 @@ export default function BrandGuidePage() {
                 fill
                 className="object-cover"
                 style={{
-                  filter: "grayscale(1) blur(3px) brightness(0.65)",
+                  filter: "grayscale(1) blur(3px) brightness(0.45)",
                   objectPosition: "center 60%",
                 }}
                 priority
@@ -648,7 +704,7 @@ export default function BrandGuidePage() {
             <div className="initial-dark-overlay absolute inset-0 bg-black/20" />
             {/* Periodic highlight pulse */}
             <div
-              className="background-highlight-center absolute inset-0 bg-white/10"
+              className="background-highlight-center absolute inset-0 bg-white/15"
               style={{ opacity: 0 }}
             />
             {/* Gradient blend on left edge */}
@@ -683,7 +739,7 @@ export default function BrandGuidePage() {
                 fill
                 className="object-cover"
                 style={{
-                  filter: "grayscale(1) blur(3px) brightness(0.65)",
+                  filter: "grayscale(1) blur(3px) brightness(0.45)",
                   objectPosition: "center 60%",
                 }}
                 priority
@@ -693,7 +749,7 @@ export default function BrandGuidePage() {
             <div className="initial-dark-overlay absolute inset-0 bg-black/20" />
             {/* Periodic highlight pulse */}
             <div
-              className="background-highlight-right absolute inset-0 bg-white/10"
+              className="background-highlight-right absolute inset-0 bg-white/15"
               style={{ opacity: 0 }}
             />
             {/* Gradient blend on left edge */}
@@ -733,14 +789,14 @@ export default function BrandGuidePage() {
         )}
 
         {/* Stars with shooting stars */}
-        {showStars && <Stars count={150} shootingStars={4} />}
+        {showStars && <Stars count={250} shootingStars={2} />}
 
         {/* Sparkles */}
-        {showEffects && <Sparkles count={50} />}
+        {showEffects && <Sparkles count={15} />}
 
         {showEffects && <div className="grain-texture absolute inset-0 z-10" />}
 
-        <div className="relative z-20 mx-auto max-w-6xl px-4 pt-16 sm:px-6">
+        <div className="relative z-20 mx-auto max-w-6xl px-4 pt-32 sm:px-6">
           <div className="mb-8 text-center">
             {/* Dark backdrop for text visibility */}
             <div
@@ -792,13 +848,15 @@ export default function BrandGuidePage() {
             </div>
 
             <p
-              className="hero-subtitle text-sm uppercase tracking-[0.3em]"
+              className="hero-subtitle text-6xl font-black uppercase tracking-tight md:text-7xl lg:text-8xl"
               style={{
+                fontFamily: "var(--font-bebas-neue)",
                 color: "var(--brand-primary)",
-                textShadow: "0 0 30px rgba(0, 99, 205, 0.8), 0 0 60px rgba(0, 99, 205, 0.6), 0 2px 4px rgba(0, 0, 0, 0.8)",
+                textShadow: "0 0 40px rgba(0, 99, 205, 0.9), 0 0 80px rgba(0, 99, 205, 0.6), 0 2px 6px rgba(0, 0, 0, 0.9)",
+                letterSpacing: "0.05em",
               }}
             >
-              Our Story
+              BRAND GUIDE
             </p>
           </div>
           <p
@@ -815,16 +873,14 @@ export default function BrandGuidePage() {
         </div>
       </section>
 
-      {/* Sticky Navigation Bar */}
+      {/* Sticky Navigation Bar - hidden until scrolled past hero */}
       <nav
-        className="brand-nav fixed left-0 right-0 top-0 z-50 border-b"
+        ref={navRef}
+        className="brand-nav fixed left-0 right-0 top-0 z-50"
         style={{
-          opacity: 0,
-          transform: "translateY(-10px)",
-          background: "rgba(5, 5, 5, 0.5)",
-          backdropFilter: "blur(20px)",
-          borderColor: "rgba(255, 255, 255, 0.1)",
           pointerEvents: "none",
+          opacity: 0,
+          visibility: "hidden",
         }}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
@@ -852,7 +908,7 @@ export default function BrandGuidePage() {
             <CTAButton href="#contact" variant="secondary">
               Get in Contact
             </CTAButton>
-            <CTAButton href="/" variant="primary">
+            <CTAButton onClick={handleExploreEvents} variant="primary">
               Explore Orlando Events
             </CTAButton>
           </div>
@@ -863,18 +919,18 @@ export default function BrandGuidePage() {
       {showStars && (
         <>
           <div className="pointer-events-none fixed left-0 top-0 z-10 h-full w-32 opacity-50">
-            <Stars count={60} shootingStars={3} />
+            <Stars count={100} shootingStars={3} />
           </div>
           <div className="pointer-events-none fixed right-0 top-0 z-10 h-full w-32 opacity-50">
-            <Stars count={60} shootingStars={3} />
+            <Stars count={100} shootingStars={3} />
           </div>
 
           {/* Bottom corner star decorations */}
           <div className="pointer-events-none fixed bottom-0 left-0 z-10 h-64 w-48 opacity-35">
-            <Stars count={40} shootingStars={2} />
+            <Stars count={80} shootingStars={2} />
           </div>
           <div className="pointer-events-none fixed bottom-0 right-0 z-10 h-64 w-48 opacity-35">
-            <Stars count={40} shootingStars={2} />
+            <Stars count={80} shootingStars={2} />
           </div>
         </>
       )}
@@ -885,14 +941,14 @@ export default function BrandGuidePage() {
         {showStars && (
           <>
             <div className="pointer-events-none absolute left-0 top-0 z-10 h-[600px] w-48 opacity-55">
-              <Stars count={100} shootingStars={4} />
+              <Stars count={150} shootingStars={4} />
             </div>
             <div className="pointer-events-none absolute right-0 top-0 z-10 h-[600px] w-48 opacity-55">
-              <Stars count={100} shootingStars={4} />
+              <Stars count={150} shootingStars={4} />
             </div>
             {/* Additional stars across the full viewport top */}
             <div className="pointer-events-none absolute left-0 right-0 top-0 z-10 h-64 opacity-45">
-              <Stars count={140} shootingStars={5} />
+              <Stars count={180} shootingStars={5} />
             </div>
           </>
         )}
@@ -1046,7 +1102,7 @@ export default function BrandGuidePage() {
                 Oswald — Display Font
               </h3>
               <div className="relative space-y-4 overflow-hidden rounded-xl border border-border-color bg-surface p-8">
-                {showEffects && <Sparkles count={20} />}
+                {showEffects && <Sparkles count={8} />}
                 <div
                   className="relative z-10 text-7xl font-black uppercase"
                   style={{
@@ -1221,7 +1277,7 @@ export default function BrandGuidePage() {
                   border: "1px solid var(--glass-border)",
                 }}
               >
-                {showEffects && <Sparkles count={12} />}
+                {showEffects && <Sparkles count={6} />}
                 <p className="relative z-10" style={{ color: "var(--text)" }}>
                   Translucent panels with backdrop blur — the defining visual signature of
                   Moonshots & Magic.
@@ -1336,7 +1392,7 @@ export default function BrandGuidePage() {
               Pulsating Glow Effect
             </h3>
             <div className="relative overflow-hidden rounded-xl border border-border-color bg-surface p-8">
-              {showEffects && <Sparkles count={30} />}
+              {showEffects && <Sparkles count={12} />}
               <div className="relative z-10 flex items-center justify-center gap-8">
                 <PulsatingDot size="large" color="#0063CD" label="Active" />
                 <PulsatingDot size="medium" color="#3388E0" label="Visited" />
@@ -1361,7 +1417,7 @@ export default function BrandGuidePage() {
               Sparkle Particles
             </h3>
             <div className="relative h-64 overflow-hidden rounded-xl border border-border-color bg-gradient-to-br from-surface via-surface-2 to-surface-3">
-              {showEffects && <Sparkles count={100} />}
+              {showEffects && <Sparkles count={20} />}
               <div className="relative z-10 flex h-full items-center justify-center">
                 <p
                   className="text-center text-2xl font-black uppercase"
@@ -1661,7 +1717,7 @@ export default function BrandGuidePage() {
         {/* The Orlando Narrative with SCROLL-TRIGGERED animations */}
         <Section id="narrative" title="The Orlando Narrative">
           <div className="animate-card relative overflow-hidden rounded-xl border border-border-color bg-surface p-8">
-            {showEffects && <Sparkles count={25} />}
+            {showEffects && <Sparkles count={10} />}
             <p
               className="relative z-10 mb-8 text-lg leading-relaxed"
               style={{
@@ -1830,8 +1886,8 @@ export default function BrandGuidePage() {
           </div>
         )}
 
-        {showStars && <Stars count={100} />}
-        {showEffects && <Sparkles count={40} />}
+        {showStars && <Stars count={150} shootingStars={4} />}
+        {showEffects && <Sparkles count={12} />}
 
         <div className="relative z-20">
           <p className="text-sm" style={{ color: "var(--text-dim)" }}>
@@ -1865,60 +1921,45 @@ export default function BrandGuidePage() {
           </div>
         </a>
       )}
+
+      {/* Transition overlay for Explore Orlando Events */}
+      <AnimatePresence>
+        {isTransitioning && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8 }}
+            className="fixed inset-0 z-[1000]"
+            style={{ background: "#050505" }}
+          >
+            {/* Stars with shooting stars */}
+            <Stars count={300} shootingStars={3} />
+
+            {/* Sparkles */}
+            <Sparkles count={20} />
+
+            {/* Grain texture */}
+            <div className="grain-texture absolute inset-0 z-10" />
+
+            {/* Blue ambient glow */}
+            <div
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+              style={{
+                width: "80vw",
+                height: "80vh",
+                background: "radial-gradient(ellipse, rgba(0, 99, 205, 0.3) 0%, rgba(0, 99, 205, 0.1) 50%, transparent 70%)",
+                filter: "blur(80px)",
+                pointerEvents: "none",
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-/** Sparkles component for magical effects. */
-function Sparkles({ count = 30 }: { count?: number }) {
-  const sparklesRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!sparklesRef.current) return;
-
-    const sparkles = Array.from({ length: count }, () => {
-      const sparkle = document.createElement("div");
-      sparkle.className = "sparkle";
-      sparkle.style.cssText = `
-        position: absolute;
-        width: ${Math.random() * 3 + 1}px;
-        height: ${Math.random() * 3 + 1}px;
-        background: ${Math.random() > 0.5 ? "#0063CD" : "#FFFFFF"};
-        border-radius: 50%;
-        left: ${Math.random() * 100}%;
-        top: ${Math.random() * 100}%;
-        opacity: ${Math.random() * 0.5 + 0.3};
-        box-shadow: 0 0 ${Math.random() * 10 + 5}px currentColor;
-        pointer-events: none;
-      `;
-      return sparkle;
-    });
-
-    sparkles.forEach((sparkle) => sparklesRef.current?.appendChild(sparkle));
-
-    // Animate sparkles (optimized with longer duration)
-    const ctx = gsap.context(() => {
-      sparkles.forEach((sparkle, i) => {
-        gsap.to(sparkle, {
-          opacity: 0.1,
-          scale: 0.5,
-          duration: Math.random() * 3 + 2, // Longer duration for better performance
-          delay: i * 0.05,
-          repeat: -1,
-          yoyo: true,
-          ease: "sine.inOut",
-        });
-      });
-    }, sparklesRef);
-
-    return () => {
-      ctx.revert();
-      sparkles.forEach((sparkle) => sparkle.remove());
-    };
-  }, [count]);
-
-  return <div ref={sparklesRef} className="pointer-events-none absolute inset-0 z-10" />;
-}
 
 /** Pulsating dot component for animation showcase. */
 function PulsatingDot({
@@ -2083,7 +2124,7 @@ function ScrollTimelineItem({
         }}
       >
         {/* Sparkles on scroll for second item */}
-        {isActive && index === 1 && <Sparkles count={15} />}
+        {isActive && index === 1 && <Sparkles count={6} />}
 
         <div
           className="mb-3 inline-block rounded-lg px-4 py-2"
@@ -2211,7 +2252,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
       onClick={handleClick}
     >
       <div ref={sparklesRef} className="pointer-events-none absolute inset-0" style={{ opacity: 0 }}>
-        <Sparkles count={15} />
+        <Sparkles count={6} />
       </div>
       <span className="relative z-10">{children}</span>
     </a>
@@ -2223,16 +2264,21 @@ function CTAButton({
   href,
   variant,
   children,
+  onClick,
 }: {
-  href: string;
+  href?: string;
   variant: "primary" | "secondary";
   children: React.ReactNode;
+  onClick?: () => void;
 }) {
   const [isHovered, setIsHovered] = useState(false);
 
+  const Component = onClick ? "button" : "a";
+  const props = onClick ? { onClick } : { href };
+
   return (
-    <a
-      href={href}
+    <Component
+      {...props}
       className="relative overflow-hidden rounded-full px-5 py-2 text-sm font-semibold transition-all duration-300"
       style={{
         background:
@@ -2252,7 +2298,7 @@ function CTAButton({
       onMouseLeave={() => setIsHovered(false)}
     >
       {children}
-    </a>
+    </Component>
   );
 }
 
@@ -2504,7 +2550,7 @@ function HistoricalImage({ src, title, year }: { src: string; title: string; yea
       <div className="relative bg-surface p-4">
         {/* Sparkles with smooth transition */}
         <div ref={sparklesRef} style={{ opacity: 0 }}>
-          <Sparkles count={20} />
+          <Sparkles count={8} />
         </div>
 
         <p
