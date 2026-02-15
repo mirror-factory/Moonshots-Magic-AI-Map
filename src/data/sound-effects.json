@@ -1,0 +1,8 @@
+{
+  "markerHover": {
+    "type": "synthesized",
+    "synth": "boop",
+    "volume": 0.3,
+    "description": "Orb boop when hovering a map marker"
+  }
+}

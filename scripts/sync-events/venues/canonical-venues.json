@@ -1,0 +1,434 @@
+{
+  "amway-center": {
+    "name": "Amway Center",
+    "lat": 28.5392,
+    "lng": -81.3839,
+    "address": "400 W Church St, Orlando, FL 32801"
+  },
+  "dr-phillips-center": {
+    "name": "Dr. Phillips Center for the Performing Arts",
+    "lat": 28.5386,
+    "lng": -81.3762,
+    "address": "445 S Magnolia Ave, Orlando, FL 32801"
+  },
+  "camping-world-stadium": {
+    "name": "Camping World Stadium",
+    "lat": 28.5392,
+    "lng": -81.4029,
+    "address": "1 Citrus Bowl Pl, Orlando, FL 32805"
+  },
+  "exploria-stadium": {
+    "name": "Exploria Stadium",
+    "lat": 28.5411,
+    "lng": -81.3891,
+    "address": "655 W Church St, Orlando, FL 32805"
+  },
+  "kia-center": {
+    "name": "Kia Center",
+    "lat": 28.5392,
+    "lng": -81.3839,
+    "address": "400 W Church St, Orlando, FL 32801"
+  },
+  "lake-eola": {
+    "name": "Lake Eola Park",
+    "lat": 28.5432,
+    "lng": -81.3734,
+    "address": "512 E Washington St, Orlando, FL 32801"
+  },
+  "wall-street-plaza": {
+    "name": "Wall Street Plaza",
+    "lat": 28.5418,
+    "lng": -81.3789,
+    "address": "26 Wall St, Orlando, FL 32801"
+  },
+  "church-street": {
+    "name": "Church Street",
+    "lat": 28.5402,
+    "lng": -81.3798,
+    "address": "Church St, Orlando, FL 32801"
+  },
+  "orlando-museum-of-art": {
+    "name": "Orlando Museum of Art",
+    "lat": 28.572811,
+    "lng": -81.36519900000002,
+    "address": "2416 N Mills Ave, Orlando, FL 32803"
+  },
+  "orlando-science-center": {
+    "name": "Orlando Science Center",
+    "lat": 28.5724,
+    "lng": -81.368,
+    "address": "777 E Princeton St, Orlando, FL 32803"
+  },
+  "leu-gardens": {
+    "name": "Harry P. Leu Gardens",
+    "lat": 28.5688,
+    "lng": -81.3559,
+    "address": "1920 N Forest Ave, Orlando, FL 32803"
+  },
+  "orlando-city-hall": {
+    "name": "Orlando City Hall",
+    "lat": 28.537675,
+    "lng": -81.37967700000002,
+    "address": "400 S Orange Ave, Orlando, FL 32801"
+  },
+  "central-park-winter-park": {
+    "name": "Central Park Winter Park",
+    "lat": 28.5978,
+    "lng": -81.351,
+    "address": "150 W Morse Blvd, Winter Park, FL 32789"
+  },
+  "ucf-arena": {
+    "name": "Addition Financial Arena (UCF)",
+    "lat": 28.607537,
+    "lng": -81.197183,
+    "address": "12777 Gemini Blvd N, Orlando, FL 32816"
+  },
+  "pointe-orlando": {
+    "name": "Pointe Orlando",
+    "lat": 28.4381,
+    "lng": -81.4714,
+    "address": "9101 International Dr, Orlando, FL 32819"
+  },
+  "icon-park": {
+    "name": "ICON Park",
+    "lat": 28.4423,
+    "lng": -81.4616,
+    "address": "8375 International Dr, Orlando, FL 32819"
+  },
+  "universal-studios": {
+    "name": "Universal Studios Florida",
+    "lat": 28.47887,
+    "lng": -81.469044,
+    "address": "6000 Universal Blvd, Orlando, FL 32819"
+  },
+  "walt-disney-world": {
+    "name": "Walt Disney World",
+    "lat": 28.3852,
+    "lng": -81.5639,
+    "address": "Walt Disney World, Orlando, FL 32830"
+  },
+  "disney-springs": {
+    "name": "Disney Springs",
+    "lat": 28.3712,
+    "lng": -81.5194,
+    "address": "1486 Buena Vista Dr, Orlando, FL 32830"
+  },
+  "magic-kingdom": {
+    "name": "Magic Kingdom",
+    "lat": 28.4177,
+    "lng": -81.5812,
+    "address": "Magic Kingdom, Orlando, FL 32830"
+  },
+  "epcot": {
+    "name": "EPCOT",
+    "lat": 28.371419,
+    "lng": -81.548994,
+    "address": "200 Epcot Center Dr, Orlando, FL 32821"
+  },
+  "hollywood-studios": {
+    "name": "Hollywood Studios",
+    "lat": 28.3583,
+    "lng": -81.5589,
+    "address": "351 S Studio Dr, Orlando, FL 32830"
+  },
+  "animal-kingdom": {
+    "name": "Animal Kingdom",
+    "lat": 28.360522,
+    "lng": -81.59106500000001,
+    "address": "2901 Osceola Pkwy, Orlando, FL 32830"
+  },
+  "seaworld": {
+    "name": "SeaWorld Orlando",
+    "lat": 28.4114,
+    "lng": -81.4618,
+    "address": "7007 Sea World Dr, Orlando, FL 32821"
+  },
+  "international-drive": {
+    "name": "International Drive",
+    "lat": 28.4347,
+    "lng": -81.4704,
+    "address": "International Dr, Orlando, FL 32819"
+  },
+  "convention-center": {
+    "name": "Orange County Convention Center",
+    "lat": 28.4274,
+    "lng": -81.4693,
+    "address": "9800 International Dr, Orlando, FL 32819"
+  },
+  "florida-mall": {
+    "name": "The Florida Mall",
+    "lat": 28.4718,
+    "lng": -81.3827,
+    "address": "8001 S Orange Blossom Trail, Orlando, FL 32809"
+  },
+  "mills-50": {
+    "name": "Mills 50 District",
+    "lat": 28.5535,
+    "lng": -81.3672,
+    "address": "Mills Ave & Colonial Dr, Orlando, FL 32803"
+  },
+  "thornton-park": {
+    "name": "Thornton Park",
+    "lat": 28.543278856077745,
+    "lng": -81.36458281427622,
+    "address": "Thornton Park, Orlando, FL 32801"
+  },
+  "ivanhoe-village": {
+    "name": "Ivanhoe Village",
+    "lat": 28.5581,
+    "lng": -81.3813,
+    "address": "Ivanhoe Village, Orlando, FL 32804"
+  },
+  "college-park": {
+    "name": "College Park",
+    "lat": 28.5639,
+    "lng": -81.3969,
+    "address": "College Park, Orlando, FL 32804"
+  },
+  "audubon-park": {
+    "name": "Audubon Park",
+    "lat": 28.562829409113064,
+    "lng": -81.34132470935583,
+    "address": "Audubon Park, Orlando, FL 32803"
+  },
+  "east-end-market": {
+    "name": "East End Market",
+    "lat": 28.568292,
+    "lng": -81.343658,
+    "address": "3201 Corrine Dr, Orlando, FL 32803"
+  },
+  "winter-garden": {
+    "name": "Winter Garden",
+    "lat": 28.5653,
+    "lng": -81.5862,
+    "address": "Winter Garden, FL 34787"
+  },
+  "winter-park": {
+    "name": "Winter Park",
+    "lat": 28.5992,
+    "lng": -81.3392,
+    "address": "Winter Park, FL 32789"
+  },
+  "winter-park-farmers-market": {
+    "name": "Winter Park Farmers Market",
+    "lat": 28.595762,
+    "lng": -81.34966600000001,
+    "address": "200 W New England Ave, Winter Park, FL 32789"
+  },
+  "mennello-museum": {
+    "name": "Mennello Museum of American Art",
+    "lat": 28.5729,
+    "lng": -81.3685,
+    "address": "900 E Princeton St, Orlando, FL 32803"
+  },
+  "bob-carr-theater": {
+    "name": "Bob Carr Theater",
+    "lat": 28.548067,
+    "lng": -81.38410799999997,
+    "address": "401 W Livingston St, Orlando, FL 32801"
+  },
+  "plaza-live": {
+    "name": "The Plaza Live",
+    "lat": 28.548723,
+    "lng": -81.35126100000002,
+    "address": "425 N Bumby Ave, Orlando, FL 32803"
+  },
+  "house-of-blues": {
+    "name": "House of Blues",
+    "lat": 28.371,
+    "lng": -81.52193599999998,
+    "address": "1490 E Buena Vista Dr, Orlando, FL 32830"
+  },
+  "hard-rock-live": {
+    "name": "Hard Rock Live",
+    "lat": 28.4747,
+    "lng": -81.4684,
+    "address": "6050 Universal Blvd, Orlando, FL 32819"
+  },
+  "wills-pub": {
+    "name": "Will's Pub",
+    "lat": 28.5599,
+    "lng": -81.3647,
+    "address": "1042 N Mills Ave, Orlando, FL 32803"
+  },
+  "the-social": {
+    "name": "The Social",
+    "lat": 28.542,
+    "lng": -81.3787,
+    "address": "54 N Orange Ave, Orlando, FL 32801"
+  },
+  "the-beacham": {
+    "name": "The Beacham",
+    "lat": 28.5418,
+    "lng": -81.3785,
+    "address": "46 N Orange Ave, Orlando, FL 32801"
+  },
+  "gilt": {
+    "name": "Gilt",
+    "lat": 28.542,
+    "lng": -81.3787,
+    "address": "54 N Orange Ave, Orlando, FL 32801"
+  },
+  "orlando-vineland-outlets": {
+    "name": "Orlando Vineland Premium Outlets",
+    "lat": 28.387286,
+    "lng": -81.49228499999998,
+    "address": "8200 Vineland Ave, Orlando, FL 32821"
+  },
+  "lake-nona-town-center": {
+    "name": "Lake Nona Town Center",
+    "lat": 28.3708,
+    "lng": -81.2346,
+    "address": "Lake Nona Town Center, Orlando, FL 32827"
+  },
+  "celebration-town-center": {
+    "name": "Celebration Town Center",
+    "lat": 28.318456,
+    "lng": -81.53927899999996,
+    "address": "610 Sycamore St, Celebration, FL 34747"
+  },
+  "maitland-civic-center": {
+    "name": "Maitland Civic Center",
+    "lat": 28.623091,
+    "lng": -81.36558400000001,
+    "address": "641 S Maitland Ave, Maitland, FL 32751"
+  },
+  "park-avenue": {
+    "name": "Park Avenue",
+    "lat": 28.595842369113385,
+    "lng": -81.35271265837463,
+    "address": "Park Ave, Winter Park, FL 32789"
+  },
+  "kissimmee": {
+    "name": "Kissimmee",
+    "lat": 28.292,
+    "lng": -81.4168,
+    "address": "Kissimmee, FL 34741"
+  },
+  "celebration": {
+    "name": "Celebration",
+    "lat": 28.329710758251043,
+    "lng": -81.5388466139259,
+    "address": "Celebration, FL 34747"
+  },
+  "sanford": {
+    "name": "Sanford",
+    "lat": 28.8003,
+    "lng": -81.2732,
+    "address": "Sanford, FL 32771"
+  },
+  "daytona": {
+    "name": "Daytona Beach",
+    "lat": 29.2108,
+    "lng": -81.0229,
+    "address": "Daytona Beach, FL 32118"
+  },
+  "ucf": {
+    "name": "University of Central Florida",
+    "lat": 28.6024,
+    "lng": -81.2,
+    "address": "4000 Central Florida Blvd, Orlando, FL 32816"
+  },
+  "downtown-orlando": {
+    "name": "Downtown Orlando",
+    "lat": 28.5383,
+    "lng": -81.3792,
+    "address": "Downtown Orlando, FL 32801"
+  },
+  "kennedy-space-center": {
+    "name": "Kennedy Space Center",
+    "lat": 28.505564499999988,
+    "lng": -80.67262010000002,
+    "address": "Kennedy Space Center, FL 32899"
+  },
+  "cape-canaveral": {
+    "name": "Cape Canaveral",
+    "lat": 28.40080438183842,
+    "lng": -80.60024993291586,
+    "address": "Cape Canaveral, FL 32920"
+  },
+  "cocoa-beach": {
+    "name": "Cocoa Beach",
+    "lat": 28.32,
+    "lng": -80.6077,
+    "address": "Cocoa Beach, FL 32931"
+  },
+  "mount-dora": {
+    "name": "Mount Dora",
+    "lat": 28.8025,
+    "lng": -81.6434,
+    "address": "Mount Dora, FL 32757"
+  },
+  "maitland": {
+    "name": "Maitland",
+    "lat": 28.6275,
+    "lng": -81.3634,
+    "address": "Maitland, FL 32751"
+  },
+  "altamonte-springs": {
+    "name": "Altamonte Springs",
+    "lat": 28.6611,
+    "lng": -81.3654,
+    "address": "Altamonte Springs, FL 32714"
+  },
+  "oviedo": {
+    "name": "Oviedo",
+    "lat": 28.67,
+    "lng": -81.2084,
+    "address": "Oviedo, FL 32765"
+  },
+  "lake-mary": {
+    "name": "Lake Mary",
+    "lat": 28.7589,
+    "lng": -81.3178,
+    "address": "Lake Mary, FL 32746"
+  },
+  "longwood": {
+    "name": "Longwood",
+    "lat": 28.7031,
+    "lng": -81.3384,
+    "address": "Longwood, FL 32750"
+  },
+  "apopka": {
+    "name": "Apopka",
+    "lat": 28.6764,
+    "lng": -81.5084,
+    "address": "Apopka, FL 32703"
+  },
+  "clermont": {
+    "name": "Clermont",
+    "lat": 28.5494,
+    "lng": -81.7729,
+    "address": "Clermont, FL 34711"
+  },
+  "st-cloud": {
+    "name": "St. Cloud",
+    "lat": 28.2489,
+    "lng": -81.2812,
+    "address": "St. Cloud, FL 34769"
+  },
+  "deland": {
+    "name": "DeLand",
+    "lat": 29.028,
+    "lng": -81.3031,
+    "address": "DeLand, FL 32720"
+  },
+  "tavares": {
+    "name": "Tavares",
+    "lat": 28.8042,
+    "lng": -81.7256,
+    "address": "Tavares, FL 32778"
+  },
+  "leesburg": {
+    "name": "Leesburg",
+    "lat": 28.8108,
+    "lng": -81.8779,
+    "address": "Leesburg, FL 34748"
+  },
+  "senor-frogs": {
+    "name": "Senor Frogs",
+    "lat": 28.4381,
+    "lng": -81.4714,
+    "address": "8747 International Dr, Orlando, FL 32819"
+  }
+}
