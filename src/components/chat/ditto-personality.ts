@@ -1,6 +1,6 @@
 /**
  * @module components/chat/ditto-personality
- * Generates contextual greetings and personality text for the Ditto AI assistant.
+ * Generates contextual greetings and personality text for the AI assistant.
  * Uses ambient context (time, weather, day) to create warm, relevant greetings.
  */
 
@@ -76,7 +76,7 @@ function pickRandom<T>(arr: T[]): T {
 }
 
 /**
- * Generate a contextual greeting for Ditto based on ambient context.
+ * Generate a contextual greeting based on ambient context.
  *
  * @param context - Current ambient context (time, weather, location, day).
  * @param name - Optional user name for personalization.

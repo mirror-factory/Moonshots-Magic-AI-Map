@@ -3,6 +3,7 @@
  * 5-card conversational onboarding: Welcome → Vibe → Mood → Context → Launch.
  * Saves preferences to profile immediately at each step. Uses ambient context
  * for personalized greetings and context-aware category ordering.
+ * Styled to match the brand guide hero section with cinematic effects.
  */
 
 "use client";
@@ -10,12 +11,14 @@
 import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Leaf, Zap, Mountain, Baby, Gift, Dog, Rocket } from "lucide-react";
+import Image from "next/image";
 import type { EventCategory } from "@/lib/registries/types";
 import type { Vibe, PriceRange } from "@/lib/profile";
 import type { AmbientContext } from "@/lib/context/ambient-context";
 import { getProfile, updateProfile, clearProfile } from "@/lib/profile-storage";
-import { BlurredStars } from "@/components/effects/blurred-stars";
-import { DittoAvatar } from "@/components/chat/ditto-avatar";
+import { Stars } from "@/components/effects/stars";
+import { Sparkles } from "@/components/effects/sparkles";
+import { Sparkles as SparklesIcon } from "lucide-react";
 import { VibeTileLarge } from "./vibe-tile-large";
 
 const ONBOARDING_STORAGE_KEY = "moonshots_onboarding_complete";
@@ -197,10 +200,16 @@ export function OnboardingFlow({
     setStep(nextStep);
   }, [step, name, selectedCategories, selectedVibes, selectedContext]);
 
+  const [isExiting, setIsExiting] = useState(false);
+
   const handleComplete = useCallback(() => {
     saveStep(5);
-    localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
-    onComplete([...selectedCategories]);
+    setIsExiting(true);
+    // Wait for exit animation before completing
+    setTimeout(() => {
+      localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
+      onComplete([...selectedCategories]);
+    }, 1500);
   }, [saveStep, selectedCategories, onComplete]);
 
   if (!open) return null;
@@ -210,42 +219,162 @@ export function OnboardingFlow({
 
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 overflow-y-auto"
-        style={{ background: "#050505" }}
-      >
-        <BlurredStars count={200} />
-
-        {/* X button to dismiss/skip */}
-        <button
-          onClick={() => {
-            localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
-            if (onDismiss) { onDismiss(); } else { onComplete([...selectedCategories]); }
-          }}
-          className="absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-full text-white/40 transition-colors hover:bg-white/10 hover:text-white/80"
-          aria-label="Close onboarding"
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: isExiting ? 0 : 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: isExiting ? 1.5 : 0.5 }}
+          className="fixed inset-0 z-50 overflow-y-auto"
+          style={{ background: "#050505" }}
         >
-          <X className="h-5 w-5" />
-        </button>
-
-        <div className="flex min-h-full items-center justify-center px-4 py-8 sm:px-6">
-          <div className="relative z-10 flex w-full max-w-md flex-col items-center">
-          {/* Progress dots */}
-          <div className="mb-4 flex gap-2 sm:mb-8">
-            {Array.from({ length: totalSteps }, (_, i) => (
-              <div
-                key={i}
-                className="h-1.5 rounded-full transition-all duration-300"
+          {/* Three-column Background Images */}
+          <div className="absolute inset-0 z-0 flex flex-col md:flex-row">
+            {/* Left Third - Apollo 11 */}
+            <div className="relative h-1/3 w-full overflow-hidden md:h-full md:w-1/3">
+              <Image
+                src="/images/presentation/apollo-11.jpg"
+                alt="Apollo 11"
+                fill
+                className="object-cover"
                 style={{
-                  width: i === step ? 24 : 8,
-                  background: i <= step ? "var(--brand-primary)" : "rgba(255,255,255,0.2)",
+                  filter: "grayscale(1) blur(3px) brightness(0.45)",
+                  objectPosition: "center 60%",
+                }}
+                priority
+              />
+              {/* Gradient blend on right edge */}
+              <div
+                className="absolute inset-y-0 right-0 w-48 md:w-64 lg:w-80"
+                style={{
+                  background: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.3) 70%, rgba(0,0,0,0.4) 100%)",
+                  filter: "blur(60px)",
+                  pointerEvents: "none",
                 }}
               />
-            ))}
+            </div>
+
+            {/* Center Third - Disney World */}
+            <div className="relative h-1/3 w-full overflow-hidden md:h-full md:w-1/3">
+              <Image
+                src="/images/presentation/disney-world.jpg"
+                alt="Disney World"
+                fill
+                className="object-cover"
+                style={{
+                  filter: "grayscale(1) blur(3px) brightness(0.45)",
+                  objectPosition: "center 60%",
+                }}
+                priority
+              />
+              {/* Gradient blends on both edges */}
+              <div
+                className="absolute inset-y-0 left-0 w-48 md:w-64 lg:w-80"
+                style={{
+                  background: "linear-gradient(to left, transparent 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.3) 70%, rgba(0,0,0,0.4) 100%)",
+                  filter: "blur(60px)",
+                  pointerEvents: "none",
+                }}
+              />
+              <div
+                className="absolute inset-y-0 right-0 w-48 md:w-64 lg:w-80"
+                style={{
+                  background: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.3) 70%, rgba(0,0,0,0.4) 100%)",
+                  filter: "blur(60px)",
+                  pointerEvents: "none",
+                }}
+              />
+            </div>
+
+            {/* Right Third - JFK */}
+            <div className="relative h-1/3 w-full overflow-hidden md:h-full md:w-1/3">
+              <Image
+                src="/images/presentation/jfk.webp"
+                alt="JFK"
+                fill
+                className="object-cover"
+                style={{
+                  filter: "grayscale(1) blur(3px) brightness(0.45)",
+                  objectPosition: "center 60%",
+                }}
+                priority
+              />
+              {/* Gradient blend on left edge */}
+              <div
+                className="absolute inset-y-0 left-0 w-48 md:w-64 lg:w-80"
+                style={{
+                  background: "linear-gradient(to left, transparent 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.3) 70%, rgba(0,0,0,0.4) 100%)",
+                  filter: "blur(60px)",
+                  pointerEvents: "none",
+                }}
+              />
+            </div>
+
+            {/* Vignette overlay */}
+            <div
+              className="absolute inset-0"
+              style={{
+                background: `
+                  radial-gradient(ellipse at top left, black 0%, transparent 40%),
+                  radial-gradient(ellipse at top right, black 0%, transparent 40%),
+                  radial-gradient(ellipse at center top, rgba(0,0,0,0.6) 0%, transparent 50%)
+                `,
+              }}
+            />
+
+            {/* Dark overlay for depth */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/25 to-transparent" />
           </div>
+
+          {/* Stars with shooting stars */}
+          <Stars count={250} shootingStars={2} />
+
+          {/* Sparkles */}
+          <Sparkles count={15} />
+
+          {/* Grain texture */}
+          <div className="grain-texture absolute inset-0 z-10" />
+
+          {/* X button to dismiss/skip */}
+          <button
+            onClick={() => {
+              localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
+              if (onDismiss) { onDismiss(); } else { onComplete([...selectedCategories]); }
+            }}
+            className="absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-full text-white/40 transition-colors hover:bg-white/10 hover:text-white/80"
+            aria-label="Close onboarding"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+        <div className="flex min-h-full items-center justify-center px-4 py-8 sm:px-6">
+          <div className="relative z-20 flex w-full max-w-md flex-col items-center">
+            {/* Blue ambient glow behind content */}
+            <div
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+              style={{
+                width: "min(600px, 90vw)",
+                height: "min(400px, 60vh)",
+                background: "radial-gradient(ellipse, rgba(0, 99, 205, 0.25) 0%, rgba(0, 99, 205, 0.1) 50%, transparent 70%)",
+                filter: "blur(60px)",
+                pointerEvents: "none",
+              }}
+            />
+
+            {/* Progress dots */}
+            <div className="relative mb-4 flex gap-2 sm:mb-8">
+              {Array.from({ length: totalSteps }, (_, i) => (
+                <div
+                  key={i}
+                  className="h-1.5 rounded-full transition-all duration-300"
+                  style={{
+                    width: i === step ? 24 : 8,
+                    background: i <= step ? "var(--brand-primary)" : "rgba(255,255,255,0.2)",
+                    boxShadow: i === step ? "0 0 20px rgba(0, 99, 205, 0.6)" : "none",
+                  }}
+                />
+              ))}
+            </div>
 
           <AnimatePresence mode="wait">
             {/* Step 0: Welcome */}
@@ -257,14 +386,32 @@ export function OnboardingFlow({
                 exit={{ opacity: 0, x: -50 }}
                 className="flex w-full flex-col items-center gap-4 sm:gap-6"
               >
-                <DittoAvatar state="excited" size={80} />
+                <div
+                  className="flex h-20 w-20 items-center justify-center rounded-full"
+                  style={{
+                    background: "radial-gradient(circle, rgba(0, 99, 205, 0.3) 0%, transparent 70%)",
+                    boxShadow: "0 0 60px rgba(0, 99, 205, 0.4)",
+                  }}
+                >
+                  <SparklesIcon className="h-10 w-10" style={{ color: "var(--brand-primary)" }} />
+                </div>
                 <h1
                   className="text-2xl tracking-wider text-white sm:text-3xl"
-                  style={{ fontFamily: "var(--font-bebas-neue)" }}
+                  style={{
+                    fontFamily: "var(--font-bebas-neue)",
+                    textShadow: "0 0 30px rgba(0, 99, 205, 0.8), 0 0 60px rgba(0, 99, 205, 0.4), 0 2px 4px rgba(0, 0, 0, 0.8)",
+                  }}
                 >
-                  HEY THERE! I&apos;M DITTO.
+                  WELCOME TO MOONSHOTS &amp; MAGIC
                 </h1>
-                <p className="text-center text-sm text-white/60" style={{ fontFamily: "var(--font-chakra-petch)" }}>
+                <p
+                  className="text-center text-sm"
+                  style={{
+                    fontFamily: "var(--font-chakra-petch)",
+                    color: "var(--brand-primary)",
+                    textShadow: "0 0 20px rgba(0, 99, 205, 0.6), 0 2px 4px rgba(0, 0, 0, 0.8)",
+                  }}
+                >
                   {contextLine}
                 </p>
                 <input
@@ -284,6 +431,7 @@ export function OnboardingFlow({
                   style={{
                     background: "var(--brand-primary)",
                     fontFamily: "var(--font-chakra-petch)",
+                    boxShadow: "0 0 40px rgba(0, 99, 205, 0.6), 0 0 80px rgba(0, 99, 205, 0.3)",
                   }}
                 >
                   {name.trim() ? `Let's go, ${name.trim()}!` : "Let's go!"}
@@ -302,11 +450,21 @@ export function OnboardingFlow({
               >
                 <h2
                   className="text-xl tracking-wider text-white sm:text-2xl"
-                  style={{ fontFamily: "var(--font-bebas-neue)" }}
+                  style={{
+                    fontFamily: "var(--font-bebas-neue)",
+                    textShadow: "0 0 30px rgba(0, 99, 205, 0.8), 0 0 60px rgba(0, 99, 205, 0.4), 0 2px 4px rgba(0, 0, 0, 0.8)",
+                  }}
                 >
                   WHAT SOUNDS FUN?
                 </h2>
-                <p className="text-center text-sm text-white/60" style={{ fontFamily: "var(--font-chakra-petch)" }}>
+                <p
+                  className="text-center text-sm"
+                  style={{
+                    fontFamily: "var(--font-chakra-petch)",
+                    color: "var(--brand-primary)",
+                    textShadow: "0 0 20px rgba(0, 99, 205, 0.6), 0 2px 4px rgba(0, 0, 0, 0.8)",
+                  }}
+                >
                   Pick as many as you like
                 </p>
                 <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3">
@@ -339,6 +497,7 @@ export function OnboardingFlow({
                     style={{
                       background: "var(--brand-primary)",
                       fontFamily: "var(--font-chakra-petch)",
+                      boxShadow: selectedCategories.size === 0 ? "none" : "0 0 40px rgba(0, 99, 205, 0.6), 0 0 80px rgba(0, 99, 205, 0.3)",
                     }}
                   >
                     Continue
@@ -358,7 +517,10 @@ export function OnboardingFlow({
               >
                 <h2
                   className="text-xl tracking-wider text-white sm:text-2xl"
-                  style={{ fontFamily: "var(--font-bebas-neue)" }}
+                  style={{
+                    fontFamily: "var(--font-bebas-neue)",
+                    textShadow: "0 0 30px rgba(0, 99, 205, 0.8), 0 0 60px rgba(0, 99, 205, 0.4), 0 2px 4px rgba(0, 0, 0, 0.8)",
+                  }}
                 >
                   WHAT&apos;S YOUR VIBE?
                 </h2>
@@ -400,6 +562,7 @@ export function OnboardingFlow({
                     style={{
                       background: "var(--brand-primary)",
                       fontFamily: "var(--font-chakra-petch)",
+                      boxShadow: "0 0 40px rgba(0, 99, 205, 0.6), 0 0 80px rgba(0, 99, 205, 0.3)",
                     }}
                   >
                     Continue
@@ -419,11 +582,22 @@ export function OnboardingFlow({
               >
                 <h2
                   className="text-xl tracking-wider text-white sm:text-2xl"
-                  style={{ fontFamily: "var(--font-bebas-neue)" }}
+                  style={{
+                    fontFamily: "var(--font-bebas-neue)",
+                    textShadow: "0 0 30px rgba(0, 99, 205, 0.8), 0 0 60px rgba(0, 99, 205, 0.4), 0 2px 4px rgba(0, 0, 0, 0.8)",
+                  }}
                 >
                   ANY PRIORITIES?
                 </h2>
-                <p className="text-center text-xs text-white/50" style={{ fontFamily: "var(--font-chakra-petch)" }}>
+                <p
+                  className="text-center text-xs"
+                  style={{
+                    fontFamily: "var(--font-chakra-petch)",
+                    color: "var(--brand-primary)",
+                    opacity: 0.7,
+                    textShadow: "0 0 20px rgba(0, 99, 205, 0.6), 0 2px 4px rgba(0, 0, 0, 0.8)",
+                  }}
+                >
                   Optional — skip if none apply
                 </p>
                 <div className="flex flex-wrap justify-center gap-3">
@@ -464,6 +638,7 @@ export function OnboardingFlow({
                     style={{
                       background: "var(--brand-primary)",
                       fontFamily: "var(--font-chakra-petch)",
+                      boxShadow: "0 0 40px rgba(0, 99, 205, 0.6), 0 0 80px rgba(0, 99, 205, 0.3)",
                     }}
                   >
                     {selectedContext.size > 0 ? "Continue" : "Skip"}
@@ -481,18 +656,30 @@ export function OnboardingFlow({
                 exit={{ opacity: 0, x: -50 }}
                 className="flex w-full flex-col items-center gap-4 sm:gap-6"
               >
-                <DittoAvatar state="celebrating" size={80} />
+                <div
+                  className="flex h-20 w-20 items-center justify-center rounded-full"
+                  style={{
+                    background: "radial-gradient(circle, rgba(0, 99, 205, 0.3) 0%, transparent 70%)",
+                    boxShadow: "0 0 60px rgba(0, 99, 205, 0.4)",
+                  }}
+                >
+                  <Rocket className="h-10 w-10" style={{ color: "var(--brand-primary)" }} />
+                </div>
                 <h2
                   className="text-xl tracking-wider text-white sm:text-2xl"
-                  style={{ fontFamily: "var(--font-bebas-neue)" }}
+                  style={{
+                    fontFamily: "var(--font-bebas-neue)",
+                    textShadow: "0 0 30px rgba(0, 99, 205, 0.8), 0 0 60px rgba(0, 99, 205, 0.4), 0 2px 4px rgba(0, 0, 0, 0.8)",
+                  }}
                 >
                   {name.trim() ? `GREAT TASTE, ${name.trim().toUpperCase()}!` : "YOU'RE ALL SET!"}
                 </h2>
                 <p
                   className="text-4xl font-bold"
                   style={{
-                    color: "var(--brand-primary-light)",
+                    color: "var(--brand-primary)",
                     fontFamily: "var(--font-rajdhani)",
+                    textShadow: "0 0 40px rgba(0, 99, 205, 1), 0 0 80px rgba(0, 99, 205, 0.6), 0 2px 4px rgba(0, 0, 0, 0.8)",
                   }}
                 >
                   {matchCount > 0 ? `${matchCount} events` : "Lots of events"} for you
@@ -503,7 +690,7 @@ export function OnboardingFlow({
                   style={{
                     background: "var(--brand-primary)",
                     fontFamily: "var(--font-chakra-petch)",
-                    boxShadow: "0 0 40px rgba(0, 99, 205, 0.4)",
+                    boxShadow: "0 0 60px rgba(0, 99, 205, 0.8), 0 0 120px rgba(0, 99, 205, 0.4)",
                   }}
                 >
                   Explore
@@ -576,7 +763,8 @@ export function OnboardingFlow({
           </AnimatePresence>
           </div>
         </div>
-      </motion.div>
+        </motion.div>
+      )}
     </AnimatePresence>
   );
 }

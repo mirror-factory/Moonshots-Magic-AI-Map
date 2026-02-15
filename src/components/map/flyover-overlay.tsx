@@ -7,7 +7,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "motion/react";
-import { Play, Pause, ChevronRight, X } from "lucide-react";
+import { Play, Pause, ChevronRight, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { FlyoverProgress, FlyoverWaypoint } from "@/lib/flyover/flyover-engine";
 
@@ -82,6 +82,47 @@ function ProgressIndicator({
   );
 }
 
+/** Loading indicator shown during the "preparing" state while audio generates. */
+function PreparingIndicator({ readyCount, total }: { readyCount: number; total: number }) {
+  const pct = total > 0 ? (readyCount / total) * 100 : 0;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      className="absolute bottom-8 left-1/2 z-20 -translate-x-1/2"
+    >
+      <div
+        className="flex items-center gap-3 rounded-full px-5 py-3 shadow-xl backdrop-blur-lg"
+        style={{
+          background: "rgba(0, 0, 0, 0.85)",
+          border: "1px solid rgba(255, 255, 255, 0.15)",
+        }}
+      >
+        <Loader2 className="h-4 w-4 animate-spin text-[var(--brand-primary)]" />
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-white/80">
+            Preparing your flyover...
+          </span>
+          <div className="h-1.5 w-40 overflow-hidden rounded-full bg-white/10">
+            <motion.div
+              className="h-full rounded-full"
+              style={{ background: "var(--brand-primary)" }}
+              initial={{ width: 0 }}
+              animate={{ width: `${pct}%` }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+            />
+          </div>
+        </div>
+        <span className="text-[11px] tabular-nums text-white/50">
+          {readyCount}/{total}
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
 /**
  * Full-screen flyover overlay with controls and info display.
  * Shows event cards, captions, and navigation controls during tours.
@@ -94,6 +135,7 @@ export function FlyoverOverlay({
   onJumpTo,
 }: FlyoverOverlayProps) {
   const isActive = progress.state !== "idle" && progress.state !== "complete";
+  const isPreparing = progress.state === "preparing";
 
   return (
     <AnimatePresence>
@@ -123,7 +165,7 @@ export function FlyoverOverlay({
               <ProgressIndicator
                 current={progress.currentIndex}
                 waypoints={progress.waypoints}
-                onJumpTo={onJumpTo}
+                onJumpTo={isPreparing ? undefined : onJumpTo}
               />
 
               {/* Divider */}
@@ -145,9 +187,10 @@ export function FlyoverOverlay({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-white hover:bg-white/10 hover:text-white"
+                  className="h-8 w-8 text-white hover:bg-white/10 hover:text-white disabled:opacity-30"
                   onClick={onTogglePause}
                   title={progress.isPaused ? "Resume" : "Pause"}
+                  disabled={isPreparing}
                 >
                   {progress.isPaused ? (
                     <Play className="h-4 w-4" />
@@ -158,10 +201,10 @@ export function FlyoverOverlay({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-white hover:bg-white/10 hover:text-white"
+                  className="h-8 w-8 text-white hover:bg-white/10 hover:text-white disabled:opacity-30"
                   onClick={onNext}
                   title="Skip to next"
-                  disabled={progress.currentIndex >= progress.waypoints.length - 1}
+                  disabled={isPreparing || progress.currentIndex >= progress.waypoints.length - 1}
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
@@ -169,9 +212,19 @@ export function FlyoverOverlay({
             </div>
           </div>
 
+          {/* Preparing indicator (bottom center) */}
+          <AnimatePresence>
+            {isPreparing && (
+              <PreparingIndicator
+                readyCount={progress.audioReadyCount}
+                total={progress.waypoints.length}
+              />
+            )}
+          </AnimatePresence>
+
           {/* Caption bar */}
           <AnimatePresence>
-            {progress.currentNarrative && (
+            {progress.currentNarrative && !isPreparing && (
               <CaptionBar text={progress.currentNarrative} />
             )}
           </AnimatePresence>

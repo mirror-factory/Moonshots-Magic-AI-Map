@@ -220,7 +220,7 @@ export default function BrandGuidePage() {
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Sync with localStorage after mount to prevent hydration mismatch
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   useEffect(() => {
     const bgImages = localStorage.getItem("brand-guide-bg-images");
     if (bgImages !== null) setShowBackgroundImages(JSON.parse(bgImages));
@@ -231,7 +231,7 @@ export default function BrandGuidePage() {
     const effects = localStorage.getItem("brand-guide-effects");
     if (effects !== null) setShowEffects(JSON.parse(effects));
     // This is intentionally reading from localStorage on mount - not a cascading render issue
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
   }, []);
 
   // Show toast after 3 seconds, hide after 8 more seconds

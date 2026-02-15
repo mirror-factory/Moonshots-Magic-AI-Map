@@ -9,6 +9,7 @@
 import type { EventEntry, EventCategory } from "../../../src/lib/registries/types";
 import { createRateLimitedFetch } from "../utils/rate-limiter";
 import { logger } from "../utils/logger";
+import { lookupVenueCoordsWithGeocode } from "../venues/venue-lookup";
 
 const DESTINATION_URL = "https://www.eventbriteapi.com/v3/destination/search/";
 const EVENTS_API_URL = "https://www.eventbriteapi.com/v3/events";
@@ -264,43 +265,34 @@ export async function fetchEventbriteEvents(): Promise<EventEntry[]> {
       }
 
       const venue = detail?.venue;
-      const lat = venue?.address?.latitude
+
+      // Coordinate priority: 1) canonical registry, 2) geocode address, 3) raw API coords
+      const venueMatch = venue?.name
+        ? await lookupVenueCoordsWithGeocode(
+            venue.name,
+            venue.address?.address_1,
+            venue.address?.city,
+          )
+        : null;
+      const apiLat = venue?.address?.latitude
         ? parseFloat(venue.address.latitude)
         : venue?.latitude
           ? parseFloat(venue.latitude)
-          : 28.5383;
-      const lng = venue?.address?.longitude
+          : null;
+      const apiLng = venue?.address?.longitude
         ? parseFloat(venue.address.longitude)
         : venue?.longitude
           ? parseFloat(venue.longitude)
-          : -81.3792;
+          : null;
+
+      const lat = venueMatch?.lat ?? apiLat ?? 28.5383;
+      const lng = venueMatch?.lng ?? apiLng ?? -81.3792;
 
       // Skip events that still have default/zero coordinates (no known venue)
       const hasRealCoords = lat !== 28.5383 || lng !== -81.3792;
 
       const now = new Date().toISOString();
       const category = inferCategory(disc.tags);
-
-      // Parse price from enriched ticket_availability
-      let price: EventEntry["price"];
-      const ta = detail?.ticket_availability;
-      const isFree = disc.isFree || detail?.is_free || ta?.is_free;
-      if (isFree) {
-        price = { min: 0, max: 0, currency: "USD", isFree: true };
-      } else if (ta?.minimum_ticket_price) {
-        const minVal = parseFloat(ta.minimum_ticket_price.major_value ?? "0");
-        const maxVal = ta?.maximum_ticket_price
-          ? parseFloat(ta.maximum_ticket_price.major_value ?? "0")
-          : minVal;
-        if (minVal > 0 || maxVal > 0) {
-          price = {
-            min: minVal,
-            max: maxVal,
-            currency: ta.minimum_ticket_price.currency ?? "USD",
-            isFree: false,
-          };
-        }
-      }
 
       // Use enriched start/end dates if available, fall back to discovery data
       const startDate = detail?.start?.utc
@@ -323,7 +315,6 @@ export async function fetchEventbriteEvents(): Promise<EventEntry[]> {
         startDate,
         endDate,
         timezone: detail?.start?.timezone || disc.timezone,
-        price,
         url: detail?.url || disc.url,
         imageUrl: detail?.logo?.original?.url || detail?.logo?.url || disc.imageUrl,
         tags: (disc.tags ?? [])

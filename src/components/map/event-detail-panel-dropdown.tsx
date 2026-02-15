@@ -4,7 +4,7 @@
  * Adapted from the v0 prototype's EventDetailPanel to work with
  * the project's {@link EventEntry} type and existing calendar infrastructure.
  * Provides back/close navigation, event metadata, and quick actions
- * (Ask Ditto, Show on Map, Add to Calendar, Share Event).
+ * (Ask AI, Show on Map, Add to Calendar, Share Event).
  */
 
 "use client";
@@ -51,8 +51,8 @@ export interface EventDetailPanelDropdownProps {
   onBack: () => void;
   /** Callback invoked when the user clicks the close button. */
   onClose: () => void;
-  /** Callback invoked when the user clicks "Ask Ditto", receives the event title. */
-  onAskDitto: (eventTitle: string) => void;
+  /** Callback invoked when the user clicks "Ask AI", receives the event title. */
+  onAskAI: (eventTitle: string) => void;
   /** Optional callback to pan/zoom the map to the event location. */
   onShowMap?: (event: EventEntry) => void;
   /** Optional callback to get directions to the event. */
@@ -104,7 +104,7 @@ function formatDateRange(
 /**
  * Event detail panel designed for dropdown/overlay contexts.
  * Displays full event information with back/close navigation
- * and quick actions including Ask Ditto, Show on Map,
+ * and quick actions including Ask AI, Show on Map,
  * Add to Calendar, and Share Event.
  *
  * @param props - Component props conforming to {@link EventDetailPanelDropdownProps}.
@@ -114,23 +114,43 @@ export function EventDetailPanelDropdown({
   event,
   onBack,
   onClose,
-  onAskDitto,
+  onAskAI,
   onShowMap,
   onGetDirections,
 }: EventDetailPanelDropdownProps) {
   const { toast } = useToast();
 
-  const handleShare = () => {
-    const url = `${window.location.origin}/events/${event.id}`;
-    navigator.clipboard.writeText(url);
+  const handleShare = async () => {
+    const shareText = `${event.title} — ${event.venue}, ${formatDateRange(event.startDate, event.endDate, event.allDay)}`;
+    const shareUrl = event.url || window.location.href;
+
+    // Use Web Share API on mobile when available
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: event.title,
+          text: shareText,
+          url: shareUrl,
+        });
+        return;
+      } catch {
+        // User cancelled or share failed — fall through to clipboard
+      }
+    }
+
+    // Clipboard fallback
+    const clipboardText = event.url
+      ? `${shareText}\n${event.url}`
+      : shareText;
+    await navigator.clipboard.writeText(clipboardText);
     toast({
-      title: "Link copied!",
-      description: "Event link copied to clipboard.",
+      title: "Copied!",
+      description: "Event details copied to clipboard.",
     });
   };
 
   return (
-    <div className="flex flex-col" style={{ height: 600, maxHeight: "calc(100vh - 120px)" }}>
+    <div className="flex flex-1 min-h-0 flex-col">
       {/* Header */}
       <div
         className="flex items-center justify-between p-4 border-b shrink-0"
@@ -147,56 +167,71 @@ export function EventDetailPanelDropdown({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto space-y-4">
-        {/* Hero Image */}
+        {/* Hero Image with blurred backdrop, gradient, and title overlay */}
         {event.imageUrl ? (
-          <div className="relative h-36 w-full overflow-hidden shrink-0">
+          <div className="relative h-52 w-full overflow-hidden shrink-0">
+            {/* Blurred background image */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={event.imageUrl}
-              alt={event.title}
-              className="h-full w-full object-cover"
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{ filter: "blur(4px)", transform: "scale(1.1)" }}
               loading="eager"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-            <Badge
-              className="absolute bottom-3 left-4 text-xs"
+            {/* Dark gradient overlay — darker at bottom */}
+            <div
+              className="absolute inset-0"
               style={{
-                background: "var(--brand-primary)",
-                color: "#fff",
+                background: "linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.85) 100%)",
               }}
-            >
-              {CATEGORY_LABELS[event.category]}
-            </Badge>
+            />
+            {/* Title + category overlaid at bottom */}
+            <div className="absolute bottom-0 left-0 right-0 px-5 pb-4">
+              <Badge
+                className="mb-2 text-xs"
+                style={{
+                  background: "var(--brand-primary)",
+                  color: "#fff",
+                }}
+              >
+                {CATEGORY_LABELS[event.category]}
+              </Badge>
+              <h2
+                className="font-oswald font-bold uppercase tracking-wide text-[16px] text-balance leading-tight"
+                style={{ color: "#ffffff", textShadow: "0 1px 4px rgba(0,0,0,0.6)" }}
+              >
+                {event.title}
+              </h2>
+            </div>
           </div>
         ) : (
           <div
-            className="relative h-24 w-full flex items-center justify-center shrink-0"
+            className="relative h-32 w-full flex items-end shrink-0"
             style={{
               background: "linear-gradient(135deg, rgba(0, 99, 205, 0.25) 0%, rgba(53, 96, 255, 0.1) 50%, rgba(0, 99, 205, 0.2) 100%)",
             }}
           >
-            <Sparkles className="h-8 w-8" style={{ color: "rgba(0, 99, 205, 0.35)" }} />
-            <Badge
-              className="absolute bottom-3 left-4 text-xs"
-              style={{
-                background: "var(--brand-primary)",
-                color: "#fff",
-              }}
-            >
-              {CATEGORY_LABELS[event.category]}
-            </Badge>
+            <Sparkles className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-8" style={{ color: "rgba(0, 99, 205, 0.35)" }} />
+            <div className="px-5 pb-4">
+              <Badge
+                className="mb-2 text-xs"
+                style={{
+                  background: "var(--brand-primary)",
+                  color: "#fff",
+                }}
+              >
+                {CATEGORY_LABELS[event.category]}
+              </Badge>
+              <h2
+                className="font-oswald font-bold uppercase tracking-wide text-[16px] text-balance leading-tight"
+                style={{ color: "var(--text)" }}
+              >
+                {event.title}
+              </h2>
+            </div>
           </div>
         )}
-
-        {/* Event Header */}
-        <div className="space-y-2 px-6">
-          <h2
-            className="font-oswald font-bold uppercase tracking-wide text-[14px] text-balance leading-tight"
-            style={{ color: "var(--text)" }}
-          >
-            {event.title}
-          </h2>
-        </div>
 
         {/* Event Details */}
         <div className="space-y-3 text-sm px-6">
@@ -282,76 +317,52 @@ export function EventDetailPanelDropdown({
         )}
       </div>
 
-      {/* Quick Actions — inline icon row, pinned to bottom */}
+      {/* Quick Actions — single compact row of icon buttons */}
       <div
-        className="flex items-center gap-2 border-t px-6 py-3 shrink-0"
+        className="flex items-center justify-center gap-2 border-t px-6 py-3 shrink-0"
         style={{ borderColor: "var(--border-color)" }}
       >
-        <span
-          className="text-xs font-semibold mr-auto"
-          style={{ color: "var(--text-muted)" }}
-        >
-          Quick Actions
-        </span>
-
-        {/* Ask Ditto — highlighted */}
         <Button
-          onClick={() => onAskDitto(`__EVENT__:${event.id}:${event.title}`)}
+          onClick={() => onAskAI(event.title)}
           size="icon"
-          className="h-8 w-8"
-          style={{
-            background: "var(--brand-primary)",
-            color: "var(--brand-primary-foreground)",
-          }}
+          className="h-9 w-9 shrink-0 text-white"
+          style={{ background: "var(--brand-blue, #3B82F6)" }}
           title="Ask Ditto"
         >
           <Sparkles className="h-4 w-4" />
         </Button>
-
-        {/* Show on Map */}
         {onShowMap && event.coordinates && (
           <Button
             onClick={() => onShowMap(event)}
             variant="outline"
             size="icon"
-            className="h-8 w-8 bg-transparent"
+            className="h-9 w-9 shrink-0 bg-transparent"
             title="Show on Map"
           >
             <Map className="h-4 w-4" />
           </Button>
         )}
-
-        {/* Add to Calendar */}
-        <AddToCalendarButton
-          event={event}
-          variant="outline"
-          size="icon"
-          className="h-8 w-8 bg-transparent"
-        />
-
-        {/* Share Event */}
-        <Button
-          onClick={handleShare}
-          variant="outline"
-          size="icon"
-          className="h-8 w-8 bg-transparent"
-          title="Share Event"
-        >
-          <Share2 className="h-4 w-4" />
-        </Button>
-
-        {/* Get Directions */}
         {onGetDirections && event.coordinates && (
           <Button
             onClick={() => onGetDirections(event)}
             variant="outline"
             size="icon"
-            className="h-8 w-8 bg-transparent"
+            className="h-9 w-9 shrink-0 bg-transparent"
             title="Get Directions"
           >
             <Navigation className="h-4 w-4" />
           </Button>
         )}
+        <AddToCalendarButton event={event} size="icon" className="h-9 w-9 shrink-0" />
+        <Button
+          onClick={handleShare}
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 shrink-0 bg-transparent"
+          title="Share Event"
+        >
+          <Share2 className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );

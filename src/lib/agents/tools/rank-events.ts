@@ -34,7 +34,6 @@ export const rankEvents = tool({
         venue: e.venue,
         city: e.city,
         startDate: e.startDate,
-        price: e.price,
         tags: e.tags,
         coordinates: e.coordinates,
         imageUrl: e.imageUrl,

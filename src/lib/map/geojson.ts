@@ -15,14 +15,11 @@ export interface EventFeatureProperties {
   color: string;
   venue: string;
   startDate: string;
-  isFree: boolean;
   featured: boolean;
   imageUrl: string;
   url: string;
   /** Source type label (e.g. "manual", "scraper"). */
   sourceType: string;
-  /** JSON-encoded price object or empty string. */
-  priceJson: string;
 }
 
 /**
@@ -51,12 +48,10 @@ export function eventsToGeoJSON(
         color: CATEGORY_COLORS[event.category],
         venue: event.venue,
         startDate: event.startDate,
-        isFree: event.price?.isFree ?? false,
         featured: event.featured ?? false,
         imageUrl: event.imageUrl ?? "",
         url: event.url ?? "",
         sourceType: typeof event.source === "object" ? event.source?.type ?? "" : String(event.source ?? ""),
-        priceJson: event.price ? JSON.stringify(event.price) : "",
       },
     })),
   };

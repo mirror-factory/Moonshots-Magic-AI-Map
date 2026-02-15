@@ -18,7 +18,9 @@ import {
   type PresentationLandmark,
 } from "@/data/presentation-landmarks";
 import { orbitalSweep } from "@/lib/flyover/camera-animator";
-import { stopSpeaking } from "@/lib/voice/cartesia-tts";
+import { flyToPoint } from "@/lib/map/camera-utils";
+import { startBackgroundMusic, stopBackgroundMusic } from "@/lib/audio/background-music";
+import * as audioManager from "@/lib/audio/audio-manager";
 
 /** Presentation playback state. */
 type PresentationState = "idle" | "flying" | "narrating" | "paused" | "complete";
@@ -142,44 +144,21 @@ async function loadRoundedGrayscaleImage(
 interface PresentationPanelProps {
   /** Callback to exit presentation mode. */
   onExit: () => void;
-  /** Callback to open Ditto chat with presentation context. */
-  onAskDitto?: (context: string) => void;
+  /** Callback to open AI chat with presentation context. */
+  onAskAI?: (context: string) => void;
 }
 
 /**
- * Plays a pre-generated audio file. Returns a promise that resolves when done.
+ * Plays a pre-generated audio file via the unified audio manager.
+ * The manager guarantees only one foreground audio plays at a time.
  * @param landmarkId - The landmark ID matching the filename.
- * @returns Promise resolving when playback ends (or immediately if file missing).
+ * @returns Object with `promise` and `stop` function.
  */
 function playPreGeneratedAudio(landmarkId: string): {
   promise: Promise<void>;
   stop: () => void;
 } {
-  let audio: HTMLAudioElement | null = null;
-  let stopped = false;
-
-  const promise = new Promise<void>((resolve) => {
-    if (stopped) { resolve(); return; }
-
-    audio = new Audio(`/audio/presentation/${landmarkId}.wav`);
-    audio.volume = 1.0;
-
-    audio.onended = () => { resolve(); };
-    audio.onerror = () => { resolve(); }; // Resolve on error (file may not exist)
-
-    audio.play().catch(() => resolve());
-  });
-
-  const stop = () => {
-    stopped = true;
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
-      audio = null;
-    }
-  };
-
-  return { promise, stop };
+  return audioManager.play(`/audio/presentation/${landmarkId}.wav`);
 }
 
 /**
@@ -187,7 +166,7 @@ function playPreGeneratedAudio(landmarkId: string): {
  * Full-height right panel with chronological timeline, TTS narration,
  * and map story markers that build up as chapters progress.
  */
-export function PresentationPanel({ onExit, onAskDitto }: PresentationPanelProps) {
+export function PresentationPanel({ onExit, onAskAI }: PresentationPanelProps) {
   const map = useMap();
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [state, setState] = useState<PresentationState>("idle");
@@ -199,8 +178,9 @@ export function PresentationPanel({ onExit, onAskDitto }: PresentationPanelProps
   const abortRef = useRef(false);
   const ttsEnabledRef = useRef(true);
   const visitedRef = useRef<Set<number>>(new Set());
-  const currentAudioStopRef = useRef<(() => void) | null>(null);
   const loopIdRef = useRef(0); // Incremented to invalidate stale loops
+  // Per-orbit abort signal — prevents race where shared abortRef is reset before old RAF fires
+  const orbitAbortRef = useRef<{ current: boolean }>({ current: false });
 
   const totalLandmarks = PRESENTATION_LANDMARKS.length;
   const landmark = currentIndex >= 0 ? PRESENTATION_LANDMARKS[currentIndex] : null;
@@ -355,37 +335,18 @@ export function PresentationPanel({ onExit, onAskDitto }: PresentationPanelProps
     }
   }, [map]);
 
-  /** Fly camera to a landmark. Resolves when animation completes or after a timeout fallback. */
+  /** Fly camera to a landmark using unified camera-utils. */
   const flyToLandmark = useCallback(
     (lm: PresentationLandmark): Promise<void> => {
       if (!map || abortRef.current) return Promise.resolve();
 
-      return new Promise((resolve) => {
-        let resolved = false;
-        const done = () => {
-          if (resolved) return;
-          resolved = true;
-          clearTimeout(timer);
-          map.off("moveend", onMoveEnd);
-          resolve();
-        };
-
-        const onMoveEnd = () => done();
-        map.on("moveend", onMoveEnd);
-
-        // Fallback: if flyTo doesn't trigger moveend (e.g. camera already near target),
-        // resolve after the animation duration + a small buffer
-        const timer = setTimeout(done, lm.duration + 200);
-
-        map.flyTo({
-          center: lm.coordinates,
-          zoom: lm.zoom,
-          pitch: lm.pitch,
-          bearing: lm.bearing,
-          duration: lm.duration,
-          curve: 1.42,
-          essential: true,
-        });
+      return flyToPoint(map, lm.coordinates, {
+        zoom: lm.zoom,
+        pitch: lm.pitch,
+        bearing: lm.bearing,
+        duration: lm.duration,
+        curve: 1.42,
+        essential: true,
       });
     },
     [map],
@@ -427,22 +388,26 @@ export function PresentationPanel({ onExit, onAskDitto }: PresentationPanelProps
         setState("narrating");
 
         // Start pre-generated audio and orbital drift concurrently
+        // Audio manager guarantees only one foreground plays at a time
         let audioControl: { promise: Promise<void>; stop: () => void } | null = null;
         if (ttsEnabledRef.current) {
           audioControl = playPreGeneratedAudio(lm.id);
-          currentAudioStopRef.current = audioControl.stop;
         }
+
+        // Create a fresh per-orbit abort signal so stopAll can cancel THIS orbit
+        // without racing with the shared abortRef reset in the next loop iteration.
+        const thisOrbitAbort = { current: false };
+        orbitAbortRef.current = thisOrbitAbort;
 
         const orbitPromise = orbitalSweep(map, {
           duration: lm.lingerDuration,
           degreesPerOrbit: orbital.degrees * orbital.direction,
           pitch: lm.pitch,
-          abortRef,
+          abortRef: thisOrbitAbort,
         });
 
         // Wait for both audio and orbit (whichever is longer)
         await Promise.all([audioControl?.promise ?? Promise.resolve(), orbitPromise]);
-        currentAudioStopRef.current = null;
         if (abortRef.current || loopIdRef.current !== thisLoopId) break;
 
         // Small gap between chapters
@@ -460,9 +425,10 @@ export function PresentationPanel({ onExit, onAskDitto }: PresentationPanelProps
   /** Stop current playback (audio + orbit + camera animation). */
   const stopAll = useCallback(() => {
     abortRef.current = true;
-    currentAudioStopRef.current?.();
-    currentAudioStopRef.current = null;
-    stopSpeaking();
+    // Abort the current orbit's RAF loop via its dedicated signal
+    orbitAbortRef.current.current = true;
+    // Stop all foreground audio via the unified manager
+    audioManager.stopForeground();
     // Stop any in-progress flyTo/easeTo so moveend fires immediately
     if (map) {
       try { map.stop(); } catch { /* ignore if map is disposed */ }
@@ -474,6 +440,7 @@ export function PresentationPanel({ onExit, onAskDitto }: PresentationPanelProps
     if (!map) return;
 
     const start = () => {
+      startBackgroundMusic("showcase");
       initStoryMarkers();
       runFromIndex(0);
     };
@@ -492,8 +459,7 @@ export function PresentationPanel({ onExit, onAskDitto }: PresentationPanelProps
   const togglePause = useCallback(() => {
     if (state === "flying" || state === "narrating") {
       abortRef.current = true;
-      currentAudioStopRef.current?.();
-      currentAudioStopRef.current = null;
+      audioManager.stopForeground();
       setState("paused");
     } else if (state === "paused") {
       // Resume from current chapter
@@ -507,8 +473,9 @@ export function PresentationPanel({ onExit, onAskDitto }: PresentationPanelProps
     if (currentIndex >= totalLandmarks - 1) return;
     stopAll();
     const nextIdx = currentIndex + 1;
-    // Use queueMicrotask for near-zero delay (allows stopAll to settle)
-    queueMicrotask(() => runFromIndex(nextIdx));
+    // Call synchronously — runFromIndex increments loopIdRef which
+    // invalidates any stale loops. No queueMicrotask needed.
+    runFromIndex(nextIdx);
   }, [currentIndex, totalLandmarks, stopAll, runFromIndex]);
 
   /** Jump to a specific chapter. */
@@ -516,7 +483,7 @@ export function PresentationPanel({ onExit, onAskDitto }: PresentationPanelProps
     (index: number) => {
       if (index < 0 || index >= totalLandmarks) return;
       stopAll();
-      queueMicrotask(() => runFromIndex(index));
+      runFromIndex(index);
     },
     [totalLandmarks, stopAll, runFromIndex],
   );
@@ -525,8 +492,7 @@ export function PresentationPanel({ onExit, onAskDitto }: PresentationPanelProps
   const toggleTts = useCallback(() => {
     setTtsEnabled((prev) => {
       if (prev) {
-        currentAudioStopRef.current?.();
-        currentAudioStopRef.current = null;
+        audioManager.stopForeground();
       }
       return !prev;
     });
@@ -535,16 +501,15 @@ export function PresentationPanel({ onExit, onAskDitto }: PresentationPanelProps
   /** Exit presentation. */
   const handleExit = useCallback(() => {
     stopAll();
+    void stopBackgroundMusic();
     cleanupStoryMarkers();
 
     if (map) {
-      map.flyTo({
-        center: [-81.3792, 28.5383],
+      void flyToPoint(map, [-81.3792, 28.5383], {
         zoom: 12,
         pitch: 45,
         bearing: 0,
         duration: 1500,
-        essential: true,
       });
     }
 
@@ -851,20 +816,20 @@ export function PresentationPanel({ onExit, onAskDitto }: PresentationPanelProps
                 <SkipForward className="h-3.5 w-3.5" />
               </button>
               <div className="mx-0.5 h-4 w-px bg-white/15" />
-              {onAskDitto && (
+              {onAskAI && (
                 <button
                   onClick={() => {
                     const ctx = landmark
                       ? `I'm viewing "${landmark.title}" (${landmark.year}) in the Orlando presentation. ${landmark.narrative.slice(0, 200)}`
                       : "I'm watching the Orlando history presentation.";
-                    onAskDitto(ctx);
+                    onAskAI(ctx);
                   }}
                   className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-80"
                   style={{ background: "var(--brand-primary, #3560FF)" }}
-                  title="Ask Ditto about this topic"
+                  title="Ask AI about this topic"
                 >
                   <Sparkles className="h-3 w-3" />
-                  Ask Ditto
+                  Ask AI
                 </button>
               )}
               <div className="mx-0.5 h-4 w-px bg-white/15" />

@@ -178,4 +178,14 @@ IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning. Consu
 |components/workflow:{canvas.mdx,connection.mdx,controls.mdx,edge.mdx,node.mdx,panel.mdx,toolbar.mdx}
 |examples:{index.mdx,chatbot.mdx,v0.mdx,workflow.mdx}
 
+## MapTiler Docs
+
+[MapTiler Docs Index]|root: ./docs/maptiler
+|IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any MapTiler tasks.
+|sdk-js:{sdk-js-overview.md,sdk-js-api-config.md,sdk-js-api-map-styles.md}
+|examples:{example-satellite-map.md,example-change-map-styles.md,example-control-minimap.md}
+|auth:{api-authentication-key.md}
+|cloud-api:{api-geocoding.md,api-maps.md,api-tiles.md,api-static-maps.md,api-elevation.md,api-geolocation.md,api-weather.md,api-coordinates.md}
+|reference:{gl-style-specification.md,schema-contours.md,coordinates-tiles-projection.md}
+
 > REMINDER: Before ending a session — commit and push all completed work. Every push triggers CI (tests + coverage + typecheck). Unpushed work is unvalidated work.

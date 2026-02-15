@@ -1,7 +1,7 @@
 /**
  * @module agents/tools/search-events
  * AI SDK tool that queries the event registry by category, date range,
- * location, price, tags, and free-text search. Returns a slim projection
+ * location, tags, and free-text search. Returns a slim projection
  * of matching events for the agent to present.
  */
 
@@ -13,7 +13,7 @@ import { EVENT_CATEGORIES } from "@/lib/registries/types";
 /** Agent tool: search the event registry with multi-criteria filters. */
 export const searchEvents = tool({
   description:
-    "Search the event registry by criteria. Use this to find events matching user preferences like category, date range, price, location, or text search.",
+    "Search the event registry by criteria. Use this to find events matching user preferences like category, date range, location, or text search.",
   inputSchema: z.object({
     query: z
       .string()
@@ -28,7 +28,6 @@ export const searchEvents = tool({
       .optional()
       .describe("Date range filter"),
     city: z.string().optional().describe("City name filter"),
-    isFree: z.boolean().optional().describe("Filter for free events only"),
     tags: z.array(z.string()).optional().describe("Filter by tags"),
     limit: z.number().default(10).describe("Max results to return"),
   }),
@@ -38,7 +37,6 @@ export const searchEvents = tool({
       category: params.category,
       dateRange: params.dateRange,
       city: params.city,
-      isFree: params.isFree,
       tags: params.tags,
       limit: params.limit,
       status: "active",
@@ -54,7 +52,6 @@ export const searchEvents = tool({
         city: e.city,
         startDate: e.startDate,
         endDate: e.endDate,
-        price: e.price,
         tags: e.tags,
         coordinates: e.coordinates,
         featured: e.featured,

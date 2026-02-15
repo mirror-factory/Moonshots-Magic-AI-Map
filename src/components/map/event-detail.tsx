@@ -6,7 +6,7 @@
 
 "use client";
 
-import { ArrowLeft, Calendar, MapPin, ExternalLink, DollarSign, Tag, MessageCircle } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, ExternalLink, Tag, MessageCircle, Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CATEGORY_LABELS } from "@/lib/map/config";
@@ -21,6 +21,7 @@ interface EventDetailProps {
   onBack: () => void;
   onShowOnMap: (event: EventEntry) => void;
   onAskAI?: (eventTitle: string) => void;
+  onGetDirections?: (event: EventEntry) => void;
 }
 
 /**
@@ -60,19 +61,8 @@ function formatDateRange(start: string, end?: string, allDay?: boolean): string 
   return `${dateStr} · ${startTime}`;
 }
 
-/**
- * Formats price information for display.
- * @param price - Price object from event.
- * @returns Formatted price string.
- */
-function formatPrice(price: EventEntry["price"]): string {
-  if (!price || price.isFree) return "Free";
-  if (price.min === price.max) return `$${price.min}`;
-  return `$${price.min} - $${price.max}`;
-}
-
 /** Full event detail view in the sidebar. */
-export function EventDetail({ event, onBack, onShowOnMap, onAskAI }: EventDetailProps) {
+export function EventDetail({ event, onBack, onShowOnMap, onAskAI, onGetDirections }: EventDetailProps) {
   return (
     <div className="flex h-full flex-col">
       {/* Header with Back Button */}
@@ -145,9 +135,7 @@ export function EventDetail({ event, onBack, onShowOnMap, onAskAI }: EventDetail
               <p className="text-sm" style={{ color: "var(--text)" }}>
                 {formatDateRange(event.startDate, event.endDate, event.allDay)}
               </p>
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                {event.timezone}
-              </p>
+              {/* timezone omitted — all events are Eastern */}
             </div>
           </div>
 
@@ -163,16 +151,6 @@ export function EventDetail({ event, onBack, onShowOnMap, onAskAI }: EventDetail
               </p>
             </div>
           </div>
-
-          {/* Price */}
-          {event.price && (
-            <div className="flex items-center gap-3">
-              <DollarSign className="h-4 w-4 shrink-0" style={{ color: "var(--brand-primary)" }} />
-              <p className="text-sm" style={{ color: "var(--text)" }}>
-                {formatPrice(event.price)}
-              </p>
-            </div>
-          )}
 
           {/* Description */}
           <div
@@ -212,50 +190,55 @@ export function EventDetail({ event, onBack, onShowOnMap, onAskAI }: EventDetail
         </div>
       </div>
 
-      {/* Action Buttons */}
+      {/* Action Buttons — single compact row */}
       <div
-        className="flex flex-col gap-2 border-t p-4"
+        className="flex items-center justify-center gap-2 border-t px-4 py-3"
         style={{ borderColor: "var(--border-color)" }}
       >
-        {/* Ask AI Button - Full width */}
         {onAskAI && (
           <Button
-            size="sm"
-            className="w-full min-w-0"
+            size="icon"
+            className="h-9 w-9 shrink-0"
             style={{
               background: "var(--brand-primary)",
               color: "var(--brand-primary-foreground)",
             }}
             onClick={() => onAskAI(`__EVENT__:${event.id}:${event.title}`)}
+            title="Ask AI"
           >
-            <MessageCircle className="mr-1.5 h-4 w-4 shrink-0" />
-            <span className="truncate">Ask Ditto</span>
+            <MessageCircle className="h-4 w-4" />
           </Button>
         )}
-        {/* Calendar and Map buttons */}
-        <div className="flex gap-2">
-          <AddToCalendarButton event={event} className="flex-1" />
+        <AddToCalendarButton event={event} size="icon" className="h-9 w-9 shrink-0" />
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 shrink-0"
+          onClick={() => onShowOnMap(event)}
+          title="Show on Map"
+        >
+          <MapPin className="h-4 w-4" />
+        </Button>
+        {onGetDirections && (
           <Button
             variant="outline"
-            size="sm"
-            className="flex-1"
-            onClick={() => onShowOnMap(event)}
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            onClick={() => onGetDirections(event)}
+            title="Get Directions"
           >
-            <MapPin className="mr-1.5 h-4 w-4" />
-            Show on Map
+            <Navigation className="h-4 w-4" />
           </Button>
-        </div>
-        {/* External link button */}
+        )}
         {event.url && (
           <Button
             variant="outline"
-            size="sm"
-            className="w-full"
+            size="icon"
+            className="h-9 w-9 shrink-0"
             asChild
           >
-            <a href={event.url} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="mr-1.5 h-4 w-4" />
-              More Info
+            <a href={event.url} target="_blank" rel="noopener noreferrer" title="More Info">
+              <ExternalLink className="h-4 w-4" />
             </a>
           </Button>
         )}

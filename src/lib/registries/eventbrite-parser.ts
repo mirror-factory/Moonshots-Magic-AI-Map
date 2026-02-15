@@ -81,9 +81,6 @@ export function parseEventbriteEvent(raw: EventbriteRawEvent): EventEntry {
     startDate: raw.start?.utc || now,
     endDate: raw.end?.utc,
     timezone: raw.start?.timezone || "America/New_York",
-    price: raw.is_free
-      ? { min: 0, max: 0, currency: "USD", isFree: true }
-      : undefined,
     url: raw.url,
     imageUrl: raw.logo?.url,
     tags: [],

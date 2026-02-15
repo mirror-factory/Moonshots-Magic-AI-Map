@@ -25,7 +25,7 @@ function matchesQuery(event: EventEntry, query: string): boolean {
 /**
  * Query the event registry with optional filters.
  * Applies filters in order: status, query, category, dateRange, city,
- * region, tags, isFree, featured. Results are sorted by start date ascending,
+ * region, tags, featured. Results are sorted by start date ascending,
  * then paginated via `offset` and `limit`.
  *
  * @param filters - Optional query constraints. Omit for all events.
@@ -33,7 +33,7 @@ function matchesQuery(event: EventEntry, query: string): boolean {
  *
  * @example
  * ```ts
- * const freeMusic = getEvents({ category: "music", isFree: true, limit: 5 });
+ * const freeMusic = getEvents({ category: "music", limit: 5 });
  * ```
  */
 export function getEvents(filters?: EventFilters): EventEntry[] {
@@ -79,12 +79,6 @@ export function getEvents(filters?: EventFilters): EventEntry[] {
     const tags = filters.tags.map((t) => t.toLowerCase());
     events = events.filter((e) =>
       tags.some((t) => e.tags.some((et) => et.toLowerCase().includes(t))),
-    );
-  }
-
-  if (filters.isFree !== undefined) {
-    events = events.filter((e) =>
-      filters.isFree ? e.price?.isFree : !e.price?.isFree,
     );
   }
 

@@ -55,6 +55,7 @@ export default defineConfig({
         "src/lib/map/three-markers.ts",
         "src/lib/audio/**",
         "src/lib/map/camera-utils.ts",
+        "src/lib/map/data-layers.ts",
         "src/lib/map/geocoding.ts",
         "src/lib/map/venue-highlight.ts",
         "**/*.d.ts",

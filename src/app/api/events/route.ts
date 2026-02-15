@@ -2,7 +2,7 @@
  * @module api/events
  * `GET /api/events` — REST endpoint for querying events. Supports query
  * params: `query`, `category`, `startDate`, `endDate`, `city`, `region`,
- * `tags`, `status`, `isFree`, `featured`, `limit`, `offset`.
+ * `tags`, `status`, `featured`, `limit`, `offset`.
  * Returns `{ count, events }`.
  */
 
@@ -48,9 +48,6 @@ export async function GET(req: NextRequest) {
 
   const status = params.get("status");
   if (status) filters.status = status as EventFilters["status"];
-
-  const isFree = params.get("isFree");
-  if (isFree) filters.isFree = isFree === "true";
 
   const featured = params.get("featured");
   if (featured) filters.featured = featured === "true";

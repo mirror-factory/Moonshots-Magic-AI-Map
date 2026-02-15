@@ -97,7 +97,6 @@ describe("rankEvents tool", () => {
         expect(event).toHaveProperty("venue");
         expect(event).toHaveProperty("city");
         expect(event).toHaveProperty("startDate");
-        expect(event).toHaveProperty("price");
         expect(event).toHaveProperty("tags");
         expect(event).toHaveProperty("coordinates");
 

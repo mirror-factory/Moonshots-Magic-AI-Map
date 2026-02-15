@@ -34,7 +34,6 @@ export interface EventCardEvent {
   city: string;
   startDate: string;
   coordinates?: [number, number];
-  price?: { min: number; max: number; isFree: boolean };
   tags: string[];
   featured?: boolean;
   imageUrl?: string;

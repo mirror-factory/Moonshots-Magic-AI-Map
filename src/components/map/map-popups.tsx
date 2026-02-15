@@ -32,13 +32,25 @@ interface MapPopupsProps {
   onGetDirections?: (coordinates: [number, number], eventTitle: string) => void;
   /** Callback when user clicks "More Detail" — opens the events dropdown. */
   onOpenDetail?: (eventId: string) => void;
-  /** Shared ref — only one selection (popup-click or show-on-map) active at a time. */
-  clearSelectionRef?: MutableRefObject<(() => void) | null>;
+  /** Shared ref — only one selection (popup-click or show-on-map) active at a time. Pass `keepHighlight` to preserve the canvas card. */
+  clearSelectionRef?: MutableRefObject<((keepHighlight?: boolean) => void) | null>;
+  /** Called when a popup interaction occurs (e.g. event clicked on map). */
+  onInteraction?: () => void;
 }
 
 /** Handles hover and click popup interactions on the events map layer. */
-export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail, clearSelectionRef }: MapPopupsProps) {
+export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail, clearSelectionRef, onInteraction }: MapPopupsProps) {
   const map = useMap();
+
+  /** Stable refs for callback props — avoids re-registering map listeners when callbacks change identity. */
+  const onInteractionRef = useRef(onInteraction);
+  onInteractionRef.current = onInteraction;
+  const onAskAboutRef = useRef(onAskAbout);
+  onAskAboutRef.current = onAskAbout;
+  const onGetDirectionsRef = useRef(onGetDirections);
+  onGetDirectionsRef.current = onGetDirections;
+  const onOpenDetailRef = useRef(onOpenDetail);
+  onOpenDetailRef.current = onOpenDetail;
 
   /** Whether a selection (click) is currently active. */
   const isSelectedRef = useRef(false);
@@ -72,11 +84,11 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail, clearSele
     selectedCoordsRef.current = null;
   }, [map]);
 
-  /** Clears the entire selection: card, pulse, orbit, X button. */
-  const clearSelection = useCallback(() => {
+  /** Clears the entire selection: card, pulse, orbit, X button. Pass `keepHighlight` to preserve the canvas card (e.g. when directions start). */
+  const clearSelection = useCallback((keepHighlight = false) => {
     if (!map) return;
     stopOrbit();
-    deselectEventHighlight(map);
+    if (!keepHighlight) deselectEventHighlight(map);
     removeDismissButton();
     isSelectedRef.current = false;
     selectedEventIdRef.current = null;
@@ -109,7 +121,6 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail, clearSele
         venue: String(props.venue ?? ""),
         startDate: String(props.startDate ?? ""),
         source: String(props.sourceType ?? ""),
-        price: props.priceJson ? JSON.parse(String(props.priceJson)) : null,
       });
 
       showHoverCard(map, coords, String(props.imageUrl ?? ""), cardInfo);
@@ -152,21 +163,23 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail, clearSele
       isSelectedRef.current = true;
       selectedEventIdRef.current = eventId;
 
+      // Notify parent of interaction (e.g. to clear data layers)
+      onInteractionRef.current?.();
+
       // Build card info
       const cardInfo = buildCardInfo({
         title: String(props.title ?? ""),
         venue: String(props.venue ?? ""),
         startDate: String(props.startDate ?? ""),
         source: String(props.sourceType ?? ""),
-        price: props.priceJson ? JSON.parse(String(props.priceJson)) : null,
       });
 
       // Show the highlight: canvas card + golden pulsating orb
       selectEventHighlight(map, coords, String(props.imageUrl ?? ""), cardInfo);
 
       // Open the detail panel in the dropdown for action buttons
-      if (onOpenDetail && eventId) {
-        onOpenDetail(eventId);
+      if (onOpenDetailRef.current && eventId) {
+        onOpenDetailRef.current(eventId);
       }
 
       // Add screen-space X dismiss button (positioned via map.project())
@@ -286,7 +299,7 @@ export function MapPopups({ onAskAbout, onGetDirections, onOpenDetail, clearSele
       deselectEventHighlight(map);
       removeDismissButton();
     };
-  }, [map, onAskAbout, onGetDirections, onOpenDetail, clearSelection, clearSelectionRef, stopOrbit, removeDismissButton]);
+  }, [map, clearSelection, clearSelectionRef, stopOrbit, removeDismissButton]);
 
   return null;
 }

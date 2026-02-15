@@ -21,10 +21,16 @@ const ROUTE_LINE_CASING = "directions-route-casing";
 const ROUTE_ORIGIN = "directions-origin";
 const ROUTE_DEST = "directions-destination";
 const MARKERS_SOURCE = "directions-markers";
+const STEP_SOURCE = "directions-step";
+const STEP_DOT = "directions-step-dot";
+const STEP_DOT_GLOW = "directions-step-glow";
 
 /** Orbit animation configuration. */
 const ORBIT_DEGREES = 60;
 const ORBIT_DURATION_MS = 20_000;
+
+/** Route drawing animation duration in ms. */
+const DRAW_DURATION_MS = 2_000;
 
 /** Props for {@link MapDirections}. */
 interface MapDirectionsProps {
@@ -34,12 +40,16 @@ interface MapDirectionsProps {
   origin: [number, number] | null;
   /** Destination coordinates [lng, lat]. */
   destination: [number, number] | null;
+  /** Current step coordinate [lng, lat] for the green navigation dot. */
+  stepCoordinate?: [number, number] | null;
 }
 
 /** Renders a route line with origin/destination markers on the map. */
-export function MapDirections({ route, origin, destination }: MapDirectionsProps) {
+export function MapDirections({ route, origin, destination, stepCoordinate }: MapDirectionsProps) {
   const map = useMap();
   const animFrameRef = useRef<number>(0);
+  const drawFrameRef = useRef<number>(0);
+  const drawCompleteRef = useRef(false);
   const orbitFrameRef = useRef<number>(0);
   const orbitStoppedRef = useRef(false);
 
@@ -135,13 +145,16 @@ export function MapDirections({ route, origin, destination }: MapDirectionsProps
 
     const cleanup = () => {
       cancelAnimationFrame(animFrameRef.current);
+      cancelAnimationFrame(drawFrameRef.current);
       cancelAnimationFrame(orbitFrameRef.current);
+      drawCompleteRef.current = true;
       orbitStoppedRef.current = true;
-      for (const id of [ROUTE_LINE, ROUTE_LINE_GLOW, ROUTE_LINE_CASING, ROUTE_ORIGIN, ROUTE_DEST]) {
+      for (const id of [ROUTE_LINE, ROUTE_LINE_GLOW, ROUTE_LINE_CASING, ROUTE_ORIGIN, ROUTE_DEST, STEP_DOT, STEP_DOT_GLOW]) {
         if (map.getLayer(id)) map.removeLayer(id);
       }
       if (map.getSource(ROUTE_SOURCE)) map.removeSource(ROUTE_SOURCE);
       if (map.getSource(MARKERS_SOURCE)) map.removeSource(MARKERS_SOURCE);
+      if (map.getSource(STEP_SOURCE)) map.removeSource(STEP_SOURCE);
     };
 
     if (!route || !origin || !destination) {
@@ -149,19 +162,50 @@ export function MapDirections({ route, origin, destination }: MapDirectionsProps
       return;
     }
 
-    // Add route line source + layers
+    // Start with empty line for drawing animation
+    const fullCoords = route.geometry.coordinates as [number, number][];
+    const emptyLine: GeoJSON.Feature = {
+      type: "Feature",
+      geometry: { type: "LineString", coordinates: fullCoords.length > 0 ? [fullCoords[0]] : [] },
+      properties: {},
+    };
+
     if (!map.getSource(ROUTE_SOURCE)) {
-      map.addSource(ROUTE_SOURCE, {
-        type: "geojson",
-        data: { type: "Feature", geometry: route.geometry, properties: {} },
-      });
+      map.addSource(ROUTE_SOURCE, { type: "geojson", data: emptyLine });
     } else {
-      (map.getSource(ROUTE_SOURCE) as maplibregl.GeoJSONSource).setData({
-        type: "Feature",
-        geometry: route.geometry,
-        properties: {},
-      });
+      (map.getSource(ROUTE_SOURCE) as maplibregl.GeoJSONSource).setData(emptyLine);
     }
+
+    // Animate route drawing progressively
+    drawCompleteRef.current = false;
+    const drawStart = performance.now();
+
+    const animateDraw = (now: number) => {
+      if (drawCompleteRef.current) return;
+
+      const elapsed = now - drawStart;
+      const progress = Math.min(elapsed / DRAW_DURATION_MS, 1);
+      // Ease-out for smooth deceleration
+      const eased = 1 - Math.pow(1 - progress, 2);
+      const pointCount = Math.max(2, Math.floor(eased * fullCoords.length));
+
+      const source = map.getSource(ROUTE_SOURCE) as maplibregl.GeoJSONSource | undefined;
+      if (source) {
+        source.setData({
+          type: "Feature",
+          geometry: { type: "LineString", coordinates: fullCoords.slice(0, pointCount) },
+          properties: {},
+        });
+      }
+
+      if (progress < 1) {
+        drawFrameRef.current = requestAnimationFrame(animateDraw);
+      } else {
+        drawCompleteRef.current = true;
+      }
+    };
+
+    drawFrameRef.current = requestAnimationFrame(animateDraw);
 
     // Route casing — outer ambient glow (soft white)
     if (!map.getLayer(ROUTE_LINE_CASING)) {
@@ -257,19 +301,74 @@ export function MapDirections({ route, origin, destination }: MapDirectionsProps
       });
     }
 
-    // Fit map to route bounds
+    // Fit map to route bounds — zoom in close so the route fills the view
     if (route.bbox) {
       map.fitBounds(
         [
           [route.bbox[0], route.bbox[1]],
           [route.bbox[2], route.bbox[3]],
         ],
-        { padding: { top: 140, bottom: 160, left: 140, right: 500 }, maxZoom: 13, duration: 1200 },
+        { padding: { top: 140, bottom: 160, left: 320, right: 60 }, maxZoom: 16, duration: 1200 },
       );
     }
 
     return cleanup;
   }, [map, route, origin, destination]);
+
+  // Green navigation dot — moves to the current step coordinate
+  useEffect(() => {
+    if (!map) return;
+
+    if (!stepCoordinate) {
+      // Remove step layers when no step is active
+      if (map.getLayer(STEP_DOT_GLOW)) map.removeLayer(STEP_DOT_GLOW);
+      if (map.getLayer(STEP_DOT)) map.removeLayer(STEP_DOT);
+      if (map.getSource(STEP_SOURCE)) map.removeSource(STEP_SOURCE);
+      return;
+    }
+
+    const pointData: GeoJSON.Feature = {
+      type: "Feature",
+      geometry: { type: "Point", coordinates: stepCoordinate },
+      properties: {},
+    };
+
+    if (!map.getSource(STEP_SOURCE)) {
+      map.addSource(STEP_SOURCE, { type: "geojson", data: pointData });
+    } else {
+      (map.getSource(STEP_SOURCE) as maplibregl.GeoJSONSource).setData(pointData);
+    }
+
+    // Outer glow ring
+    if (!map.getLayer(STEP_DOT_GLOW)) {
+      map.addLayer({
+        id: STEP_DOT_GLOW,
+        type: "circle",
+        source: STEP_SOURCE,
+        paint: {
+          "circle-radius": 18,
+          "circle-color": "#22c55e",
+          "circle-opacity": 0.25,
+          "circle-blur": 0.6,
+        },
+      });
+    }
+
+    // Core green dot
+    if (!map.getLayer(STEP_DOT)) {
+      map.addLayer({
+        id: STEP_DOT,
+        type: "circle",
+        source: STEP_SOURCE,
+        paint: {
+          "circle-radius": 8,
+          "circle-color": "#22c55e",
+          "circle-stroke-width": 3,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
+    }
+  }, [map, stepCoordinate]);
 
   return null;
 }

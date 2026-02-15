@@ -8,7 +8,8 @@
 
 "use client";
 
-import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, useReducer, type ReactNode } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MapContext } from "./use-map";
@@ -20,15 +21,34 @@ import {
   fetchMapStyle,
 } from "@/lib/map/config";
 import { MapStatusBar } from "./map-status-bar";
+import { MapToolbar, type DemoOption } from "./map-toolbar";
 import { MapControls } from "./map-controls";
+import { EventsPanelContent } from "./events-dropdown";
 import { MapMarkers } from "./map-markers";
 import { MapHotspots } from "./map-hotspots";
 import { MapPopups } from "./map-popups";
 import type { EventEntry } from "@/lib/registries/types";
 import { MapDirections } from "./map-directions";
 import { DirectionsPanel } from "./directions-panel";
-import { MapIsochrone } from "./map-isochrone";
+import {
+  dataLayerReducer,
+  initialDataLayerState,
+  type DataLayerKey,
+} from "@/lib/map/data-layers";
+import { MapWeatherLayer } from "./data-layers/map-weather-layer";
+import { MapTransitLayer } from "./data-layers/map-transit-layer";
+import { MapTransitShapesLayer } from "./data-layers/map-transit-shapes-layer";
+import { MapCityDataLayer } from "./data-layers/map-city-data-layer";
+import { MapNwsAlertsLayer } from "./data-layers/map-nws-alerts-layer";
+import { MapAircraftLayer } from "./data-layers/map-aircraft-layer";
+import { MapSunrailLayer } from "./data-layers/map-sunrail-layer";
+import { MapCountyDataLayer } from "./data-layers/map-county-data-layer";
+import { MapDevelopmentsLayer } from "./data-layers/map-developments-layer";
+import { MapEvChargersLayer } from "./data-layers/map-ev-chargers-layer";
+import { MapAirQualityLayer } from "./data-layers/map-air-quality-layer";
+import { DataLayerInfoPanel } from "./data-layers/data-layer-info-panel";
 import { FlyoverOverlay } from "./flyover-overlay";
+import { MapGuide } from "./map-guide";
 import {
   type FlyoverProgress,
   createFlyoverProgress,
@@ -42,8 +62,13 @@ import { animateToWaypoint, cinematicIntro, outroAnimation, calculateCenter, orb
 import { speak, stopSpeaking, playAudioBuffer, generateAudioBuffer } from "@/lib/voice/cartesia-tts";
 import { playFlyoverIntro, stopFlyoverAudio } from "@/lib/flyover/flyover-audio";
 import { getDirections, type DirectionsResult, type TravelProfile } from "@/lib/map/routing";
-import { getIsochrone, type IsochroneResult } from "@/lib/map/isochrone";
-import { type DatePreset, getEventsForPreset } from "@/lib/map/event-filters";
+import {
+  type DatePreset,
+  type DistancePreset,
+  getEventsForPreset,
+  filterEventsByDistance,
+  createRadiusCircleGeoJSON,
+} from "@/lib/map/event-filters";
 import { flyToPoint, fitBoundsToPoints } from "@/lib/map/camera-utils";
 import { startBackgroundMusic, stopBackgroundMusic } from "@/lib/audio/background-music";
 import type { EventCategory } from "@/lib/registries/types";
@@ -53,11 +78,7 @@ import {
   deselectEventHighlight,
   buildCardInfo,
 } from "@/lib/map/venue-highlight";
-
-/** Default isochrone time ranges in minutes. */
-const ISOCHRONE_MINUTES: number[] = [5, 10, 15, 30];
-/** Default isochrone travel profile. */
-const ISOCHRONE_PROFILE: TravelProfile = "driving-car";
+import type { LocalVenue } from "@/lib/map/geocoding";
 
 interface MapContainerProps {
   events: EventEntry[];
@@ -68,6 +89,8 @@ interface MapContainerProps {
   onFilterChangeRequest?: (handler: (preset?: DatePreset, category?: EventCategory) => void) => void;
   /** Registers a handler that opens an event detail from external callers. */
   onOpenDetailRequest?: (handler: (eventId: string) => void) => void;
+  /** Registers a handler that closes the event detail panel. */
+  onCloseDetailRequest?: (handler: () => void) => void;
   /** Registers a handler for cinematic "show on map" with rotation + card. */
   onShowOnMapRequest?: (handler: (eventId: string) => void) => void;
   onStartPersonalization?: () => void;
@@ -77,22 +100,43 @@ interface MapContainerProps {
   onClearHighlights?: () => void;
   /** Callback when location is toggled on/off. */
   onLocationChange?: (enabled: boolean) => void;
+  /** Registers a handler for AI-driven data layer toggles. */
+  onToggleDataLayerRequest?: (handler: (layerKey: string, action: "on" | "off" | "toggle") => void) => void;
+  /** Start the Story of Orlando presentation. */
+  onStartPresentation?: () => void;
+  /** Start the Features Showcase presentation. */
+  onStartShowcase?: () => void;
+  /** Whether chat is visible. */
+  chatVisible?: boolean;
+  /** Toggle chat visibility. */
+  onToggleChatVisible?: () => void;
+  /** Current chat position mode. */
+  chatPosition?: "center" | "right";
+  /** Callback when chat position changes. */
+  onChatPositionChange?: (position: "center" | "right") => void;
+  /** Fires when a data layer becomes active or all layers are deactivated. */
+  onDataLayerActiveChange?: (active: boolean) => void;
+  /** Fires when flyover becomes active or ends. */
+  onFlyoverActiveChange?: (active: boolean) => void;
   children?: ReactNode;
 }
 
 /** Renders the root map with MapLibre GL and composes child layers. */
-export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirectionsRequest, onFilterChangeRequest, onOpenDetailRequest, onShowOnMapRequest, onStartPersonalization, highlightedEventIds, onClearHighlights, onLocationChange, children }: MapContainerProps) {
+export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirectionsRequest, onFilterChangeRequest, onOpenDetailRequest, onCloseDetailRequest, onShowOnMapRequest, onStartPersonalization, highlightedEventIds, onClearHighlights, onLocationChange, onToggleDataLayerRequest, onStartPresentation, onStartShowcase, chatVisible, onToggleChatVisible, chatPosition, onChatPositionChange, onDataLayerActiveChange, onFlyoverActiveChange, children }: MapContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<maplibregl.Map | null>(null);
   const [styleLoaded, setStyleLoaded] = useState(false);
-  const [controlsOpen] = useState(false);
+  const [eventsPanelOpen, setEventsPanelOpen] = useState(false);
+  const [showCoordinates, setShowCoordinates] = useState(false);
   const [mode3D, setMode3D] = useState(true);
   const [flyoverProgress, setFlyoverProgress] = useState<FlyoverProgress | null>(null);
   const flyoverAbortRef = useRef<boolean>(false);
+  const flyoverGenRef = useRef(0);
   const introPlayingRef = useRef<boolean>(false);
   const introPromiseRef = useRef<Promise<void> | null>(null);
-  /** Global clear-selection callback — only one selection (popup or show-on-map) active at a time. */
-  const clearSelectionRef = useRef<(() => void) | null>(null);
+  const introCompleteRef = useRef<boolean>(false);
+  /** Global clear-selection callback — only one selection (popup or show-on-map) active at a time. Pass `keepHighlight` to preserve the canvas card (e.g. when directions start). */
+  const clearSelectionRef = useRef<((keepHighlight?: boolean) => void) | null>(null);
   // Map is always rendered in dark mode regardless of system theme
   const isDark = true;
 
@@ -108,21 +152,167 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
   /** Whether the origin came from actual GPS (true) or map center fallback (false). */
   const [directionsOriginIsGps, setDirectionsOriginIsGps] = useState(false);
 
-  // Isochrone state
-  const [isochroneResult, setIsochroneResult] = useState<IsochroneResult | null>(null);
-  const [isochroneActive, setIsochroneActive] = useState(false);
-  const [isochroneLoading, setIsochroneLoading] = useState(false);
+  // Data layers state
+  const [dlState, dlDispatch] = useReducer(dataLayerReducer, initialDataLayerState);
+  /** Selected development index for carousel ↔ map sync. */
+  const [selectedDevIndex, setSelectedDevIndex] = useState(0);
+
+  /** Toggle a data layer on/off. */
+  const handleToggleDataLayer = useCallback((key: DataLayerKey) => {
+    dlDispatch({ type: "TOGGLE", key });
+  }, []);
+
+  /** Handle data ready from a layer component. */
+  const handleLayerDataReady = useCallback(
+    (key: DataLayerKey, data: unknown) => {
+      dlDispatch({ type: "DATA_READY", key, data });
+      // Request AI analysis
+      fetch("/api/layers/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ layerKey: key, data }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((result) => {
+          if (result?.analysis) {
+            dlDispatch({ type: "ANALYSIS_READY", key, content: result.analysis, model: result.model });
+          }
+        })
+        .catch((err) => console.error("[DataLayers] Analysis failed:", err));
+    },
+    [],
+  );
+
+  /** Handle AI-driven data layer toggle. */
+  const handleAiToggleDataLayer = useCallback(
+    (layerKey: string, action: "on" | "off" | "toggle") => {
+      const key = layerKey as DataLayerKey;
+      if (action === "toggle") {
+        dlDispatch({ type: "TOGGLE", key });
+      } else if (action === "on" && !dlState.active.has(key)) {
+        dlDispatch({ type: "TOGGLE", key });
+      } else if (action === "off" && dlState.active.has(key)) {
+        dlDispatch({ type: "TOGGLE", key });
+      }
+    },
+    [dlState.active],
+  );
+
+  // Register AI toggle handler with parent
+  useEffect(() => {
+    onToggleDataLayerRequest?.(handleAiToggleDataLayer);
+  }, [onToggleDataLayerRequest, handleAiToggleDataLayer]);
+
+  /** Handle loading state changes from layer components. */
+  const handleLayerLoadingChange = useCallback(
+    (key: DataLayerKey, loading: boolean) => {
+      if (loading) {
+        dlDispatch({ type: "LOAD_START", key });
+      }
+    },
+    [],
+  );
 
   // Date filter state — default to today's events
   const [activePreset, setActivePreset] = useState<DatePreset>("today");
+  // Distance filter state
+  const [distanceFilter, setDistanceFilter] = useState<DistancePreset>(null);
+  const userLocationRef = useRef<[number, number] | null>(null);
+  const [hasUserLocation, setHasUserLocation] = useState(false);
 
   const defaultEventIds = useMemo(
     () => getEventsForPreset(events, activePreset),
     [events, activePreset],
   );
 
+  // Apply distance filter on top of date filter
+  const filteredEventIds = useMemo(() => {
+    if (!distanceFilter || !userLocationRef.current) return defaultEventIds;
+    return filterEventsByDistance(defaultEventIds, events, userLocationRef.current, distanceFilter);
+  }, [defaultEventIds, events, distanceFilter]);
+
   const aiResultsActive = (highlightedEventIds?.length ?? 0) > 0;
-  const effectiveEventIds = aiResultsActive ? highlightedEventIds! : defaultEventIds;
+  const dataLayerActive = dlState.active.size > 0;
+  const effectiveEventIds = dataLayerActive ? [] : aiResultsActive ? highlightedEventIds! : filteredEventIds;
+
+  // Deduplicated venue list for search autocomplete
+  const localVenues = useMemo<LocalVenue[]>(() => {
+    const seen = new Map<string, LocalVenue>();
+    for (const e of events) {
+      const key = e.venue.toLowerCase();
+      if (!seen.has(key) && e.coordinates) {
+        seen.set(key, { name: e.venue, address: e.address || e.venue, coordinates: e.coordinates });
+      }
+    }
+    return Array.from(seen.values());
+  }, [events]);
+
+  // Notify parent when data layer active state changes (for chat snap-down)
+  useEffect(() => {
+    onDataLayerActiveChange?.(dataLayerActive);
+  }, [dataLayerActive, onDataLayerActiveChange]);
+
+  // ── Location update from toolbar ──
+  const handleLocationUpdate = useCallback((coords: [number, number]) => {
+    userLocationRef.current = coords;
+    setHasUserLocation(true);
+  }, []);
+
+  // ── Radius circle layer ──
+  const RADIUS_SOURCE = "distance-radius-source";
+  const RADIUS_FILL = "distance-radius-fill";
+  const RADIUS_LINE = "distance-radius-line";
+
+  useEffect(() => {
+    if (!map || !styleLoaded) return;
+
+    const cleanup = () => {
+      if (map.getLayer(RADIUS_LINE)) map.removeLayer(RADIUS_LINE);
+      if (map.getLayer(RADIUS_FILL)) map.removeLayer(RADIUS_FILL);
+      if (map.getSource(RADIUS_SOURCE)) map.removeSource(RADIUS_SOURCE);
+    };
+
+    if (!distanceFilter || !userLocationRef.current) {
+      cleanup();
+      return;
+    }
+
+    const circleFeature = createRadiusCircleGeoJSON(userLocationRef.current, distanceFilter);
+    const geojson: GeoJSON.FeatureCollection = {
+      type: "FeatureCollection",
+      features: [circleFeature],
+    };
+
+    if (map.getSource(RADIUS_SOURCE)) {
+      (map.getSource(RADIUS_SOURCE) as maplibregl.GeoJSONSource).setData(geojson);
+    } else {
+      map.addSource(RADIUS_SOURCE, { type: "geojson", data: geojson });
+
+      map.addLayer({
+        id: RADIUS_FILL,
+        type: "fill",
+        source: RADIUS_SOURCE,
+        paint: {
+          "fill-color": "#00D4AA",
+          "fill-opacity": 0.06,
+        },
+      });
+
+      map.addLayer({
+        id: RADIUS_LINE,
+        type: "line",
+        source: RADIUS_SOURCE,
+        paint: {
+          "line-color": "#00D4AA",
+          "line-width": 2,
+          "line-opacity": 0.5,
+          "line-dasharray": [4, 3],
+        },
+      });
+    }
+
+    return cleanup;
+  }, [map, styleLoaded, distanceFilter]);
 
   // Initialize map — pre-fetch style to avoid MapLibre hitting 503s
   useEffect(() => {
@@ -279,13 +469,17 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
       // OPTIMIZATION: Generate audio from basic narratives IMMEDIATELY
       // so buffers are ready by the time the camera reaches each waypoint.
       // AI-narrated audio (generated in parallel) replaces these when ready.
+      const audioStartTime = performance.now();
       console.log("[Flyover] Starting immediate audio generation for", started.waypoints.length, "waypoints");
       const basicAudioPromise = Promise.all(
         started.waypoints.map(async (wp) => {
+          const wpStart = performance.now();
           try {
             const audioBuffer = await generateAudioBuffer(wp.narrative);
+            console.log(`[Flyover] Audio ready for "${wp.event.title}" (${wp.narrative.length} chars) in ${Math.round(performance.now() - wpStart)}ms`);
             return { eventId: wp.eventId, narrative: wp.narrative, audioBuffer };
           } catch {
+            console.warn(`[Flyover] Audio failed for "${wp.event.title}" in ${Math.round(performance.now() - wpStart)}ms`);
             return { eventId: wp.eventId, narrative: wp.narrative, audioBuffer: null as ArrayBuffer | null };
           }
         }),
@@ -293,6 +487,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
 
       // Update waypoints when basic audio is ready
       basicAudioPromise.then((results) => {
+        console.log(`[Flyover] Basic audio pipeline completed in ${Math.round(performance.now() - audioStartTime)}ms`);
         if (flyoverAbortRef.current) return;
         setFlyoverProgress((prev) => {
           if (!prev) return null;
@@ -312,6 +507,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
       });
 
       // In parallel, prepare AI-generated narratives for higher quality audio
+      const aiStartTime = performance.now();
       try {
         const narrateResponse = await fetch("/api/flyover/narrate", {
           method: "POST",
@@ -324,7 +520,6 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
               description: e.description,
               category: e.category,
               startDate: e.startDate,
-              price: e.price,
             })),
             theme,
           }),
@@ -364,7 +559,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
               return updateWaypointAudio(prev, updates);
             });
 
-            console.log("[Flyover] AI audio pipeline ready");
+            console.log(`[Flyover] AI audio pipeline ready in ${Math.round(performance.now() - aiStartTime)}ms`);
           }
         }
       } catch (error) {
@@ -383,6 +578,41 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
     onFlyoverRequest?.(wrapper);
   }, [onFlyoverRequest, handleStartFlyover]);
 
+  /** Handle demo option selection from toolbar. */
+  const handleDemo = useCallback((option: DemoOption) => {
+    switch (option) {
+      case "home":
+        if (map) {
+          flyToPoint(map, DEFAULT_CENTER, {
+            zoom: DEFAULT_ZOOM,
+            pitch: DEFAULT_PITCH,
+            bearing: DEFAULT_BEARING,
+            duration: 2000,
+          });
+        }
+        break;
+      case "story":
+        onStartPresentation?.();
+        break;
+      case "flyover": {
+        const sampleEvents = events
+          .filter((e) => e.coordinates)
+          .slice(0, 5)
+          .map((e) => e.id);
+        if (sampleEvents.length > 0) {
+          handleStartFlyover(sampleEvents, "Best of Orlando");
+        }
+        break;
+      }
+      case "showcase":
+        onStartShowcase?.();
+        break;
+      case "personalize":
+        onStartPersonalization?.();
+        break;
+    }
+  }, [map, events, onStartPresentation, onStartShowcase, onStartPersonalization, handleStartFlyover]);
+
   // Flyover loop - runs when flyover is active
   useEffect(() => {
     if (!map || !flyoverProgress || flyoverProgress.state === "idle" || flyoverProgress.state === "complete") {
@@ -393,17 +623,38 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
       return;
     }
 
+    const thisGen = flyoverGenRef.current;
+
     const runFlyover = async () => {
-      if (flyoverAbortRef.current) return;
+      /** Check if this loop is still the active generation. */
+      const isStale = () => flyoverGenRef.current !== thisGen;
+
+      if (isStale()) return;
+
+      // Reset abort flag for this generation — old RAF callbacks from the
+      // previous generation will have already fired and seen the true value.
+      flyoverAbortRef.current = false;
 
       const { waypoints, currentIndex, state } = flyoverProgress;
       const waypoint = waypoints[currentIndex];
 
       if (state === "preparing") {
-        // Cinematic intro — orbital sweep
-        const center = calculateCenter(waypoints.map((w) => w.center));
-        await cinematicIntro(map, center, flyoverAbortRef);
-        if (flyoverAbortRef.current) return;
+        // Cinematic intro — orbital sweep (only runs once)
+        if (!introCompleteRef.current) {
+          const center = calculateCenter(waypoints.map((w) => w.center));
+          await cinematicIntro(map, center, flyoverAbortRef);
+          if (isStale()) return;
+          introCompleteRef.current = true;
+        }
+
+        // Gate on audio readiness — re-fires when audioReady changes
+        if (!flyoverProgress.audioReady) {
+          console.log(`[Flyover] Waiting for audio... ${flyoverProgress.audioReadyCount}/${waypoints.length} ready`);
+          return;
+        }
+
+        // All audio ready — transition to flying
+        introCompleteRef.current = false;
         setFlyoverProgress((prev) => prev ? { ...prev, state: "flying" } : null);
         return;
       }
@@ -416,13 +667,12 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
           venue: ev.venue,
           startDate: ev.startDate,
           source: ev.source,
-          price: ev.price,
         });
         selectEventHighlight(map, waypoint.center, ev.imageUrl, cardInfo);
 
         // Fly to waypoint
         await animateToWaypoint(map, waypoint);
-        if (flyoverAbortRef.current) return;
+        if (isStale()) return;
 
         // Wait for intro audio to finish before playing waypoint audio
         // This prevents cutting off the intro message
@@ -431,13 +681,15 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
           await introPromiseRef.current;
           introPromiseRef.current = null; // Clear after first wait
         }
+        if (isStale()) return;
 
         // Start narration + gentle orbital drift during speech
         setFlyoverProgress((prev) =>
           prev ? { ...prev, state: "narrating", currentNarrative: waypoint.narrative } : null,
         );
 
-        // Play audio and orbit concurrently
+        // Play audio and orbit concurrently — orbit follows audio duration
+        const orbitDone = { current: false };
         const audioPromise = (async () => {
           try {
             if (waypoint.audioBuffer) {
@@ -450,22 +702,27 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
           }
         })();
 
+        // Merged abort ref: stops orbit when audio finishes OR flyover is aborted/skipped
+        const mergedAbortRef = {
+          get current() { return flyoverAbortRef.current || orbitDone.current; },
+        };
+
         const orbitPromise = orbitWaypoint(map, waypoint.center, {
-          duration: 8000,
+          duration: 30000,  // generous upper bound — audio determines real duration
           degreesPerOrbit: 25,
-          abortRef: flyoverAbortRef,
+          abortRef: mergedAbortRef,
         });
 
-        // Wait for audio to finish (orbit will be cancelled by abortRef if needed)
+        // Wait for FULL narration before advancing
         await audioPromise;
-        // Don't wait for orbit to finish — audio determines pacing
+        orbitDone.current = true; // signal orbit to stop naturally
         void orbitPromise;
 
-        if (flyoverAbortRef.current) return;
+        if (isStale()) return;
 
         // Brief pause after narration
         await new Promise((resolve) => setTimeout(resolve, 800));
-        if (flyoverAbortRef.current) return;
+        if (isStale()) return;
 
         // Move to next waypoint or complete
         const next = nextWaypoint(flyoverProgress);
@@ -488,7 +745,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
       runFlyover();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally using granular deps to avoid re-running on every progress update
-  }, [map, flyoverProgress?.state, flyoverProgress?.currentIndex, flyoverProgress?.isPaused]);
+  }, [map, flyoverProgress?.state, flyoverProgress?.currentIndex, flyoverProgress?.isPaused, flyoverProgress?.audioReady]);
 
   // Flyover controls
   const handleFlyoverPause = useCallback(() => {
@@ -497,8 +754,10 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
 
   const handleFlyoverStop = useCallback(() => {
     flyoverAbortRef.current = true;
+    flyoverGenRef.current++;
     introPlayingRef.current = false;
     introPromiseRef.current = null;
+    introCompleteRef.current = false;
     stopFlyoverAudio();
     stopSpeaking();
     void stopBackgroundMusic();
@@ -506,12 +765,21 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
   }, []);
 
   const handleFlyoverNext = useCallback(() => {
+    flyoverAbortRef.current = true;
+    flyoverGenRef.current++;
     stopSpeaking();
+    stopFlyoverAudio();
+    // Don't reset flyoverAbortRef here — the new effect's runFlyover will
+    // reset it, ensuring old RAF callbacks see true and stop first.
     setFlyoverProgress((prev) => (prev ? nextWaypoint(prev) : null));
   }, []);
 
   const handleFlyoverJumpTo = useCallback((index: number) => {
+    flyoverAbortRef.current = true;
+    flyoverGenRef.current++;
     stopSpeaking();
+    stopFlyoverAudio();
+    // Don't reset flyoverAbortRef here — same reason as handleFlyoverNext.
     setFlyoverProgress((prev) => {
       if (!prev || index < 0 || index >= prev.waypoints.length) return prev;
       return {
@@ -546,8 +814,12 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
 
   const handleGetDirections = useCallback(
     (coordinates: [number, number]) => {
-      // ── Clear any active map selection (show-on-map highlight, popup orbit, etc.) ──
-      clearSelectionRef.current?.();
+      // ── Stop orbit/dismiss but keep the highlight card above the destination ──
+      clearSelectionRef.current?.(/* keepHighlight */ true);
+      map?.stop();
+
+      // Close events panel — directions and events panels are mutually exclusive
+      setEventsPanelOpen(false);
 
       // Show loading panel immediately (before geolocation resolves)
       setDirectionsLoading(true);
@@ -572,19 +844,26 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
         },
         (geoErr) => {
           console.warn("[Directions] Geolocation failed:", geoErr.code, geoErr.message);
-          // Show error — do NOT silently fall back to map center
+          // Timeout (code 3) → fall back to map center instead of showing error
+          if (geoErr.code === 3 && map) {
+            const center = map.getCenter();
+            const origin: [number, number] = [center.lng, center.lat];
+            console.log("[Directions] GPS timeout, falling back to map center:", origin);
+            setDirectionsOriginIsGps(false);
+            fetchDirections(origin, coordinates, directionsProfile);
+            return;
+          }
+          // Permission denied (code 1) or other errors show message
           const reason = geoErr.code === 1
             ? "Location permission denied. Please allow location access in your browser settings."
-            : geoErr.code === 3
-              ? "Location request timed out. Please check your GPS signal and try again."
-              : "Could not determine your location. Please check location settings.";
+            : "Could not determine your location. Please check location settings.";
           setDirectionsError(reason);
           setDirectionsLoading(false);
         },
-        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
       );
     },
-    [directionsProfile, fetchDirections],
+    [map, directionsProfile, fetchDirections],
   );
 
   // Register directions handler with parent
@@ -595,18 +874,79 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
   /** Gets directions to an event from the user's current location. */
   const handleEventDirections = useCallback(
     (event: EventEntry) => {
-      if (event.coordinates) {
-        handleGetDirections(event.coordinates as [number, number]);
-      }
+      if (!event.coordinates || !map) return;
+      const coords = event.coordinates as [number, number];
+
+      // Show golden highlight card above the destination before starting directions
+      const cardInfo = buildCardInfo({
+        title: event.title,
+        venue: event.venue,
+        startDate: event.startDate,
+        source: event.source,
+      });
+      selectEventHighlight(map, coords, event.imageUrl, cardInfo);
+
+      handleGetDirections(coords);
     },
-    [handleGetDirections],
+    [map, handleGetDirections],
   );
 
   // Open event detail in the dropdown from a map popup click
   const [detailEventId, setDetailEventId] = useState<string | null>(null);
+
+  // Close data layers when event detail, directions, or flyover become active
+  const directionsActive = !!directionsRoute || directionsLoading;
+  const flyoverActive = !!flyoverProgress && flyoverProgress.state !== "idle" && flyoverProgress.state !== "complete";
+
+  // Notify parent when flyover active state changes (for chat hide/restore)
+  useEffect(() => {
+    onFlyoverActiveChange?.(flyoverActive);
+  }, [flyoverActive, onFlyoverActiveChange]);
+  useEffect(() => {
+    if (detailEventId || directionsActive || flyoverActive) {
+      dlDispatch({ type: "CLEAR" });
+    }
+  }, [detailEventId, directionsActive, flyoverActive]);
+
+  const handleCloseDirections = useCallback(() => {
+    // Only clean up the highlight if directions were actually active
+    const wasActive = !!directionsRoute || directionsLoading || !!directionsDestination;
+    setDirectionsRoute(null);
+    setDirectionsOrigin(null);
+    setDirectionsDestination(null);
+    setDirectionsError(null);
+    setDirectionsLoading(false);
+    setDirectionsStepCoord(null);
+    setDirectionsOriginIsGps(false);
+    if (wasActive && map) deselectEventHighlight(map);
+  }, [map, directionsRoute, directionsLoading, directionsDestination]);
+
   const handleOpenDetail = useCallback((eventId: string) => {
     setDetailEventId(eventId);
-  }, []);
+    // Auto-open events panel when detail is requested
+    setEventsPanelOpen(true);
+    // Close data layers — event detail and data layers are mutually exclusive
+    dlDispatch({ type: "CLEAR" });
+    // Close directions — event detail and directions are mutually exclusive
+    handleCloseDirections();
+  }, [handleCloseDirections]);
+
+  /** Toggle events panel visibility — clears data layers and directions when opening. */
+  const handleToggleEventsPanel = useCallback(() => {
+    setEventsPanelOpen((prev) => {
+      if (!prev) {
+        dlDispatch({ type: "CLEAR" }); // opening → clear data layers
+        handleCloseDirections(); // opening → close directions panel
+      }
+      return !prev;
+    });
+  }, [handleCloseDirections]);
+
+  /** Wraps chat toggle to also clear data layers when opening. */
+  const handleToggleChatVisible = useCallback(() => {
+    if (!chatVisible) dlDispatch({ type: "CLEAR" }); // opening → clear data layers
+    onToggleChatVisible?.();
+  }, [chatVisible, onToggleChatVisible]);
 
   // Handle AI-driven filter changes (preset and/or category)
   const handleFilterChange = useCallback(
@@ -631,6 +971,17 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
     onOpenDetailRequest?.(handleOpenDetail);
   }, [onOpenDetailRequest, handleOpenDetail]);
 
+  /** Close the event detail panel and events dropdown. */
+  const handleCloseDetail = useCallback(() => {
+    setDetailEventId(null);
+    setEventsPanelOpen(false);
+  }, []);
+
+  // Register close-detail handler with parent
+  useEffect(() => {
+    onCloseDetailRequest?.(handleCloseDetail);
+  }, [onCloseDetailRequest, handleCloseDetail]);
+
   // Cinematic "show on map" — fly to event with rotation + info card
   const showOnMapOrbitRef = useRef<number>(0);
   const showOnMapDismissRef = useRef<HTMLButtonElement | null>(null);
@@ -645,6 +996,9 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
       const event = events.find((e) => e.id === eventId);
       if (!event) return;
 
+      // Clear data layers — show-on-map and data layers are mutually exclusive
+      dlDispatch({ type: "CLEAR" });
+
       // ── Clear ANY existing selection (popup click OR previous show-on-map) ──
       clearSelectionRef.current?.();
 
@@ -656,7 +1010,6 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
         venue: event.venue,
         startDate: event.startDate,
         source: event.source,
-        price: event.price,
       });
 
       // Show highlight card + golden pulse on the dot
@@ -692,7 +1045,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
       map.on("render", positionDismiss);
 
       // ── Local cleanup function for THIS selection ──
-      const cleanupThisSelection = () => {
+      const cleanupThisSelection = (keepHighlight = false) => {
         cancelAnimationFrame(showOnMapOrbitRef.current);
         showOnMapOrbitRef.current = 0;
         if (showOnMapRenderRef.current) {
@@ -702,7 +1055,7 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
         showOnMapDismissRef.current?.remove();
         showOnMapDismissRef.current = null;
         showOnMapCoordsRef.current = null;
-        deselectEventHighlight(map);
+        if (!keepHighlight) deselectEventHighlight(map);
         if (clearSelectionRef.current === cleanupThisSelection) {
           clearSelectionRef.current = null;
         }
@@ -774,21 +1127,11 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
     [directionsOrigin, directionsDestination, fetchDirections],
   );
 
-  const handleCloseDirections = useCallback(() => {
-    setDirectionsRoute(null);
-    setDirectionsOrigin(null);
-    setDirectionsDestination(null);
-    setDirectionsError(null);
-    setDirectionsLoading(false);
-    setDirectionsStepCoord(null);
-    setDirectionsOriginIsGps(false);
-  }, []);
-
   /** Fly the map camera to a step coordinate and update the green navigation dot. */
   const handleFlyToStep = useCallback(
     (coordinate: [number, number]) => {
-      // Cancel any active show-on-map orbit so it doesn't fight the flyTo
-      clearSelectionRef.current?.();
+      // Cancel any active show-on-map orbit so it doesn't fight the flyTo, but keep the card
+      clearSelectionRef.current?.(/* keepHighlight */ true);
       setDirectionsStepCoord(coordinate);
       if (!map) return;
       map.stop();
@@ -801,50 +1144,6 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
     },
     [map],
   );
-
-  // --- Isochrone handlers ---
-  const handleToggleIsochrone = useCallback(() => {
-    if (isochroneActive) {
-      setIsochroneActive(false);
-      setIsochroneResult(null);
-      return;
-    }
-
-    setIsochroneActive(true);
-    setIsochroneLoading(true);
-
-    const fetchIsochrone = (center: [number, number]) => {
-      getIsochrone(center, ISOCHRONE_MINUTES, ISOCHRONE_PROFILE)
-        .then((result) => {
-          setIsochroneResult(result);
-        })
-        .catch((err) => {
-          console.error("[Isochrone] Error:", err);
-          setIsochroneActive(false);
-        })
-        .finally(() => setIsochroneLoading(false));
-    };
-
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => fetchIsochrone([pos.coords.longitude, pos.coords.latitude]),
-        () => {
-          // Fallback to map center
-          if (map) {
-            const c = map.getCenter();
-            fetchIsochrone([c.lng, c.lat]);
-          } else {
-            setIsochroneActive(false);
-            setIsochroneLoading(false);
-          }
-        },
-        { enableHighAccuracy: true, timeout: 5000 },
-      );
-    } else if (map) {
-      const c = map.getCenter();
-      fetchIsochrone([c.lng, c.lat]);
-    }
-  }, [isochroneActive, map]);
 
   return (
     <MapContext value={map}>
@@ -869,43 +1168,174 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
           style={{ position: "absolute", inset: 0 }}
         />
 
-        <MapControls
-          open={controlsOpen}
-          events={events}
-          eventCount={events.length}
-          highlightedEventIds={highlightedEventIds}
-          effectiveEventIds={effectiveEventIds}
-          aiResultsActive={aiResultsActive}
-          activePreset={activePreset}
-          onPresetChange={setActivePreset}
-          onAskAbout={onAskAbout}
-          onShowEventOnMap={handleShowEventOnMap}
-          onGetDirections={handleEventDirections}
-          onGetDirectionsToCoord={handleGetDirections}
-          detailEventId={detailEventId}
-          onClearDetailEvent={() => setDetailEventId(null)}
-          directionsActive={directionsRoute !== null || directionsLoading || !!directionsError}
-        />
+        <MapControls />
 
         <MapMarkers events={events} styleLoaded={styleLoaded} isDark={isDark} visibleEventIds={effectiveEventIds} highlightedEventIds={highlightedEventIds} />
         <MapHotspots events={events} styleLoaded={styleLoaded} isDark={isDark} />
-        <MapPopups onAskAbout={onAskAbout} onGetDirections={handleGetDirections} onOpenDetail={handleOpenDetail} clearSelectionRef={clearSelectionRef} />
+        <MapPopups onAskAbout={onAskAbout} onGetDirections={handleGetDirections} onOpenDetail={handleOpenDetail} clearSelectionRef={clearSelectionRef} onInteraction={() => dlDispatch({ type: "CLEAR" })} />
         <MapDirections route={directionsRoute} origin={directionsOrigin} destination={directionsDestination} stepCoordinate={directionsStepCoord} />
-        <MapIsochrone result={isochroneResult} events={events} />
-        <MapStatusBar
-          mode3D={mode3D}
-          onToggle3D={handleToggle3D}
-          onStartPersonalization={onStartPersonalization}
-          isochroneActive={isochroneActive}
-          isochroneLoading={isochroneLoading}
-          onToggleIsochrone={handleToggleIsochrone}
+
+        {/* Data layers */}
+        <MapWeatherLayer
+          active={dlState.active.has("weather")}
+          subType={dlState.weatherSubType}
+          onDataReady={(data) => handleLayerDataReady("weather", data)}
+          onLoadingChange={(loading) => handleLayerLoadingChange("weather", loading)}
+        />
+        <MapTransitShapesLayer active={dlState.active.has("transit")} />
+        <MapTransitLayer
+          active={dlState.active.has("transit")}
+          onDataReady={(data) => handleLayerDataReady("transit", data)}
+          onLoadingChange={(loading) => handleLayerLoadingChange("transit", loading)}
+        />
+        <MapCityDataLayer
+          active={dlState.active.has("cityData")}
+          onDataReady={(data) => handleLayerDataReady("cityData", data)}
+          onLoadingChange={(loading) => handleLayerLoadingChange("cityData", loading)}
+        />
+        <MapNwsAlertsLayer
+          active={dlState.active.has("nwsAlerts")}
+          onDataReady={(data) => handleLayerDataReady("nwsAlerts", data)}
+          onLoadingChange={(loading) => handleLayerLoadingChange("nwsAlerts", loading)}
+        />
+        <MapAircraftLayer
+          active={dlState.active.has("aircraft")}
+          onDataReady={(data) => handleLayerDataReady("aircraft", data)}
+          onLoadingChange={(loading) => handleLayerLoadingChange("aircraft", loading)}
+        />
+        <MapSunrailLayer
+          active={dlState.active.has("sunrail")}
+          onDataReady={(data) => handleLayerDataReady("sunrail", data)}
+          onLoadingChange={(loading) => handleLayerLoadingChange("sunrail", loading)}
+        />
+        <MapCountyDataLayer
+          active={dlState.active.has("countyData")}
+          onDataReady={(data) => handleLayerDataReady("countyData", data)}
+          onLoadingChange={(loading) => handleLayerLoadingChange("countyData", loading)}
+        />
+        <MapDevelopmentsLayer
+          active={dlState.active.has("developments")}
+          onDataReady={(data) => handleLayerDataReady("developments", data)}
+          onLoadingChange={(loading) => handleLayerLoadingChange("developments", loading)}
+          selectedIndex={selectedDevIndex}
+          onSelectIndex={setSelectedDevIndex}
+        />
+        <MapEvChargersLayer
+          active={dlState.active.has("evChargers")}
+          onDataReady={(data) => handleLayerDataReady("evChargers", data)}
+          onLoadingChange={(loading) => handleLayerLoadingChange("evChargers", loading)}
+        />
+        <MapAirQualityLayer
+          active={dlState.active.has("airQuality")}
+          onDataReady={(data) => handleLayerDataReady("airQuality", data)}
+          onLoadingChange={(loading) => handleLayerLoadingChange("airQuality", loading)}
+        />
+
+        {/* Unified data layer info panel (bottom-left) */}
+        {dlState.active.size > 0 && (() => {
+          const activeKey = Array.from(dlState.active)[0];
+          const layerData = dlState.data[activeKey];
+          const isLayerLoading = dlState.loading.has(activeKey);
+          const hasAnalysis = dlState.analysis?.key === activeKey;
+          const isAnalyzing = !hasAnalysis && (isLayerLoading || !!layerData);
+          return (
+            <DataLayerInfoPanel
+              layerKey={activeKey}
+              data={layerData}
+              isLoading={isLayerLoading}
+              isAnalyzing={isAnalyzing}
+              analysisContent={hasAnalysis ? dlState.analysis!.content : undefined}
+              analysisModel={hasAnalysis ? dlState.analysis!.model : undefined}
+              weatherSubType={activeKey === "weather" ? dlState.weatherSubType : undefined}
+              onClose={() => dlDispatch({ type: "DISMISS_ANALYSIS" })}
+              selectedDevIndex={activeKey === "developments" ? selectedDevIndex : undefined}
+              onSelectDevIndex={activeKey === "developments" ? setSelectedDevIndex : undefined}
+            />
+          );
+        })()}
+
+        <MapToolbar
           activePreset={activePreset}
           onPresetChange={setActivePreset}
           aiResultsActive={aiResultsActive}
           onClearAiResults={onClearHighlights}
+          distanceFilter={distanceFilter}
+          onDistanceFilterChange={setDistanceFilter}
+          hasUserLocation={hasUserLocation}
+          onLocationUpdate={handleLocationUpdate}
+          onGetDirectionsToCoord={handleGetDirections}
+          activeDataLayers={dlState.active}
+          loadingDataLayers={dlState.loading}
+          onToggleDataLayer={handleToggleDataLayer}
+          dataLayerData={dlState.data}
+          weatherSubType={dlState.weatherSubType}
+          onWeatherSubTypeChange={(subType) => dlDispatch({ type: "SET_WEATHER_SUB_TYPE", subType })}
+          mode3D={mode3D}
+          onToggle3D={handleToggle3D}
           onLocationChange={onLocationChange}
+          onStartPersonalization={onStartPersonalization}
+          onDemo={handleDemo}
+          disableAutoRotate={
+            !!directionsRoute || directionsLoading ||
+            (!!flyoverProgress && flyoverProgress.state !== "idle" && flyoverProgress.state !== "complete")
+          }
+          showCoordinates={showCoordinates}
+          onToggleCoordinates={() => setShowCoordinates((p) => !p)}
+          eventsPanelOpen={eventsPanelOpen}
+          onToggleEventsPanel={handleToggleEventsPanel}
+          chatVisible={chatVisible}
+          onToggleChatVisible={handleToggleChatVisible}
+          chatPosition={chatPosition}
+          onChatPositionChange={onChatPositionChange}
+          onToolbarTabOpen={() => dlDispatch({ type: "CLEAR" })}
+          onClearDataLayers={() => dlDispatch({ type: "CLEAR" })}
+          localVenues={localVenues}
         />
 
+        <MapStatusBar visible={showCoordinates} />
+
+        {/* Events slide-in panel */}
+        <AnimatePresence>
+          {eventsPanelOpen && (
+            <motion.div
+              initial={{ x: -360, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -360, opacity: 0 }}
+              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              className="grain-texture absolute z-20 flex flex-col overflow-hidden rounded-2xl shadow-2xl"
+              style={{
+                top: "5.5rem",
+                left: "1rem",
+                width: "min(380px, calc(100vw - 2rem))",
+                maxHeight: "min(65vh, calc(100vh - 8rem))",
+                background: "rgba(10, 10, 15, 0.82)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                backdropFilter: "blur(40px)",
+                WebkitBackdropFilter: "blur(40px)",
+              }}
+            >
+              <EventsPanelContent
+                events={events}
+                effectiveEventIds={effectiveEventIds}
+                aiResultsActive={aiResultsActive}
+                activePreset={activePreset}
+                onPresetChange={setActivePreset}
+                onAskAbout={(title) => {
+                  onAskAbout?.(title);
+                  setEventsPanelOpen(false);
+                }}
+                onShowOnMap={(event) => handleShowEventOnMap(event.id)}
+                onGetDirections={(event) => {
+                  handleEventDirections(event);
+                  setEventsPanelOpen(false);
+                }}
+                onClose={() => setEventsPanelOpen(false)}
+                detailEventId={detailEventId}
+                onClearDetailEvent={() => setDetailEventId(null)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Directions panel */}
         {(directionsRoute || directionsLoading || directionsError) && (
@@ -936,6 +1366,9 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
         )}
 
         {children}
+
+        {/* First-time map guide */}
+        <MapGuide />
       </div>
     </MapContext>
   );

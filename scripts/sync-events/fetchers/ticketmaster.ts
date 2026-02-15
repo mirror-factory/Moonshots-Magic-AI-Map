@@ -66,7 +66,7 @@ export async function fetchTicketmasterEvents(): Promise<EventEntry[]> {
       if (tmEvents.length === 0) break;
 
       for (const tm of tmEvents) {
-        events.push(normalizeTmEvent(tm));
+        events.push(await normalizeTmEvent(tm));
       }
 
       const totalPages = data.page?.totalPages ?? 1;

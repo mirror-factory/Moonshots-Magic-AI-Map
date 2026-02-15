@@ -10,17 +10,55 @@ const CARTESIA_API_URL = "https://api.cartesia.ai/tts/bytes";
 /** Default voice ID for Cartesia Sonic (Narrator Lady). */
 const DEFAULT_VOICE_ID = "b7d50908-b17c-442d-ad8d-810c63997ed9";
 
-/** Audio context for playback. */
+// ── Request concurrency limiter ──────────────────────────────────────
+/** Maximum number of concurrent Cartesia API requests. */
+const MAX_CONCURRENT = 2;
+/** Number of requests currently in flight. */
+let activeRequests = 0;
+/** Queue of callbacks waiting for a slot. */
+const requestQueue: Array<() => void> = [];
+/** Set of in-flight AbortControllers for cancellation. */
+const activeAbortControllers = new Set<AbortController>();
+/**
+ * Cancellation epoch — incremented by {@link cancelAllGenerations}.
+ * Requests that were queued at an older epoch bail immediately after
+ * acquiring their slot, preventing them from hitting the API.
+ */
+let cancelEpoch = 0;
 
+/** Acquires a request slot, waiting if at capacity. */
+function acquireSlot(): Promise<void> {
+  if (activeRequests < MAX_CONCURRENT) {
+    activeRequests++;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => requestQueue.push(() => { activeRequests++; resolve(); }));
+}
 
-/** Current audio source for stopping playback. */
-let currentSource: AudioBufferSourceNode | null = null;
+/** Releases a request slot and dequeues the next waiter. */
+function releaseSlot(): void {
+  activeRequests--;
+  const next = requestQueue.shift();
+  if (next) next();
+}
 
-/** Current audio element for HTML5 playback. */
-let currentAudio: HTMLAudioElement | null = null;
+/**
+ * Cancels all in-flight audio generation requests and drains the queue.
+ * Increments {@link cancelEpoch} so drained requests bail after acquiring
+ * their slot instead of making new API calls.
+ */
+export function cancelAllGenerations(): void {
+  cancelEpoch++;
+  for (const ac of activeAbortControllers) ac.abort();
+  activeAbortControllers.clear();
+  // Drain waiting queue — callbacks will check cancelEpoch and bail
+  while (requestQueue.length > 0) {
+    const cb = requestQueue.shift();
+    if (cb) { activeRequests++; cb(); }
+  }
+}
 
-/** Whether audio is currently playing. */
-let isPlaying = false;
+import * as audioManager from "@/lib/audio/audio-manager";
 
 /**
  * Speaks text using Cartesia Sonic API.
@@ -84,46 +122,8 @@ export async function speakWithCartesia(
     console.log("[Cartesia] Response received, creating audio...");
 
     const arrayBuffer = await response.arrayBuffer();
-    const blob = new Blob([arrayBuffer], { type: "audio/wav" });
-    const audioUrl = URL.createObjectURL(blob);
-
-    // Use HTML5 Audio for reliable playback
-    currentAudio = new Audio(audioUrl);
-    currentAudio.volume = 1.0;
-
-    isPlaying = true;
-
-    return new Promise((resolve, reject) => {
-      if (!currentAudio) {
-        reject(new Error("Audio element not created"));
-        return;
-      }
-
-      currentAudio.onended = () => {
-        console.log("[Cartesia] Playback ended");
-        isPlaying = false;
-        currentAudio = null;
-        URL.revokeObjectURL(audioUrl);
-        resolve();
-      };
-
-      currentAudio.onerror = (e) => {
-        console.error("[Cartesia] Audio playback error:", e);
-        isPlaying = false;
-        currentAudio = null;
-        URL.revokeObjectURL(audioUrl);
-        reject(new Error("Audio playback failed"));
-      };
-
-      console.log("[Cartesia] Starting playback...");
-      currentAudio.play().catch((e) => {
-        console.error("[Cartesia] Play failed:", e);
-        isPlaying = false;
-        currentAudio = null;
-        URL.revokeObjectURL(audioUrl);
-        reject(e);
-      });
-    });
+    const { promise } = audioManager.playBuffer(arrayBuffer);
+    return promise;
   } catch (error) {
     console.error("[Cartesia] TTS error:", error);
     // Fallback to Web Speech API
@@ -177,55 +177,32 @@ export function speakWithWebSpeech(text: string): Promise<void> {
 
     utterance.onend = () => {
       console.log("[WebSpeech] Speech ended");
-      isPlaying = false;
       resolve();
     };
     utterance.onerror = (event) => {
       console.error("[WebSpeech] Error:", event.error);
-      isPlaying = false;
       reject(event.error);
     };
 
-    isPlaying = true;
     window.speechSynthesis.speak(utterance);
   });
 }
 
 /**
- * Stops any currently playing speech.
+ * Stops any currently playing speech and resolves any pending audio promise.
+ * This ensures callers awaiting playback are unblocked immediately,
+ * preventing zombie async loops from continuing after a skip/stop.
  */
 export function stopSpeaking(): void {
-  // Stop HTML5 Audio (Cartesia WAV)
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio.currentTime = 0;
-    currentAudio = null;
-  }
-
-  // Stop AudioContext source (legacy)
-  if (currentSource) {
-    try {
-      currentSource.stop();
-    } catch {
-      // Already stopped
-    }
-    currentSource = null;
-  }
-
-  // Stop Web Speech
-  if (typeof window !== "undefined" && "speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
-  }
-
-  isPlaying = false;
+  audioManager.stopForeground();
 }
 
 /**
  * Checks if audio is currently playing.
- * @returns True if speaking.
+ * @returns True if speaking (always false now — kept for API compat).
  */
 export function isSpeaking(): boolean {
-  return isPlaying;
+  return false;
 }
 
 /**
@@ -242,55 +219,18 @@ export async function speak(text: string): Promise<void> {
  * @returns Promise that resolves when playback completes.
  */
 export async function playAudioBuffer(buffer: ArrayBuffer): Promise<void> {
-  // Stop any current playback
-  stopSpeaking();
-
-  const blob = new Blob([buffer], { type: "audio/wav" });
-  const audioUrl = URL.createObjectURL(blob);
-
-  currentAudio = new Audio(audioUrl);
-  currentAudio.volume = 1.0;
-  isPlaying = true;
-
-  return new Promise((resolve, reject) => {
-    if (!currentAudio) {
-      reject(new Error("Audio element not created"));
-      return;
-    }
-
-    currentAudio.onended = () => {
-      console.log("[Audio] Playback ended");
-      isPlaying = false;
-      currentAudio = null;
-      URL.revokeObjectURL(audioUrl);
-      resolve();
-    };
-
-    currentAudio.onerror = (e) => {
-      console.error("[Audio] Playback error:", e);
-      isPlaying = false;
-      currentAudio = null;
-      URL.revokeObjectURL(audioUrl);
-      reject(new Error("Audio playback failed"));
-    };
-
-    currentAudio.play().catch((e) => {
-      console.error("[Audio] Play failed:", e);
-      isPlaying = false;
-      currentAudio = null;
-      URL.revokeObjectURL(audioUrl);
-      reject(e);
-    });
-  });
+  const { promise } = audioManager.playBuffer(buffer);
+  return promise;
 }
 
 /**
  * Generates audio from Cartesia API without playing it.
- * Optimized for speed with higher speaking rate and parallel requests.
+ * Rate-limited to {@link MAX_CONCURRENT} concurrent requests.
+ * Supports cancellation via {@link cancelAllGenerations}.
  * @param text - Text to synthesize.
  * @param voiceId - Optional voice ID override.
  * @param fast - Use faster speaking speed (default true for flyovers).
- * @returns Promise resolving to ArrayBuffer of audio data, or null if failed.
+ * @returns Promise resolving to ArrayBuffer of audio data, or null if failed/cancelled.
  */
 export async function generateAudioBuffer(
   text: string,
@@ -304,9 +244,25 @@ export async function generateAudioBuffer(
     return null;
   }
 
+  // Capture epoch before waiting — if it changes, a cancel fired while queued
+  const myEpoch = cancelEpoch;
+
+  // Wait for a request slot
+  await acquireSlot();
+
+  // Bail if cancelAllGenerations() fired while we were queued
+  if (cancelEpoch !== myEpoch) {
+    releaseSlot();
+    return null;
+  }
+
+  const ac = new AbortController();
+  activeAbortControllers.add(ac);
+
   const startTime = Date.now();
 
   try {
+
     const response = await fetch(CARTESIA_API_URL, {
       method: "POST",
       headers: {
@@ -331,6 +287,7 @@ export async function generateAudioBuffer(
           },
         }),
       }),
+      signal: ac.signal,
     });
 
     if (!response.ok) {
@@ -345,7 +302,14 @@ export async function generateAudioBuffer(
 
     return buffer;
   } catch (error) {
+    if ((error as Error).name === "AbortError") {
+      console.log("[Cartesia] Generation cancelled");
+      return null;
+    }
     console.error("[Cartesia] Generation error:", error);
     return null;
+  } finally {
+    activeAbortControllers.delete(ac);
+    releaseSlot();
   }
 }

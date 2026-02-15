@@ -2,7 +2,7 @@
  * @module components/chat/center-chat
  * Center-stage chat component that replaces the floating FAB chat panel.
  * Always-visible input bar at bottom center, expands upward to show conversation.
- * Shows contextual Ditto greeting based on ambient context.
+ * Shows contextual greeting based on ambient context.
  */
 
 "use client";
@@ -41,7 +41,6 @@ import {
 import {
   PromptInput,
   PromptInputTextarea,
-  PromptInputFooter,
   PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
 import {
@@ -63,18 +62,83 @@ import { MapAction } from "./map-action";
 import { Sparkle } from "@/components/effects/sparkle";
 import { VoiceInputButton } from "./voice-input-button";
 import { speak, stopSpeaking, isSpeaking } from "@/lib/voice/cartesia-tts";
-import { getChatPinned, setChatPinned } from "@/lib/settings";
+import { getChatPinned, setChatPinned, getChatPosition, type ChatPosition } from "@/lib/settings";
 import { getProfile, updateProfile } from "@/lib/profile-storage";
 import { SuggestionTiles } from "./suggestion-tiles";
-import { DittoAvatar, type DittoState } from "./ditto-avatar";
-import { getDittoGreeting } from "./ditto-personality";
 import { useMap } from "@/components/map/use-map";
 import type { AmbientContext } from "@/lib/context/ambient-context";
 import type { DatePreset } from "@/lib/map/event-filters";
 import type { EventCategory } from "@/lib/registries/types";
 
+/** Prompts to cycle through in the typewriter placeholder. */
+const TYPEWRITER_PROMPTS = [
+  "Ask me about the next Joy Break event",
+  "What's new in Orlando this week",
+  "Tell me about Orlando's moonshots and magic",
+  "Find free events near Lake Eola",
+  "Take me on a flyover tour",
+];
+
+/** Typing speed in ms per character. */
+const TYPE_SPEED = 55;
+/** Deleting speed in ms per character. */
+const DELETE_SPEED = 25;
+/** Pause at full text before deleting (ms). */
+const PAUSE_FULL = 2200;
+/** Pause after deleting before typing next (ms). */
+const PAUSE_EMPTY = 400;
+
+/**
+ * Hook that returns an animated typewriter string cycling through prompts.
+ * Returns empty string when paused (e.g. input is focused).
+ */
+function useTypewriter(active: boolean): string {
+  const [text, setText] = useState("");
+  const stateRef = useRef({ promptIdx: 0, charIdx: 0, deleting: false });
+
+  useEffect(() => {
+    if (!active) {
+      setText("");
+      return;
+    }
+
+    const s = stateRef.current;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const tick = () => {
+      const prompt = TYPEWRITER_PROMPTS[s.promptIdx];
+
+      if (s.deleting) {
+        s.charIdx--;
+        setText(prompt.slice(0, s.charIdx));
+        if (s.charIdx === 0) {
+          s.deleting = false;
+          s.promptIdx = (s.promptIdx + 1) % TYPEWRITER_PROMPTS.length;
+          timer = setTimeout(tick, PAUSE_EMPTY);
+        } else {
+          timer = setTimeout(tick, DELETE_SPEED);
+        }
+      } else {
+        s.charIdx++;
+        setText(prompt.slice(0, s.charIdx));
+        if (s.charIdx === prompt.length) {
+          s.deleting = true;
+          timer = setTimeout(tick, PAUSE_FULL);
+        } else {
+          timer = setTimeout(tick, TYPE_SPEED);
+        }
+      }
+    };
+
+    timer = setTimeout(tick, 800);
+    return () => clearTimeout(timer);
+  }, [active]);
+
+  return text;
+}
+
 interface CenterChatProps {
-  /** Externally-provided input (e.g. from "Ask Ditto about" button). */
+  /** Externally-provided input (e.g. from "Ask AI about" button). */
   initialInput?: string;
   /** Called after the external input is consumed. */
   onClearInitialInput?: () => void;
@@ -92,8 +156,14 @@ interface CenterChatProps {
   onShowEventOnMap?: (eventId: string) => void;
   /** Called to open event detail in the events dropdown. */
   onOpenDetail?: (eventId: string) => void;
+  /** Called to toggle a data layer on the map. */
+  onToggleDataLayer?: (layerKey: string, action: "on" | "off" | "toggle") => void;
   /** Ambient context for personalization. */
   ambientContext?: AmbientContext | null;
+  /** Controls visibility — uses display:none to preserve useChat state. */
+  visible?: boolean;
+  /** Chat position mode — center (bottom-center) or right (right side panel). */
+  chatPosition?: ChatPosition;
 }
 
 /** Quick action items for the dropdown menu. */
@@ -119,16 +189,23 @@ export function CenterChat({
   onChangeFilter,
   onShowEventOnMap,
   onOpenDetail,
+  onToggleDataLayer,
   ambientContext = null,
+  visible = true,
+  chatPosition = "center",
 }: CenterChatProps) {
   const [expanded, setExpanded] = useState(false);
   const [pinned, setPinned] = useState(() => getChatPinned());
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
-  const [dittoState, setDittoState] = useState<DittoState>("greeting");
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  /** Currently selected Q&A options (for multi-select before send). */
+  const [selectedQaOptions, setSelectedQaOptions] = useState<Set<string>>(new Set());
+  /** Whether a Q&A send is in flight — prevents rapid multi-send. */
+  const [qaSending, setQaSending] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const greetingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const map = useMap();
+
 
   /** Show an event on the map with cinematic fly + rotation + card. */
   const handleShowOnMap = useCallback(
@@ -302,38 +379,22 @@ export function CenterChat({
           output: { started: true },
         });
       }
+
+      if (toolCall.toolName === "toggleDataLayer") {
+        const input = toolCall.input as { layerKey: string; action: "on" | "off" | "toggle" };
+        onToggleDataLayer?.(input.layerKey, input.action);
+        addToolOutput({
+          tool: "toggleDataLayer",
+          toolCallId: toolCall.toolCallId,
+          output: { toggled: true, layerKey: input.layerKey, action: input.action },
+        });
+      }
     },
   });
 
-  // Ditto state machine: greeting → idle → thinking/celebrating
-  useEffect(() => {
-    if (status === "streaming" || status === "submitted") {
-      setDittoState("thinking");
-    } else if (messages.length > 0) {
-      // Briefly celebrate when events arrive
-      const lastMsg = messages[messages.length - 1];
-      const hasEvents = lastMsg?.role === "assistant" && lastMsg.parts.some(
-        (p) => p.type.startsWith("tool-searchEvents") || p.type.startsWith("tool-rankEvents"),
-      );
-      if (hasEvents) {
-        setDittoState("celebrating");
-        const timer = setTimeout(() => setDittoState("idle"), 2000);
-        return () => clearTimeout(timer);
-      }
-      setDittoState("idle");
-    }
-  }, [status, messages]);
-
-  // Initial greeting state → idle after 3s
-  useEffect(() => {
-    greetingTimerRef.current = setTimeout(() => {
-      if (messages.length === 0) setDittoState("excited");
-    }, 3000);
-    return () => {
-      if (greetingTimerRef.current) clearTimeout(greetingTimerRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Typewriter is active when: no messages, input not focused, chat collapsed
+  const typewriterActive = messages.length === 0 && !inputFocused && !expanded;
+  const typewriterText = useTypewriter(typewriterActive);
 
   /** Request options that include ambient context in the body (memoized for stable deps). */
   const requestOptions = useMemo(
@@ -357,6 +418,28 @@ export function CenterChat({
     },
     [sendMessage, requestOptions],
   );
+
+  /** Toggle a Q&A option in the multi-select set. */
+  const toggleQaOption = useCallback((opt: string) => {
+    setSelectedQaOptions((prev) => {
+      const next = new Set(prev);
+      if (next.has(opt)) next.delete(opt);
+      else next.add(opt);
+      return next;
+    });
+  }, []);
+
+  /** Send the selected Q&A options as a single message. */
+  const sendQaSelection = useCallback(() => {
+    if (selectedQaOptions.size === 0 || qaSending) return;
+    setQaSending(true);
+    const answer = Array.from(selectedQaOptions).join(", ");
+    setSelectedQaOptions(new Set());
+    setExpanded(true);
+    sendMessage({ text: answer }, requestOptions);
+    // Reset sending lock after a short delay to prevent rapid re-sends
+    setTimeout(() => setQaSending(false), 1500);
+  }, [selectedQaOptions, qaSending, sendMessage, requestOptions]);
 
   const handleVoiceTranscript = useCallback(
     (text: string) => {
@@ -430,25 +513,45 @@ export function CenterChat({
     return () => clearTimeout(timeoutId);
   }, [initialInput, sendMessage, onClearInitialInput]);
 
-  // Auto-expand when messages arrive
+  // Auto-expand when messages arrive + clear Q&A selections
   useEffect(() => {
     if (messages.length > 0) {
       setExpanded(true);
+      setSelectedQaOptions(new Set());
+      setQaSending(false);
     }
   }, [messages.length]);
-
-  const profile = typeof window !== "undefined" ? getProfile() : null;
-  const greeting = getDittoGreeting(ambientContext, profile?.name);
 
   const handleSuggestionSelect = useCallback((query: string) => {
     handleSuggestionClick(query);
   }, [handleSuggestionClick]);
 
+  /** Check if the latest assistant message has active Q&A options (disable text input). */
+  const hasActiveQaOptions = useMemo(() => {
+    const lastMsg = [...messages].reverse().find((m) => m.role === "assistant");
+    if (!lastMsg) return false;
+    return lastMsg.parts.some(
+      (p) => p.type === "text" && /QUESTION:\s*[\s\S]+?\nOPTIONS:/.test((p as { text: string }).text),
+    );
+  }, [messages]);
+
   return (
     <div
       ref={containerRef}
-      className="fixed bottom-6 right-4 z-30 sm:bottom-10 sm:right-8"
-      style={{ width: "min(420px, 88vw)" }}
+      className={chatPosition === "right" ? "fixed right-4 top-16 bottom-4 z-40" : "fixed bottom-4 left-1/2 z-40 sm:bottom-6"}
+      style={{
+        width: chatPosition === "right" ? "min(380px, 90vw)" : "min(680px, 92vw)",
+        ...(chatPosition === "center"
+          ? {
+              transform: visible ? "translateX(-50%) translateY(0)" : "translateX(-50%) translateY(calc(100% + 2rem))",
+            }
+          : {
+              transform: visible ? "translateX(0)" : "translateX(calc(100% + 2rem))",
+            }),
+        opacity: visible ? 1 : 0,
+        pointerEvents: visible ? "auto" : "none",
+        transition: "transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease",
+      }}
     >
       {/* Suggestion tiles - visible only when collapsed and no messages */}
       <AnimatePresence>
@@ -468,36 +571,37 @@ export function CenterChat({
       <div
         className="grain-texture glow-border flex flex-col rounded-2xl shadow-2xl"
         style={{
-          background: "var(--glass-bg)",
-          border: "1px solid var(--glass-border)",
-          backdropFilter: "blur(var(--glass-blur))",
-          WebkitBackdropFilter: "blur(var(--glass-blur))",
-          maxHeight: expanded ? "70vh" : "auto",
+          background: "rgba(10, 10, 15, 0.75)",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          backdropFilter: "blur(40px)",
+          WebkitBackdropFilter: "blur(40px)",
+          maxHeight: chatPosition === "right" ? "100%" : expanded ? "50vh" : "auto",
+          ...(chatPosition === "right" ? { height: "100%" } : {}),
         }}
       >
-        {/* Header + Messages — only when expanded */}
+        {/* Header + Messages — only when expanded (always expanded in right mode) */}
         <AnimatePresence>
-          {expanded && (
+          {(expanded || chatPosition === "right") && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "calc(70vh - 60px)" }}
+              animate={{ opacity: 1, height: chatPosition === "right" ? "100%" : "calc(50vh - 56px)" }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="flex min-h-0 flex-col overflow-hidden"
+              className={`flex min-h-0 flex-col overflow-hidden ${chatPosition === "right" ? "flex-1" : ""}`}
             >
-              {/* Header with Ditto and collapse */}
+              {/* Header with branding and collapse */}
               <div
-                className="flex flex-shrink-0 items-center justify-between border-b px-4 py-2"
-                style={{ borderColor: "var(--border-color)" }}
+                className="flex flex-shrink-0 items-center justify-between border-b px-4 py-1.5"
+                style={{ borderColor: "rgba(255, 255, 255, 0.06)" }}
               >
-                <div className="flex items-center gap-3">
-                  <DittoAvatar state={dittoState} size={36} />
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" style={{ color: "var(--brand-primary, #3560ff)" }} />
                   <div>
                     <h3
                       className="text-sm font-semibold"
                       style={{ color: "var(--text)", fontFamily: "var(--font-chakra-petch)" }}
                     >
-                      Ditto
+                      Moonshots &amp; Magic
                     </h3>
                     <p className="text-[10px]" style={{ color: "var(--text-dim)" }}>
                       Your Orlando event guide
@@ -505,63 +609,6 @@ export function CenterChat({
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  {/* Quick Actions dropdown */}
-                  <div className="relative">
-                    <button
-                      onClick={() => setQuickActionsOpen((prev) => !prev)}
-                      className="rounded-lg p-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-                      aria-label="Quick actions"
-                      title="Quick actions"
-                    >
-                      <Sparkles className="h-4 w-4" style={{ color: quickActionsOpen ? "var(--brand-primary, #3560ff)" : "var(--text-dim)" }} />
-                    </button>
-                    <AnimatePresence>
-                      {quickActionsOpen && (
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.95, y: -4 }}
-                          animate={{ opacity: 1, scale: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.95, y: -4 }}
-                          transition={{ duration: 0.15 }}
-                          className="absolute right-0 top-full z-50 mt-1 w-56 overflow-hidden rounded-xl shadow-xl"
-                          style={{
-                            background: "var(--glass-bg)",
-                            border: "1px solid var(--glass-border)",
-                            backdropFilter: "blur(16px)",
-                          }}
-                        >
-                          <div className="p-1.5">
-                            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-dim)" }}>
-                              Quick Actions
-                            </p>
-                            {QUICK_ACTIONS.map((action) => (
-                              <button
-                                key={action.id}
-                                onClick={() => {
-                                  setQuickActionsOpen(false);
-                                  if (action.id === "presentation") {
-                                    onStartPresentation?.();
-                                  } else if (action.id === "personalize") {
-                                    handleSend("Personalize my experience");
-                                  } else {
-                                    handleSend(action.prompt);
-                                  }
-                                }}
-                                className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-xs transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-                              >
-                                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md" style={{ background: action.color, color: "#fff" }}>
-                                  <action.Icon className="h-3.5 w-3.5" />
-                                </span>
-                                <div className="min-w-0">
-                                  <div className="font-medium" style={{ color: "var(--text)" }}>{action.label}</div>
-                                  <div className="truncate text-[10px]" style={{ color: "var(--text-dim)" }}>{action.desc}</div>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
                   <button
                     onClick={() => setExpanded(false)}
                     className="rounded-lg p-1 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
@@ -591,26 +638,70 @@ export function CenterChat({
                                 const remainingText = part.text
                                   .replace(/QUESTION:\s*[\s\S]+?\nOPTIONS:\s*[\s\S]+?(?:\n|$)/, "")
                                   .trim();
+                                // Only show interactive options on the latest assistant message
+                                const isLatestAssistant =
+                                  index === messages.length - 1 ||
+                                  (index === messages.length - 2 && messages[messages.length - 1]?.role === "user");
                                 return (
                                   <div key={key}>
                                     {remainingText && <MessageResponse>{remainingText}</MessageResponse>}
                                     <MessageResponse>{question}</MessageResponse>
-                                    <div className="mt-2 flex flex-wrap gap-2">
-                                      {options.map((opt) => (
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                      {options.map((opt) => {
+                                        const isSelected = selectedQaOptions.has(opt);
+                                        return (
+                                          <button
+                                            key={opt}
+                                            disabled={!isLatestAssistant || qaSending}
+                                            onClick={() => isLatestAssistant && toggleQaOption(opt)}
+                                            className="rounded-lg px-3 py-2 text-xs font-medium transition-all"
+                                            style={{
+                                              background: isSelected
+                                                ? "rgba(53, 96, 255, 0.2)"
+                                                : "rgba(255, 255, 255, 0.06)",
+                                              color: isSelected ? "#7BA4FF" : "rgba(255, 255, 255, 0.7)",
+                                              border: isSelected
+                                                ? "1px solid rgba(53, 96, 255, 0.5)"
+                                                : "1px solid rgba(255, 255, 255, 0.1)",
+                                              boxShadow: isSelected
+                                                ? "0 0 8px rgba(53, 96, 255, 0.25)"
+                                                : "none",
+                                              opacity: !isLatestAssistant ? 0.5 : 1,
+                                              cursor: isLatestAssistant ? "pointer" : "default",
+                                            }}
+                                          >
+                                            {isSelected && (
+                                              <span className="mr-1.5 inline-block text-[10px]">✓</span>
+                                            )}
+                                            {opt}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                    {/* Send button — appears when options are selected */}
+                                    {isLatestAssistant && selectedQaOptions.size > 0 && (
+                                      <div className="mt-2 flex items-center gap-2">
                                         <button
-                                          key={opt}
-                                          onClick={() => handleSuggestionClick(opt)}
-                                          className="rounded-lg px-3 py-1.5 text-xs transition-colors"
+                                          onClick={sendQaSelection}
+                                          disabled={qaSending}
+                                          className="rounded-lg px-4 py-1.5 text-xs font-semibold transition-all"
                                           style={{
-                                            background: "var(--surface-2)",
-                                            color: "var(--text)",
-                                            border: "1px solid var(--border-color)",
+                                            background: qaSending ? "rgba(53, 96, 255, 0.3)" : "#3560FF",
+                                            color: "#fff",
+                                            boxShadow: qaSending ? "none" : "0 0 12px rgba(53, 96, 255, 0.3)",
                                           }}
                                         >
-                                          {opt}
+                                          {qaSending ? "Sending..." : `Send${selectedQaOptions.size > 1 ? ` (${selectedQaOptions.size})` : ""}`}
                                         </button>
-                                      ))}
-                                    </div>
+                                        <button
+                                          onClick={() => setSelectedQaOptions(new Set())}
+                                          className="rounded-lg px-3 py-1.5 text-xs transition-colors"
+                                          style={{ color: "rgba(255, 255, 255, 0.4)" }}
+                                        >
+                                          Clear
+                                        </button>
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               }
@@ -977,7 +1068,7 @@ export function CenterChat({
 
                     {(status === "submitted" || status === "streaming") && (
                       <Sparkle active count={20}>
-                        <Shimmer>Ditto is thinking...</Shimmer>
+                        <Shimmer>Thinking...</Shimmer>
                       </Sparkle>
                     )}
                   </ConversationContent>
@@ -994,20 +1085,28 @@ export function CenterChat({
             borderTop: expanded ? "1px solid var(--border-color)" : "none",
           }}
         >
-          {/* Contextual greeting with Ditto avatar */}
-          {!expanded && (
-            <div className="flex items-center gap-2 px-4 pt-3">
-              <DittoAvatar state={dittoState} size={24} />
+          {/* Collapsed header: label + expand arrow */}
+          {!expanded && chatPosition !== "right" && (
+            <div className="flex items-center justify-between px-4 pt-1.5">
               <p
-                className="text-xs"
-                style={{ color: "var(--text-dim)", fontFamily: "var(--font-chakra-petch)" }}
+                className="text-[10px]"
+                style={{ color: "rgba(255, 255, 255, 0.35)", fontFamily: "var(--font-chakra-petch)" }}
               >
-                {messages.length === 0 ? greeting : "Tap to continue chatting with Ditto"}
+                {messages.length === 0 ? "Ask about events, directions, or explore the map" : "Tap to continue chatting"}
               </p>
+              {messages.length > 0 && (
+                <button
+                  onClick={() => setExpanded(true)}
+                  className="rounded-md p-1 transition-colors hover:bg-white/5"
+                  aria-label="Expand chat"
+                >
+                  <ChevronDown className="h-3.5 w-3.5 rotate-180" style={{ color: "var(--text-dim)" }} />
+                </button>
+              )}
             </div>
           )}
           <div
-            className="px-3 py-2"
+            className="px-3 pb-2 pt-1 [&_[data-slot=input-group]]:border-0 [&_[data-slot=input-group]]:bg-transparent [&_[data-slot=input-group]]:shadow-none"
             onClick={() => !expanded && messages.length > 0 && setExpanded(true)}
           >
             <PromptInput
@@ -1016,45 +1115,103 @@ export function CenterChat({
               }}
             >
               <PromptInputTextarea
-                placeholder="Ask Ditto about Orlando events..."
-                onFocus={() => messages.length > 0 && setExpanded(true)}
+                placeholder={hasActiveQaOptions ? "Select an option above..." : typewriterActive ? typewriterText : "Ask about Orlando events..."}
+                className="min-h-0 py-1.5"
+                rows={1}
+                disabled={hasActiveQaOptions || qaSending}
+                onFocus={() => {
+                  setInputFocused(true);
+                  if (messages.length > 0) setExpanded(true);
+                }}
+                onBlur={() => setInputFocused(false)}
               />
-              <PromptInputFooter>
-                <div className="flex items-center gap-1">
+              <div className="flex shrink-0 items-center gap-0.5 pr-1.5" data-slot="input-group-addon" data-align="inline-end">
+                {/* Pin */}
+                <button
+                  onClick={() => {
+                    const next = !pinned;
+                    setPinned(next);
+                    setChatPinned(next);
+                  }}
+                  className="rounded-md p-1 transition-colors hover:bg-white/5"
+                  aria-label={pinned ? "Unpin chat" : "Pin chat open"}
+                  title={pinned ? "Unpin chat" : "Pin chat open"}
+                >
+                  {pinned ? (
+                    <Pin className="h-3.5 w-3.5" style={{ color: "var(--brand-primary, #3560ff)" }} />
+                  ) : (
+                    <PinOff className="h-3.5 w-3.5" style={{ color: "var(--text-dim)" }} />
+                  )}
+                </button>
+                {/* Quick Actions */}
+                <div className="relative">
                   <button
-                    onClick={() => {
-                      const next = !pinned;
-                      setPinned(next);
-                      setChatPinned(next);
-                    }}
-                    className="rounded-md p-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-                    aria-label={pinned ? "Unpin chat (allow auto-close)" : "Pin chat open"}
-                    title={pinned ? "Unpin chat" : "Pin chat open"}
+                    onClick={() => setQuickActionsOpen((prev) => !prev)}
+                    className="rounded-md p-1 transition-colors hover:bg-white/5"
+                    aria-label="Quick actions"
+                    title="Quick actions"
                   >
-                    {pinned ? (
-                      <Pin className="h-4 w-4" style={{ color: "var(--brand-primary, #3560ff)" }} />
-                    ) : (
-                      <PinOff className="h-4 w-4" style={{ color: "var(--text-dim)" }} />
-                    )}
+                    <Sparkles className="h-3.5 w-3.5" style={{ color: quickActionsOpen ? "var(--brand-primary, #3560ff)" : "var(--text-dim)" }} />
                   </button>
-                  <VoiceInputButton
-                    onTranscript={handleVoiceTranscript}
-                    disabled={status === "submitted" || status === "streaming"}
-                  />
+                  <AnimatePresence>
+                    {quickActionsOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-0 bottom-full z-50 mb-1 w-56 overflow-hidden rounded-xl shadow-xl"
+                        style={{
+                          background: "rgba(10, 10, 15, 0.85)",
+                          border: "1px solid rgba(255, 255, 255, 0.1)",
+                          backdropFilter: "blur(40px)",
+                          WebkitBackdropFilter: "blur(40px)",
+                        }}
+                      >
+                        <div className="p-1.5">
+                          <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-dim)" }}>
+                            Quick Actions
+                          </p>
+                          {QUICK_ACTIONS.map((action) => (
+                            <button
+                              key={action.id}
+                              onClick={() => {
+                                setQuickActionsOpen(false);
+                                if (action.id === "presentation") {
+                                  onStartPresentation?.();
+                                } else if (action.id === "personalize") {
+                                  handleSend("Personalize my experience");
+                                } else {
+                                  handleSend(action.prompt);
+                                }
+                              }}
+                              className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-xs transition-colors hover:bg-white/5"
+                            >
+                              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md" style={{ background: action.color, color: "#fff" }}>
+                                <action.Icon className="h-3.5 w-3.5" />
+                              </span>
+                              <div className="min-w-0">
+                                <div className="font-medium" style={{ color: "var(--text)" }}>{action.label}</div>
+                                <div className="truncate text-[10px]" style={{ color: "var(--text-dim)" }}>{action.desc}</div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
+                <VoiceInputButton
+                  onTranscript={handleVoiceTranscript}
+                  disabled={status === "submitted" || status === "streaming"}
+                />
                 <PromptInputSubmit
                   status={status === "submitted" || status === "streaming" ? status : undefined}
                   onStop={stop}
                 />
-              </PromptInputFooter>
+              </div>
             </PromptInput>
           </div>
-          <p
-            className="px-4 pb-2 text-center text-[10px] leading-tight"
-            style={{ color: "var(--text-dim)", opacity: 0.6 }}
-          >
-            Event data from Ticketmaster, Eventbrite, Google &amp; others. Always verify details — AI can make mistakes.
-          </p>
         </div>
       </div>
     </div>

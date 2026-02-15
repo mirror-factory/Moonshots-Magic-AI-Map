@@ -79,8 +79,10 @@ export function AddToCalendarButton({
       <DropdownMenuContent
         align="start"
         style={{
-          background: "var(--chat-bg)",
-          borderColor: "var(--border-color)",
+          background: "rgba(10, 10, 15, 0.92)",
+          borderColor: "rgba(255, 255, 255, 0.08)",
+          backdropFilter: "blur(40px)",
+          WebkitBackdropFilter: "blur(40px)",
         }}
       >
         <DropdownMenuItem onClick={handleGoogleCalendar} className="cursor-pointer">

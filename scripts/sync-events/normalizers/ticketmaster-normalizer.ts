@@ -5,6 +5,7 @@
 
 import type { EventEntry } from "../../../src/lib/registries/types";
 import { mapTicketmasterCategory } from "../utils/category-mapper";
+import { lookupVenueCoordsWithGeocode } from "../venues/venue-lookup";
 
 /** Shape of a Ticketmaster embedded event from the Discovery API. */
 export interface TmEvent {
@@ -75,30 +76,41 @@ function inferRegion(city?: string, stateCode?: string): string {
 }
 
 /**
- * Build the canonical Ticketmaster event page URL from an event ID.
- * All Discovery API IDs (including `Za5ju3rKuq` resale/Universe IDs) resolve
- * via `https://www.ticketmaster.com/event/{id}`.
+ * Resolve the best URL for a Ticketmaster event.
+ * Prefers the API-provided URL (which uses the correct slug + internal hex ID)
+ * over a constructed canonical URL, because the Discovery API event ID often
+ * differs from the event-page ID and produces 404s.
  *
+ * @param apiUrl - The `url` field from the TM Discovery API response.
  * @param id - Raw TM event ID (without `tm-` prefix).
- * @returns Canonical ticketmaster.com URL for the event.
+ * @returns Best available URL for the event.
  */
-function buildTmUrl(id: string): string {
+function resolveTmUrl(apiUrl: string | undefined, id: string): string {
+  if (apiUrl && /^https?:\/\//.test(apiUrl)) return apiUrl;
   return `https://www.ticketmaster.com/event/${id}`;
 }
 
 /**
  * Normalize a Ticketmaster event into our EventEntry shape.
+ * Now async to support geocode fallback for unknown venues.
  * @param tm - Raw Ticketmaster event object.
  * @returns Normalized EventEntry.
  */
-export function normalizeTmEvent(tm: TmEvent): EventEntry {
+export async function normalizeTmEvent(tm: TmEvent): Promise<EventEntry> {
   const venue = tm._embedded?.venues?.[0];
-  const lat = venue?.location?.latitude
-    ? parseFloat(venue.location.latitude)
-    : 28.5383;
-  const lng = venue?.location?.longitude
-    ? parseFloat(venue.location.longitude)
-    : -81.3792;
+
+  // Coordinate priority: 1) canonical registry, 2) geocode address, 3) raw API coords
+  const venueMatch = venue?.name
+    ? await lookupVenueCoordsWithGeocode(
+        venue.name,
+        venue.address?.line1,
+        venue.city?.name,
+      )
+    : null;
+  const lat = venueMatch?.lat
+    ?? (venue?.location?.latitude ? parseFloat(venue.location.latitude) : 28.5383);
+  const lng = venueMatch?.lng
+    ?? (venue?.location?.longitude ? parseFloat(venue.location.longitude) : -81.3792);
 
   const classification = tm.classifications?.[0];
   const category = mapTicketmasterCategory(
@@ -117,16 +129,6 @@ export function normalizeTmEvent(tm: TmEvent): EventEntry {
   if (classification?.genre?.name) tags.push(classification.genre.name.toLowerCase());
   if (classification?.subGenre?.name) tags.push(classification.subGenre.name.toLowerCase());
 
-  const priceRange = tm.priceRanges?.[0];
-  const price = priceRange
-    ? {
-        min: priceRange.min ?? 0,
-        max: priceRange.max ?? 0,
-        currency: priceRange.currency ?? "USD",
-        isFree: (priceRange.min ?? 0) === 0 && (priceRange.max ?? 0) === 0,
-      }
-    : undefined;
-
   return {
     id: `tm-${tm.id}`,
     title: tm.name,
@@ -134,14 +136,13 @@ export function normalizeTmEvent(tm: TmEvent): EventEntry {
     category,
     coordinates: [lng, lat],
     venue: venue?.name ?? "Unknown Venue",
-    address: venue?.address?.line1 ?? "",
+    address: venue?.address?.line1 || venueMatch?.address || "",
     city: venue?.city?.name ?? "Orlando",
     region: inferRegion(venue?.city?.name, venue?.state?.stateCode),
     startDate,
     endDate: tm.dates?.end?.dateTime,
     timezone: venue?.timezone ?? tm.dates?.timezone ?? "America/New_York",
-    price,
-    url: buildTmUrl(tm.id),
+    url: resolveTmUrl(tm.url, tm.id),
     imageUrl: pickBestImage(tm.images),
     tags,
     source: { type: "ticketmaster", fetchedAt: now },

@@ -33,6 +33,8 @@ export interface OrbitalOptions {
 /**
  * Animates the map camera to a waypoint position.
  * Uses MapLibre's flyTo with cinematic settings.
+ * Includes a timeout safety net — if `moveend` doesn't fire within
+ * duration + 3s, the promise resolves anyway to prevent hangs.
  * @param map - MapLibre map instance.
  * @param waypoint - Target waypoint.
  * @param options - Animation options.
@@ -46,12 +48,20 @@ export function animateToWaypoint(
   const { duration = waypoint.duration, curve = 1.42, essential = true } = options;
 
   return new Promise((resolve) => {
-    const onMoveEnd = () => {
+    let resolved = false;
+    const done = () => {
+      if (resolved) return;
+      resolved = true;
       map.off("moveend", onMoveEnd);
+      clearTimeout(safetyTimer);
       resolve();
     };
 
+    const onMoveEnd = () => done();
     map.on("moveend", onMoveEnd);
+
+    // Safety timeout: resolve even if moveend never fires
+    const safetyTimer = setTimeout(done, duration + 3000);
 
     map.flyTo({
       center: waypoint.center,
@@ -97,12 +107,18 @@ export function resetCamera(
   duration: number = 1500
 ): Promise<void> {
   return new Promise((resolve) => {
-    const onMoveEnd = () => {
+    let resolved = false;
+    const done = () => {
+      if (resolved) return;
+      resolved = true;
       map.off("moveend", onMoveEnd);
+      clearTimeout(safetyTimer);
       resolve();
     };
 
+    const onMoveEnd = () => done();
     map.on("moveend", onMoveEnd);
+    const safetyTimer = setTimeout(done, duration + 3000);
 
     map.flyTo({
       center,
@@ -129,8 +145,12 @@ export function cinematicIntro(
   abortRef?: { current: boolean }
 ): Promise<void> {
   return new Promise((resolve) => {
-    const onMoveEnd = () => {
+    let resolved = false;
+    const done = () => {
+      if (resolved) return;
+      resolved = true;
       map.off("moveend", onMoveEnd);
+      clearTimeout(safetyTimer);
       if (abortRef?.current) {
         resolve();
         return;
@@ -140,7 +160,11 @@ export function cinematicIntro(
         .then(resolve);
     };
 
+    const onMoveEnd = () => done();
     map.on("moveend", onMoveEnd);
+
+    // Safety timeout for the flyTo phase
+    const safetyTimer = setTimeout(done, 6000);
 
     map.flyTo({
       center,
@@ -253,12 +277,18 @@ export function introAnimation(
   duration: number = 2000
 ): Promise<void> {
   return new Promise((resolve) => {
-    const onMoveEnd = () => {
+    let resolved = false;
+    const done = () => {
+      if (resolved) return;
+      resolved = true;
       map.off("moveend", onMoveEnd);
+      clearTimeout(safetyTimer);
       resolve();
     };
 
+    const onMoveEnd = () => done();
     map.on("moveend", onMoveEnd);
+    const safetyTimer = setTimeout(done, duration + 3000);
 
     map.flyTo({
       center,
@@ -285,12 +315,18 @@ export function outroAnimation(
   duration: number = 2500
 ): Promise<void> {
   return new Promise((resolve) => {
-    const onMoveEnd = () => {
+    let resolved = false;
+    const done = () => {
+      if (resolved) return;
+      resolved = true;
       map.off("moveend", onMoveEnd);
+      clearTimeout(safetyTimer);
       resolve();
     };
 
+    const onMoveEnd = () => done();
     map.on("moveend", onMoveEnd);
+    const safetyTimer = setTimeout(done, duration + 3000);
 
     map.flyTo({
       center,

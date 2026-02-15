@@ -79,8 +79,6 @@ export interface HighlightCardInfo {
   date: string;
   /** Source label. */
   source: string;
-  /** Price label (e.g. "Free", "$25"). */
-  price: string;
 }
 
 // ── Canvas Card Rendering ────────────────────────────────────────────────
@@ -168,11 +166,6 @@ export async function loadHighlightImage(
         ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
         ctx.fillText(truncateText(ctx, info.source, textMaxW), textX, 78);
 
-        if (info.price) {
-          ctx.font = "bold 13px sans-serif";
-          ctx.fillStyle = info.price === "Free" ? "#00D4AA" : "#66AAF0";
-          ctx.fillText(info.price, textX, 98);
-        }
       }
 
       // Stem connector triangle
@@ -206,6 +199,83 @@ export async function loadHighlightImage(
     img.onerror = () => resolve(false);
     img.src = url;
   });
+}
+
+/**
+ * Renders a text-only highlight card (no thumbnail) for search results.
+ * Registers the canvas image with the map under the given imageId.
+ * @param map - MapLibre map instance.
+ * @param imageId - ID to register the image under.
+ * @param info - Place/search text info for the card.
+ * @returns true if rendered successfully.
+ */
+export function loadTextOnlyHighlightImage(
+  map: maplibregl.Map,
+  imageId: string,
+  info: HighlightCardInfo,
+): boolean {
+  const w = 240;
+  const h = 70;
+  const stemH = 10;
+  const totalH = h + stemH;
+  const radius = 14;
+  const textX = 14;
+  const textMaxW = w - textX * 2;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = totalH;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return false;
+
+  // Card background
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(0, 0, w, h, radius);
+  ctx.closePath();
+  ctx.clip();
+  ctx.fillStyle = "rgba(10, 10, 15, 0.92)";
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+
+  // Text content
+  ctx.font = "bold 14px sans-serif";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+  ctx.fillText(truncateText(ctx, info.title, textMaxW), textX, 28);
+
+  if (info.venue) {
+    ctx.font = "12px sans-serif";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+    ctx.fillText(truncateText(ctx, info.venue, textMaxW), textX, 50);
+  }
+
+  // Stem connector triangle
+  ctx.beginPath();
+  ctx.moveTo(w / 2 - 7, h - 1);
+  ctx.lineTo(w / 2, h + stemH);
+  ctx.lineTo(w / 2 + 7, h - 1);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(10, 10, 15, 0.92)";
+  ctx.fill();
+
+  // Border
+  ctx.beginPath();
+  ctx.roundRect(0.5, 0.5, w - 1, h - 1, radius);
+  ctx.closePath();
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  const imageData = ctx.getImageData(0, 0, w, totalH);
+
+  if (map.hasImage(imageId)) map.removeImage(imageId);
+  map.addImage(imageId, {
+    width: w,
+    height: totalH,
+    data: new Uint8Array(imageData.data.buffer),
+  });
+
+  return true;
 }
 
 // ── Hover Card (lightweight, no pulse) ───────────────────────────────────
@@ -331,29 +401,38 @@ export function selectEventHighlight(
     startPulseAnimation(map);
   }
 
-  if (imageUrl) {
-    if (map.getLayer(HIGHLIGHT_IMAGE_LAYER)) {
-      map.removeLayer(HIGHLIGHT_IMAGE_LAYER);
-    }
+  // Remove stale card layer before adding a new one
+  if (map.getLayer(HIGHLIGHT_IMAGE_LAYER)) {
+    map.removeLayer(HIGHLIGHT_IMAGE_LAYER);
+  }
 
-    loadHighlightImage(map, imageUrl, HIGHLIGHT_IMAGE_ID, cardInfo).then((ok) => {
-      if (!ok || !map.getStyle() || !map.getSource(HIGHLIGHT_SOURCE)) return;
-      if (map.getLayer(HIGHLIGHT_IMAGE_LAYER)) return;
+  const addCardLayer = () => {
+    if (!map.getStyle() || !map.getSource(HIGHLIGHT_SOURCE)) return;
+    if (map.getLayer(HIGHLIGHT_IMAGE_LAYER)) return;
 
-      map.addLayer({
-        id: HIGHLIGHT_IMAGE_LAYER,
-        type: "symbol",
-        source: HIGHLIGHT_SOURCE,
-        layout: {
-          "icon-image": HIGHLIGHT_IMAGE_ID,
-          "icon-size": 1.0,
-          "icon-anchor": "bottom",
-          "icon-offset": [0, -24] as [number, number],
-          "icon-allow-overlap": true,
-        },
-        paint: { "icon-opacity": 0.95 },
-      });
+    map.addLayer({
+      id: HIGHLIGHT_IMAGE_LAYER,
+      type: "symbol",
+      source: HIGHLIGHT_SOURCE,
+      layout: {
+        "icon-image": HIGHLIGHT_IMAGE_ID,
+        "icon-size": 1.0,
+        "icon-anchor": "bottom",
+        "icon-offset": [0, -24] as [number, number],
+        "icon-allow-overlap": true,
+      },
+      paint: { "icon-opacity": 0.95 },
     });
+  };
+
+  if (imageUrl) {
+    loadHighlightImage(map, imageUrl, HIGHLIGHT_IMAGE_ID, cardInfo).then((ok) => {
+      if (ok) addCardLayer();
+    });
+  } else if (cardInfo) {
+    // No image — render text-only card for search results / non-event highlights
+    const ok = loadTextOnlyHighlightImage(map, HIGHLIGHT_IMAGE_ID, cardInfo);
+    if (ok) addCardLayer();
   }
 }
 
@@ -382,21 +461,24 @@ export function buildCardInfo(props: {
   venue?: string;
   startDate?: string;
   source?: { type: string } | string;
-  price?: { min: number; max: number; isFree: boolean } | null;
 }): HighlightCardInfo {
   const sourceType = typeof props.source === "object" && props.source
     ? props.source.type
     : String(props.source ?? "");
 
-  const sourceLabel = sourceType === "manual" ? "Curated"
-    : sourceType ? sourceType.charAt(0).toUpperCase() + sourceType.slice(1)
-    : "";
+  const SOURCE_LABELS: Record<string, string> = {
+    manual: "Curated",
+    ticketmaster: "Ticketmaster",
+    eventbrite: "Eventbrite",
+    serpapi: "Google Events",
+    scraper: "TKX",
+    predicthq: "PredictHQ",
+    overpass: "OpenStreetMap",
+  };
 
-  const priceLabel = props.price?.isFree
-    ? "Free"
-    : props.price
-      ? `$${props.price.min}${props.price.max > props.price.min ? `–$${props.price.max}` : ""}`
-      : "";
+  const sourceLabel = SOURCE_LABELS[sourceType] ?? (
+    sourceType ? sourceType.charAt(0).toUpperCase() + sourceType.slice(1) : ""
+  );
 
   return {
     title: props.title ?? "",
@@ -408,6 +490,5 @@ export function buildCardInfo(props: {
         })
       : "",
     source: sourceLabel,
-    price: priceLabel,
   };
 }

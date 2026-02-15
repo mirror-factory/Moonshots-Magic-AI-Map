@@ -70,7 +70,7 @@ export async function fetchTkxEvents(): Promise<EventEntry[]> {
         const eventUrl = `${BASE_URL}${href}`;
 
         events.push(
-          buildScrapedEvent(
+          await buildScrapedEvent(
             {
               title,
               description: "",

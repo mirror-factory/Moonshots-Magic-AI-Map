@@ -17,6 +17,8 @@ export interface RouteStep {
   duration: number;
   /** Human-readable instruction text. */
   instruction: string;
+  /** Coordinate [lng, lat] where this step begins. */
+  coordinate?: [number, number];
 }
 
 /** Result from a directions query. */
@@ -61,13 +63,26 @@ export async function getDirections(
     body: JSON.stringify({
       coordinates: [from, to],
       instructions: true,
-      units: "mi",
+      units: "m",
+      // Increase road-snapping radius from default 350m to 5000m
+      // so GPS coordinates inside buildings/parking lots still find nearby roads.
+      radiuses: [5000, 5000],
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "Unknown error");
-    throw new Error(`ORS Directions API error (${response.status}): ${errorText}`);
+    // Parse ORS error for user-friendly message
+    try {
+      const parsed = JSON.parse(errorText);
+      const msg = parsed?.error?.message ?? "";
+      if (msg.includes("routable point")) {
+        throw new Error("Could not find a road near your location. Try moving closer to a street.");
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message.includes("Could not find")) throw e;
+    }
+    throw new Error(`Route not found. Please try a different location.`);
   }
 
   const data = await response.json() as {
@@ -80,6 +95,7 @@ export async function getDirections(
             distance: number;
             duration: number;
             instruction: string;
+            way_points: [number, number];
           }>;
         }>;
       };
@@ -93,11 +109,13 @@ export async function getDirections(
   }
 
   const { summary, segments } = feature.properties;
+  const coords = feature.geometry.coordinates;
   const steps = segments.flatMap((seg) =>
     seg.steps.map((s) => ({
       distance: s.distance,
       duration: s.duration,
       instruction: s.instruction,
+      coordinate: coords[s.way_points[0]] as [number, number] | undefined,
     })),
   );
 

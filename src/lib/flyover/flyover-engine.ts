@@ -59,6 +59,8 @@ export interface FlyoverProgress {
   isPaused: boolean;
   /** Whether audio is preloaded and ready. */
   audioReady: boolean;
+  /** Number of waypoints with audio buffers ready. */
+  audioReadyCount: number;
 }
 
 /**
@@ -79,10 +81,9 @@ function generateNarrative(event: EventEntry, theme?: string): string {
   const firstSentence = event.description.split(/[.!?]/)[0].trim();
   const shortDesc = firstSentence.length > 80 ? firstSentence.substring(0, 80) + "..." : firstSentence;
 
-  const priceNote = event.price?.isFree ? " And it's free!" : "";
   const themeNote = theme ? ` Part of our ${theme} tour.` : "";
 
-  return `${event.title}${location} this ${dayName}. ${shortDesc}.${priceNote}${themeNote}`;
+  return `${event.title}${location} this ${dayName}. ${shortDesc}.${themeNote}`;
 }
 
 /**
@@ -132,6 +133,7 @@ export function createFlyoverProgress(config: FlyoverConfig): FlyoverProgress {
     currentNarrative: "",
     isPaused: false,
     audioReady: false,
+    audioReadyCount: 0,
   };
 }
 
@@ -157,12 +159,14 @@ export function updateWaypointAudio(
     }
   }
 
-  const allAudioReady = newWaypoints.every((w) => w.audioBuffer !== undefined);
+  const readyCount = newWaypoints.filter((w) => w.audioBuffer !== undefined).length;
+  const allAudioReady = readyCount === newWaypoints.length;
 
   return {
     ...progress,
     waypoints: newWaypoints,
     audioReady: allAudioReady,
+    audioReadyCount: readyCount,
   };
 }
 

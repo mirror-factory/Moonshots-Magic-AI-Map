@@ -46,18 +46,6 @@ describe("searchEvents tool", () => {
       });
     });
 
-    it("filters by isFree", async () => {
-      const result = await searchEvents.execute!({
-        isFree: true,
-        limit: 50,
-      });
-      expect(result.count).toBeGreaterThan(0);
-      expect(result.count).toBeLessThanOrEqual(50);
-      result.events.forEach((event) => {
-        expect(event.price?.isFree).toBe(true);
-      });
-    });
-
     it("respects limit parameter", async () => {
       const result = await searchEvents.execute!({
         limit: 3,
@@ -126,27 +114,26 @@ describe("searchEvents tool", () => {
       }
     });
 
-    it("combines multiple filters", async () => {
+    it("combines category and city filters", async () => {
       const musicResult = await searchEvents.execute!({
         category: "music",
         limit: 200,
       });
-      const freeResult = await searchEvents.execute!({
-        isFree: true,
+      const orlandoResult = await searchEvents.execute!({
+        city: "Orlando",
         limit: 200,
       });
       const combined = await searchEvents.execute!({
         category: "music",
-        isFree: true,
+        city: "Orlando",
         limit: 200,
       });
       combined.events.forEach((event) => {
         expect(event.category).toBe("music");
-        expect(event.price?.isFree).toBe(true);
+        expect(event.city).toBe("Orlando");
       });
-      // Free music events should be a subset of both groups
       expect(combined.count).toBeLessThanOrEqual(musicResult.count);
-      expect(combined.count).toBeLessThanOrEqual(freeResult.count);
+      expect(combined.count).toBeLessThanOrEqual(orlandoResult.count);
     });
   });
 
@@ -172,11 +159,6 @@ describe("searchEvents tool", () => {
       const result = searchEvents.inputSchema.safeParse({
         query: "jazz",
       });
-      expect(result.success).toBe(true);
-    });
-
-    it("accepts isFree boolean", () => {
-      const result = searchEvents.inputSchema.safeParse({ isFree: true });
       expect(result.success).toBe(true);
     });
 

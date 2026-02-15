@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   Car,
   Footprints,
@@ -16,6 +16,8 @@ import {
   Loader2,
   Navigation,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ExternalLink,
   ArrowLeft,
   ArrowRight,
@@ -45,6 +47,12 @@ export interface DirectionsPanelProps {
   origin?: [number, number] | null;
   /** Destination coordinates [lng, lat] for external map links. */
   destination?: [number, number] | null;
+  /** Callback to fly the map camera to a coordinate. */
+  onFlyToStep?: (coordinate: [number, number]) => void;
+  /** Whether the origin came from actual GPS (true) or was unavailable. */
+  originIsGps?: boolean;
+  /** Callback to retry getting the user's location. */
+  onRetryLocation?: () => void;
 }
 
 /** Travel mode option configuration. */
@@ -164,9 +172,21 @@ export function DirectionsPanel({
   error,
   origin,
   destination,
+  onFlyToStep,
+  originIsGps,
+  onRetryLocation,
 }: DirectionsPanelProps) {
-  const [stepsExpanded, setStepsExpanded] = useState(false);
+  const [stepsExpanded, setStepsExpanded] = useState(true);
+  const [currentStep, setCurrentStep] = useState(0);
   const apple = isApplePlatform();
+  /** Navigate to a step and fly the map camera there. */
+  const goToStep = useCallback((stepIndex: number) => {
+    setCurrentStep(stepIndex);
+    const step = route?.steps[stepIndex];
+    if (step?.coordinate && onFlyToStep) {
+      onFlyToStep(step.coordinate);
+    }
+  }, [route, onFlyToStep]);
 
   return (
     <div
@@ -214,18 +234,35 @@ export function DirectionsPanel({
       {/* Route Info */}
       <div className="px-4 py-4">
         {loading && (
-          <div className="flex items-center justify-center gap-2 py-2">
-            <Loader2 className="h-4 w-4 animate-spin" style={{ color: "var(--brand-primary)" }} />
-            <span className="text-sm" style={{ color: "var(--text-dim)" }}>
-              Finding route...
-            </span>
+          <div className="flex items-center justify-center gap-2 py-4">
+            <Loader2 className="h-5 w-5 animate-spin" style={{ color: "var(--brand-primary)" }} />
+            <div>
+              <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                Getting your location...
+              </p>
+              <p className="text-xs" style={{ color: "var(--text-dim)" }}>
+                Please allow location access when prompted
+              </p>
+            </div>
           </div>
         )}
 
         {error && (
-          <p className="text-sm" style={{ color: "#ef4444" }}>
-            {error}
-          </p>
+          <div>
+            <p className="text-sm" style={{ color: "#ef4444" }}>
+              {error}
+            </p>
+            {onRetryLocation && (
+              <button
+                onClick={onRetryLocation}
+                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-colors hover:opacity-90"
+                style={{ background: "var(--brand-primary)", color: "#fff" }}
+              >
+                <Navigation className="h-3.5 w-3.5" />
+                Retry with My Location
+              </button>
+            )}
+          </div>
         )}
 
         {route && !loading && (
@@ -250,15 +287,66 @@ export function DirectionsPanel({
               </div>
             </div>
 
-            {/* Turn-by-turn steps toggle */}
+            {/* Origin indicator */}
+            <div className="mt-2 flex items-center gap-1.5">
+              <div
+                className="h-2 w-2 rounded-full"
+                style={{ background: originIsGps ? "#3b82f6" : "#f59e0b" }}
+              />
+              <p className="text-[10px]" style={{ color: "var(--text-dim)" }}>
+                {originIsGps ? "From your location" : "Location unavailable"}
+              </p>
+            </div>
+
+            {/* Step-by-step navigation */}
             {route.steps.length > 0 && (
               <div className="mt-3" style={{ borderTop: "1px solid var(--border-color)" }}>
+                {/* Current step highlight */}
+                <div className="flex items-start gap-2.5 py-3">
+                  <StepIcon instruction={route.steps[currentStep].instruction} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium leading-snug" style={{ color: "var(--text)" }}>
+                      {route.steps[currentStep].instruction}
+                    </p>
+                    <p className="mt-0.5 text-xs" style={{ color: "var(--text-dim)" }}>
+                      {formatDistance(route.steps[currentStep].distance)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Step nav bar */}
+                <div
+                  className="flex items-center justify-between py-2"
+                  style={{ borderTop: "1px solid var(--border-color)" }}
+                >
+                  <button
+                    onClick={() => goToStep(Math.max(0, currentStep - 1))}
+                    disabled={currentStep === 0}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors disabled:opacity-30"
+                    style={{ color: "var(--text-dim)" }}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="text-xs font-medium" style={{ color: "var(--text-dim)" }}>
+                    Step {currentStep + 1} of {route.steps.length}
+                  </span>
+                  <button
+                    onClick={() => goToStep(Math.min(route!.steps.length - 1, currentStep + 1))}
+                    disabled={currentStep === route.steps.length - 1}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors disabled:opacity-30"
+                    style={{ color: "var(--text-dim)" }}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* All steps (collapsible) */}
                 <button
                   onClick={() => setStepsExpanded((v) => !v)}
-                  className="flex w-full items-center justify-between py-2.5 text-xs font-medium transition-colors"
-                  style={{ color: "var(--text-dim)" }}
+                  className="flex w-full items-center justify-between py-2 text-xs font-medium transition-colors"
+                  style={{ color: "var(--text-dim)", borderTop: "1px solid var(--border-color)" }}
                 >
-                  <span>{route.steps.length} steps</span>
+                  <span>{stepsExpanded ? "Hide" : "Show"} all steps</span>
                   <ChevronDown
                     className={`h-3.5 w-3.5 transition-transform duration-200 ${stepsExpanded ? "rotate-180" : ""}`}
                   />
@@ -266,7 +354,17 @@ export function DirectionsPanel({
                 {stepsExpanded && (
                   <div className="max-h-48 overflow-y-auto pb-1">
                     {route.steps.map((step, i) => (
-                      <StepRow key={i} step={step} />
+                      <button
+                        key={i}
+                        onClick={() => goToStep(i)}
+                        className="w-full text-left transition-colors"
+                        style={{
+                          background: i === currentStep ? "var(--surface-2)" : "transparent",
+                          borderRadius: 8,
+                        }}
+                      >
+                        <StepRow step={step} />
+                      </button>
                     ))}
                   </div>
                 )}

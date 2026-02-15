@@ -1,7 +1,7 @@
 /**
  * @module sync-events
- * Orchestrator: runs all event fetchers, deduplicates, preserves manual
- * events, and writes the unified events.json.
+ * Orchestrator: runs all event fetchers, deduplicates, validates coordinates
+ * and schema, and writes the unified events.json.
  *
  * Usage: pnpm sync-events
  */
@@ -19,6 +19,9 @@ import {
   writeRegistry,
 } from "./utils/registry-writer";
 import { logger } from "./utils/logger";
+import { validateCoordinates } from "./validators/coordinate-validator";
+import { validateSchema } from "./validators/schema-validator";
+import { printQualityReport, type RejectionStats } from "./report/quality-report";
 
 /** Fetcher definition for the pipeline. */
 interface FetcherDef {
@@ -64,26 +67,58 @@ async function main(): Promise<void> {
   logger.info(`Total fetched events (pre-dedup): ${fetchedEvents.length}`);
 
   // 3. Deduplicate fetched events
-  const allEvents = deduplicateEvents(fetchedEvents);
-  logger.info(`After dedup: ${allEvents.length} unique events`);
+  const deduped = deduplicateEvents(fetchedEvents);
+  const dupsMerged = fetchedEvents.length - deduped.length;
+  logger.info(`After dedup: ${deduped.length} unique events (${dupsMerged} duplicates merged)`);
+
+  // 4. Validate coordinates and schema
+  logger.section("Validation");
+  const rejections: RejectionStats = {
+    outOfBounds: 0,
+    missingCoords: 0,
+    downtownFallback: 0,
+    schemaInvalid: 0,
+  };
+
+  const validated = deduped.filter((event) => {
+    // Schema validation
+    const schemaResult = validateSchema(event);
+    if (!schemaResult.valid) {
+      rejections.schemaInvalid++;
+      logger.debug(`Schema rejected "${event.title}": ${schemaResult.reasons.join(", ")}`);
+      return false;
+    }
+
+    // Coordinate validation
+    const [lng, lat] = event.coordinates;
+    const coordResult = validateCoordinates(lat, lng);
+    if (!coordResult.valid) {
+      if (coordResult.reason?.includes("outside")) rejections.outOfBounds++;
+      else if (coordResult.reason?.includes("fallback")) rejections.downtownFallback++;
+      else rejections.missingCoords++;
+      logger.debug(`Coord rejected "${event.title}": ${coordResult.reason}`);
+      return false;
+    }
+
+    return true;
+  });
+
+  const totalRejected =
+    rejections.outOfBounds +
+    rejections.missingCoords +
+    rejections.downtownFallback +
+    rejections.schemaInvalid;
+  logger.info(`Validated: ${validated.length} accepted, ${totalRejected} rejected`);
 
   // 5. Write the registry
   logger.section("Writing Output");
-  writeRegistry(allEvents);
+  writeRegistry(validated);
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   logger.success(`Pipeline complete in ${elapsed}s`);
 
-  // Summary
-  logger.section("Summary");
-  const sourceCounts = new Map<string, number>();
-  for (const event of allEvents) {
-    const key = event.source.type;
-    sourceCounts.set(key, (sourceCounts.get(key) ?? 0) + 1);
-  }
-  for (const [source, count] of sourceCounts) {
-    logger.info(`  ${source}: ${count} events`);
-  }
+  // 6. Quality report
+  printQualityReport(validated, rejections, dupsMerged);
 }
 
 main().catch((err) => {

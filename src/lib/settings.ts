@@ -60,7 +60,11 @@ const STORAGE_KEYS = {
   selectedModel: "moonshots_selected_model",
   apiKey: "moonshots_api_key",
   chatPinned: "moonshots_chat_pinned",
+  chatPosition: "moonshots_chat_position",
 } as const;
+
+/** Chat position mode. */
+export type ChatPosition = "center" | "right";
 
 /**
  * Retrieves the stored AI model preference.
@@ -145,4 +149,23 @@ export function getChatPinned(): boolean {
 export function setChatPinned(pinned: boolean): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEYS.chatPinned, String(pinned));
+}
+
+/**
+ * Retrieves the stored chat position preference.
+ * @returns The stored chat position or "center" as default.
+ */
+export function getChatPosition(): ChatPosition {
+  if (typeof window === "undefined") return "center";
+  const stored = localStorage.getItem(STORAGE_KEYS.chatPosition);
+  return stored === "right" ? "right" : "center";
+}
+
+/**
+ * Stores the chat position preference.
+ * @param position - The chat position to store.
+ */
+export function setChatPosition(position: ChatPosition): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEYS.chatPosition, position);
 }

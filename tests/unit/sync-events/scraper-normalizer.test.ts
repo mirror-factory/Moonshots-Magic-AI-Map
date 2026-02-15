@@ -1,24 +1,24 @@
 import { describe, it, expect } from "vitest";
 import {
-  lookupVenueCoords,
+  lookupScraperVenueCoords,
   generateScrapedId,
   buildScrapedEvent,
 } from "../../../scripts/sync-events/normalizers/scraper-normalizer";
 
-describe("lookupVenueCoords", () => {
-  it("finds known venues", () => {
-    expect(lookupVenueCoords("Dr. Phillips Center")).toEqual([-81.3792, 28.5383]);
-    expect(lookupVenueCoords("Amway Center")).toEqual([-81.3839, 28.5392]);
-    expect(lookupVenueCoords("Lake Eola Park")).toEqual([-81.373, 28.5431]);
+describe("lookupScraperVenueCoords", () => {
+  it("finds known venues from canonical registry", () => {
+    expect(lookupScraperVenueCoords("Dr. Phillips Center")).toEqual([-81.3762, 28.5386]);
+    expect(lookupScraperVenueCoords("Amway Center")).toEqual([-81.3839, 28.5392]);
+    expect(lookupScraperVenueCoords("Lake Eola Park")).toEqual([-81.3734, 28.5432]);
   });
 
   it("matches partial venue names (case-insensitive)", () => {
-    expect(lookupVenueCoords("Event at Lake Eola")).toEqual([-81.373, 28.5431]);
-    expect(lookupVenueCoords("THE SOCIAL")).toEqual([-81.3787, 28.542]);
+    expect(lookupScraperVenueCoords("Event at Lake Eola")).toEqual([-81.3734, 28.5432]);
+    expect(lookupScraperVenueCoords("THE SOCIAL")).toEqual([-81.3787, 28.542]);
   });
 
   it("returns default coordinates for unknown venues", () => {
-    expect(lookupVenueCoords("Random Unknown Place")).toEqual([-81.3792, 28.5383]);
+    expect(lookupScraperVenueCoords("Random Unknown Place")).toEqual([-81.3792, 28.5383]);
   });
 });
 
@@ -42,8 +42,8 @@ describe("generateScrapedId", () => {
 });
 
 describe("buildScrapedEvent", () => {
-  it("creates a valid EventEntry with prefixed ID", () => {
-    const event = buildScrapedEvent(
+  it("creates a valid EventEntry with prefixed ID", async () => {
+    const event = await buildScrapedEvent(
       {
         title: "Art Walk",
         description: "Monthly art walk in downtown Orlando",
@@ -64,8 +64,8 @@ describe("buildScrapedEvent", () => {
     expect(event.timezone).toBe("America/New_York");
   });
 
-  it("infers category from text", () => {
-    const event = buildScrapedEvent(
+  it("infers category from text", async () => {
+    const event = await buildScrapedEvent(
       {
         title: "Live Jazz Concert",
         description: "Enjoy live jazz",
@@ -78,8 +78,8 @@ describe("buildScrapedEvent", () => {
     expect(event.category).toBe("music");
   });
 
-  it("uses venue lookup for coordinates", () => {
-    const event = buildScrapedEvent(
+  it("uses canonical venue lookup for coordinates", async () => {
+    const event = await buildScrapedEvent(
       {
         title: "Comedy at Wall Street",
         description: "Stand-up comedy",
@@ -89,11 +89,11 @@ describe("buildScrapedEvent", () => {
       "co",
       "orlando.gov",
     );
-    expect(event.coordinates).toEqual([-81.3785, 28.5418]);
+    expect(event.coordinates).toEqual([-81.3789, 28.5418]);
   });
 
-  it("defaults to Orlando coords for unknown venue", () => {
-    const event = buildScrapedEvent(
+  it("defaults to Orlando coords for unknown venue", async () => {
+    const event = await buildScrapedEvent(
       {
         title: "Mystery Event",
         description: "Who knows",

@@ -19,22 +19,101 @@ import type { EventCategory } from "@/lib/registries/types";
  */
 const maptilerKey = process.env.NEXT_PUBLIC_MAPTILER_KEY;
 
-export const MAP_STYLES_BY_THEME = maptilerKey
+/** CartoDB fallback style URLs — always available, no API key required. */
+export const CARTO_STYLES = {
+  light: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+  dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+} as const;
+
+/** MapTiler style URL templates (requires API key). */
+export const MAPTILER_STYLES = maptilerKey
   ? {
       light: `https://api.maptiler.com/maps/streets-v2/style.json?key=${maptilerKey}`,
       dark: `https://api.maptiler.com/maps/streets-v2-dark/style.json?key=${maptilerKey}`,
-    } as const
-  : {
-      light: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-      dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-    } as const;
+    }
+  : null;
+
+/**
+ * Patches a MapTiler style to fix compatibility issues with MapLibre GL.
+ * - Removes vector sources that have no `url` or `tiles` (e.g. `maptiler_attribution`).
+ *   These are metadata-only sources that cause `Lh.url` crashes in MapLibre.
+ * - Strips layers referencing removed sources.
+ * @param style - Parsed style JSON object.
+ * @returns The patched style object (mutated in-place).
+ */
+function patchMapTilerStyle(style: Record<string, unknown>): Record<string, unknown> {
+  const sources = style.sources as Record<string, Record<string, unknown>> | undefined;
+  if (!sources) return style;
+
+  // Find vector sources with no tile data
+  const broken = new Set<string>();
+  for (const [name, src] of Object.entries(sources)) {
+    if (src.type === "vector" && !src.url && !src.tiles) {
+      broken.add(name);
+      delete sources[name];
+    }
+  }
+
+  if (broken.size > 0) {
+    console.log("[Map] Removed tile-less sources:", [...broken].join(", "));
+    // Strip layers referencing removed sources
+    const layers = style.layers as Array<Record<string, unknown>> | undefined;
+    if (layers) {
+      style.layers = layers.filter((l) => !broken.has(l.source as string));
+    }
+  }
+
+  return style;
+}
+
+/**
+ * Fetches a MapLibre style JSON with retry logic.
+ * Tries MapTiler first (up to 3 attempts with backoff), falls back to CartoDB on failure.
+ * Returns the parsed style object — never a URL — so MapLibre won't hit 503s itself.
+ * Patches MapTiler-specific issues (tile-less attribution sources).
+ * @param isDark - Whether to fetch the dark theme variant.
+ * @returns Parsed style JSON object ready for `new Map({ style })`.
+ */
+export async function fetchMapStyle(isDark: boolean): Promise<object> {
+  const urls = [
+    // Primary: MapTiler (if key available)
+    ...(MAPTILER_STYLES ? [isDark ? MAPTILER_STYLES.dark : MAPTILER_STYLES.light] : []),
+    // Fallback: CartoDB
+    isDark ? CARTO_STYLES.dark : CARTO_STYLES.light,
+  ];
+
+  for (const url of urls) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          const styleJson = await res.json();
+          return patchMapTilerStyle(styleJson);
+        }
+        console.warn(`[Map] Style fetch attempt ${attempt + 1} failed (${res.status}) for ${url}`);
+      } catch (err) {
+        console.warn(`[Map] Style fetch attempt ${attempt + 1} error for ${url}:`, err);
+      }
+      // Backoff: 300ms, 900ms
+      if (attempt < 2) {
+        await new Promise((r) => setTimeout(r, 300 * Math.pow(3, attempt)));
+      }
+    }
+    console.warn(`[Map] All retries failed for ${url}, trying next source`);
+  }
+
+  // Should never reach here since CartoDB is highly reliable,
+  // but return a minimal valid style as last resort.
+  console.error("[Map] All style sources failed");
+  return { version: 8, sources: {}, layers: [] };
+}
 
 /** Default map center as `[longitude, latitude]` (West of Lake Eola, Downtown Orlando). */
 export const DEFAULT_CENTER: [number, number] = [-81.3780, 28.5431];
 /** Default zoom level on initial load. */
 export const DEFAULT_ZOOM = 15;
 /** Default camera pitch in degrees (tilted for 3D buildings). */
-export const DEFAULT_PITCH = 55;
+export const DEFAULT_PITCH = 40;
 /** Default camera bearing in degrees (angled for cinematic entry). */
 export const DEFAULT_BEARING = -30;
 
@@ -68,24 +147,6 @@ export const CATEGORY_COLORS: Record<EventCategory, string> = {
   market: "#5e9ae8",
   other: "#7090c8",
 };
-
-/**
- * Returns the MapTiler terrain DEM source URL, or null if no API key is set.
- * @returns Terrain source URL or null.
- */
-export function getTerrainSourceUrl(): string | null {
-  const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-  if (!key) return null;
-  return `https://api.maptiler.com/tiles/terrain-rgb-v2/{z}/{x}/{y}.webp?key=${key}`;
-}
-
-/** Terrain configuration for 3D mode. */
-export const TERRAIN_CONFIG = {
-  /** Height exaggeration factor (1.0 = realistic, higher = dramatic). */
-  exaggeration: 1.5,
-  /** Hillshade light direction in degrees (315 = northwest sun). */
-  hillshadeDirection: 315,
-} as const;
 
 /** OpenRouteService API base URL. */
 export const ORS_API_BASE = "https://api.openrouteservice.org/v2";

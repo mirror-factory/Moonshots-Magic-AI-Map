@@ -63,20 +63,6 @@ describe("GET /api/events", () => {
     });
   });
 
-  it("filters for free events with ?isFree=true", async () => {
-    const req = new NextRequest(
-      "http://localhost:3000/api/events?isFree=true",
-    );
-    const res = await GET(req);
-    const data = await res.json();
-
-    expect(data.count).toBeGreaterThanOrEqual(0);
-    expect(Array.isArray(data.events)).toBe(true);
-    data.events.forEach((event: any) => {
-      expect(event.price?.isFree).toBe(true);
-    });
-  });
-
   it("caps results with ?limit=5", async () => {
     const req = new NextRequest("http://localhost:3000/api/events?limit=5");
     const res = await GET(req);

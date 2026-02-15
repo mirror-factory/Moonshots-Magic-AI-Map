@@ -29,8 +29,8 @@ export function createTestEvent(
 }
 
 /**
- * Creates a set of diverse test events covering multiple categories,
- * price ranges, and statuses.
+ * Creates a set of diverse test events covering multiple categories
+ * and statuses.
  */
 export function createTestEventSet(): EventEntry[] {
   return [
@@ -40,7 +40,6 @@ export function createTestEventSet(): EventEntry[] {
       category: "music",
       city: "Orlando",
       startDate: "2026-03-15T19:00:00Z",
-      price: { min: 0, max: 0, currency: "USD", isFree: true },
       featured: true,
       tags: ["jazz", "live-music", "outdoor"],
     }),
@@ -50,7 +49,6 @@ export function createTestEventSet(): EventEntry[] {
       category: "arts",
       city: "Orlando",
       startDate: "2026-03-16T18:00:00Z",
-      price: { min: 10, max: 25, currency: "USD", isFree: false },
       tags: ["art", "gallery", "downtown"],
     }),
     createTestEvent({
@@ -59,7 +57,6 @@ export function createTestEventSet(): EventEntry[] {
       category: "food",
       city: "Kissimmee",
       startDate: "2026-03-17T12:00:00Z",
-      price: { min: 15, max: 15, currency: "USD", isFree: false },
       tags: ["food", "festival", "tacos"],
     }),
     createTestEvent({
@@ -68,7 +65,6 @@ export function createTestEventSet(): EventEntry[] {
       category: "tech",
       city: "Orlando",
       startDate: "2026-03-14T18:30:00Z",
-      price: { min: 0, max: 0, currency: "USD", isFree: true },
       tags: ["tech", "ai", "meetup"],
     }),
     createTestEvent({
@@ -86,7 +82,6 @@ export function createTestEventSet(): EventEntry[] {
       category: "family",
       city: "Winter Park",
       startDate: "2026-03-18T10:00:00Z",
-      price: { min: 5, max: 10, currency: "USD", isFree: false },
       featured: true,
       tags: ["family", "kids", "fun"],
     }),

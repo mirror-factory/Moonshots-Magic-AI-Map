@@ -8,6 +8,7 @@ import type { EventEntry } from "../../../src/lib/registries/types";
 import { inferCategoryFromText } from "../utils/category-mapper";
 import { createRateLimitedFetch } from "../utils/rate-limiter";
 import { logger } from "../utils/logger";
+import { lookupVenueCoordsWithGeocode } from "../venues/venue-lookup";
 
 const API_BASE = "https://serpapi.com/search.json";
 const RATE_LIMIT_MS = 1000;
@@ -218,82 +219,32 @@ function parseSerpDate(dateInfo?: SerpEvent["date"]): string {
 }
 
 /**
- * Extract coordinates from venue/address using known Orlando area locations.
- * Falls back to downtown Orlando center.
+ * Extract coordinates from venue/address using canonical registry + geocode fallback.
+ * Returns null if no match found — never falls back to downtown Orlando.
  * @param event - SerpApi event.
- * @returns [lng, lat] coordinates.
+ * @returns [lng, lat] coordinates or null.
  */
-function extractCoordinates(event: SerpEvent): [number, number] {
-  const addressStr = [
-    event.venue?.name,
-    ...(event.address ?? []),
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
+async function extractCoordinates(event: SerpEvent): Promise<[number, number] | null> {
+  const venueName = event.venue?.name;
+  const addressParts = event.address ?? [];
+  const addressStr = addressParts.slice(0, 2).join(", ");
+  const city = addressParts.find((a) =>
+    /orlando|kissimmee|winter park|sanford|daytona|cocoa|celebration|maitland|altamonte|oviedo|clermont|apopka/i.test(a),
+  );
 
-  // Known venue location mappings for common Orlando venues
-  const VENUE_COORDS: Record<string, [number, number]> = {
-    "amway center": [-81.3839, 28.5392],
-    "dr. phillips center": [-81.3762, 28.5386],
-    "dr phillips center": [-81.3762, 28.5386],
-    "camping world stadium": [-81.4029, 28.5392],
-    "exploria stadium": [-81.3891, 28.5411],
-    "lake eola": [-81.3734, 28.5432],
-    "wall street plaza": [-81.3789, 28.5415],
-    "universal": [-81.4684, 28.4747],
-    "disney springs": [-81.5194, 28.3712],
-    "magic kingdom": [-81.5639, 28.4177],
-    "epcot": [-81.5494, 28.3747],
-    "hollywood studios": [-81.5589, 28.3583],
-    "animal kingdom": [-81.5907, 28.3553],
-    "sea world": [-81.4618, 28.4114],
-    "seaworld": [-81.4618, 28.4114],
-    "international drive": [-81.4704, 28.4347],
-    "i-drive": [-81.4704, 28.4347],
-    "convention center": [-81.4693, 28.4274],
-    "kennedy space center": [-80.6501, 28.5728],
-    "cape canaveral": [-80.6077, 28.3922],
-    "cocoa beach": [-80.6077, 28.3200],
-    "winter park": [-81.3392, 28.5992],
-    "park avenue": [-81.3512, 28.5992],
-    "kissimmee": [-81.4168, 28.2920],
-    "celebration": [-81.5333, 28.3253],
-    "sanford": [-81.2732, 28.8003],
-    "daytona": [-81.0229, 29.2108],
-    "ucf": [-81.2000, 28.6024],
-    "downtown orlando": [-81.3792, 28.5383],
-    "mills 50": [-81.3670, 28.5500],
-    "thornton park": [-81.3682, 28.5395],
-    "college park": [-81.3969, 28.5639],
-    "ivanhoe village": [-81.3813, 28.5581],
-    "winter garden": [-81.5862, 28.5653],
-    "mount dora": [-81.6434, 28.8025],
-    "maitland": [-81.3634, 28.6275],
-    "altamonte springs": [-81.3654, 28.6611],
-    "oviedo": [-81.2084, 28.6700],
-    "lake mary": [-81.3178, 28.7589],
-    "longwood": [-81.3384, 28.7031],
-    "apopka": [-81.5084, 28.6764],
-    "clermont": [-81.7729, 28.5494],
-    "st. cloud": [-81.2812, 28.2489],
-    "st cloud": [-81.2812, 28.2489],
-    "deland": [-81.3031, 29.0280],
-    "tavares": [-81.7256, 28.8042],
-    "leesburg": [-81.8779, 28.8108],
-  };
-
-  for (const [key, coords] of Object.entries(VENUE_COORDS)) {
-    if (addressStr.includes(key)) {
-      // Add small jitter to avoid exact overlaps
-      const jitter = () => (Math.random() - 0.5) * 0.005;
-      return [coords[0] + jitter(), coords[1] + jitter()];
-    }
+  // Try canonical + geocode via venue name
+  if (venueName) {
+    const match = await lookupVenueCoordsWithGeocode(venueName, addressStr, city);
+    if (match) return [match.lng, match.lat];
   }
 
-  // Default: downtown Orlando with random jitter
-  const jitter = () => (Math.random() - 0.5) * 0.03;
-  return [-81.3792 + jitter(), 28.5383 + jitter()];
+  // Try geocoding the address directly
+  if (addressStr) {
+    const match = await lookupVenueCoordsWithGeocode(addressStr, undefined, city);
+    if (match) return [match.lng, match.lat];
+  }
+
+  return null;
 }
 
 /**
@@ -366,7 +317,8 @@ export async function fetchSerpApiEvents(): Promise<EventEntry[]> {
         seenTitles.add(normalizedTitle);
 
         const now = new Date().toISOString();
-        const coordinates = extractCoordinates(raw);
+        const coordinates = await extractCoordinates(raw);
+        if (!coordinates) continue; // Skip events with no resolvable coordinates
         const addressParts = raw.address ?? [];
         const city =
           addressParts.find((a) =>

@@ -41,23 +41,6 @@ describe("eventsToGeoJSON", () => {
     expect(props.startDate).toBe("2026-04-01T20:00:00Z");
   });
 
-  it("isFree defaults to false when no price is provided", () => {
-    const event = createTestEvent();
-    // The default createTestEvent has no price field
-    delete (event as Record<string, unknown>).price;
-
-    const result = eventsToGeoJSON([event]);
-    expect(result.features[0].properties.isFree).toBe(false);
-  });
-
-  it("isFree is true when price.isFree is true", () => {
-    const event = createTestEvent({
-      price: { min: 0, max: 0, currency: "USD", isFree: true },
-    });
-    const result = eventsToGeoJSON([event]);
-    expect(result.features[0].properties.isFree).toBe(true);
-  });
-
   it("featured defaults to false when undefined", () => {
     const event = createTestEvent();
     // The default createTestEvent has no featured field

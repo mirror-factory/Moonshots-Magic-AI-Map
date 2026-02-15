@@ -44,45 +44,35 @@ function makeTmEvent(overrides: Partial<TmEvent> = {}): TmEvent {
 }
 
 describe("normalizeTmEvent", () => {
-  it("produces a valid EventEntry with tm- prefixed id", () => {
-    const result = normalizeTmEvent(makeTmEvent());
+  it("produces a valid EventEntry with tm- prefixed id", async () => {
+    const result = await normalizeTmEvent(makeTmEvent());
     expect(result.id).toBe("tm-G5v0Z9gHcK7dP");
     expect(result.title).toBe("Test Concert");
     expect(result.source.type).toBe("ticketmaster");
   });
 
-  it("maps coordinates from venue location", () => {
-    const result = normalizeTmEvent(makeTmEvent());
+  it("maps coordinates from venue location", async () => {
+    const result = await normalizeTmEvent(makeTmEvent());
     expect(result.coordinates).toEqual([-81.3787, 28.542]);
   });
 
-  it("maps category from segment and genre", () => {
-    const result = normalizeTmEvent(makeTmEvent());
+  it("maps category from segment and genre", async () => {
+    const result = await normalizeTmEvent(makeTmEvent());
     expect(result.category).toBe("music");
   });
 
-  it("picks largest 16_9 image", () => {
-    const result = normalizeTmEvent(makeTmEvent());
+  it("picks largest 16_9 image", async () => {
+    const result = await normalizeTmEvent(makeTmEvent());
     expect(result.imageUrl).toBe("https://img.tm.com/large.jpg");
   });
 
-  it("maps price range correctly", () => {
-    const result = normalizeTmEvent(makeTmEvent());
-    expect(result.price).toEqual({
-      min: 25,
-      max: 75,
-      currency: "USD",
-      isFree: false,
-    });
+  it("does not include price field", async () => {
+    const result = await normalizeTmEvent(makeTmEvent());
+    expect(result).not.toHaveProperty("price");
   });
 
-  it("handles free events (no price range)", () => {
-    const result = normalizeTmEvent(makeTmEvent({ priceRanges: undefined }));
-    expect(result.price).toBeUndefined();
-  });
-
-  it("defaults coordinates when venue has no location", () => {
-    const result = normalizeTmEvent(
+  it("defaults coordinates when venue has no location", async () => {
+    const result = await normalizeTmEvent(
       makeTmEvent({
         _embedded: {
           venues: [
@@ -98,19 +88,19 @@ describe("normalizeTmEvent", () => {
     expect(result.coordinates).toEqual([-81.3792, 28.5383]);
   });
 
-  it("generates tags from genre and subGenre", () => {
-    const result = normalizeTmEvent(makeTmEvent());
+  it("generates tags from genre and subGenre", async () => {
+    const result = await normalizeTmEvent(makeTmEvent());
     expect(result.tags).toContain("rock");
     expect(result.tags).toContain("alternative");
   });
 
-  it("infers region from city name", () => {
-    const result = normalizeTmEvent(makeTmEvent());
+  it("infers region from city name", async () => {
+    const result = await normalizeTmEvent(makeTmEvent());
     expect(result.region).toBe("Downtown Orlando");
   });
 
-  it("infers region for Winter Park", () => {
-    const result = normalizeTmEvent(
+  it("infers region for Winter Park", async () => {
+    const result = await normalizeTmEvent(
       makeTmEvent({
         _embedded: {
           venues: [
@@ -127,39 +117,44 @@ describe("normalizeTmEvent", () => {
     expect(result.region).toBe("Winter Park");
   });
 
-  it("always uses canonical ticketmaster.com URL regardless of API url", () => {
-    const result = normalizeTmEvent(
+  it("preserves API-provided URL (ticketweb, universe, etc.)", async () => {
+    const result = await normalizeTmEvent(
       makeTmEvent({ url: "https://www.ticketweb.com/some-event" }),
     );
-    expect(result.url).toBe("https://www.ticketmaster.com/event/G5v0Z9gHcK7dP");
+    expect(result.url).toBe("https://www.ticketweb.com/some-event");
   });
 
-  it("constructs canonical URL for standard TM IDs", () => {
-    const result = normalizeTmEvent(
+  it("falls back to canonical URL when API provides no URL", async () => {
+    const result = await normalizeTmEvent(
       makeTmEvent({ id: "Z7r9jZ1A7jsbp", url: undefined }),
     );
     expect(result.url).toBe("https://www.ticketmaster.com/event/Z7r9jZ1A7jsbp");
   });
 
-  it("constructs canonical URL for Za5ju3rKuq resale IDs", () => {
-    const result = normalizeTmEvent(
-      makeTmEvent({ id: "Za5ju3rKuqZDdItOqg6-sAB_vvfjeNwwDM", url: undefined }),
-    );
-    expect(result.url).toBe("https://www.ticketmaster.com/event/Za5ju3rKuqZDdItOqg6-sAB_vvfjeNwwDM");
-  });
-
-  it("uses canonical URL even when API provides third-party URL", () => {
-    const result = normalizeTmEvent(
+  it("preserves universe.com URL for resale events", async () => {
+    const result = await normalizeTmEvent(
       makeTmEvent({
         id: "Za5ju3rKuqZDdItOqg6-sAB_vvfjeNwwDM",
         url: "https://universe.com/events/some-event",
       }),
     );
-    expect(result.url).toBe("https://www.ticketmaster.com/event/Za5ju3rKuqZDdItOqg6-sAB_vvfjeNwwDM");
+    expect(result.url).toBe("https://universe.com/events/some-event");
   });
 
-  it("falls back to localDate when dateTime missing", () => {
-    const result = normalizeTmEvent(
+  it("uses API slug URL over constructed canonical URL", async () => {
+    const result = await normalizeTmEvent(
+      makeTmEvent({
+        id: "G5v0Z9gHcK7dP",
+        url: "https://www.ticketmaster.com/test-concert-orlando-florida-03-15-2026/event/22006433E4867433",
+      }),
+    );
+    expect(result.url).toBe(
+      "https://www.ticketmaster.com/test-concert-orlando-florida-03-15-2026/event/22006433E4867433",
+    );
+  });
+
+  it("falls back to localDate when dateTime missing", async () => {
+    const result = await normalizeTmEvent(
       makeTmEvent({
         dates: {
           start: { localDate: "2026-04-01", localTime: "19:00:00" },

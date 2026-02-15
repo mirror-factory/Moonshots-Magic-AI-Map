@@ -132,6 +132,96 @@ export function getEventsForPreset(events: EventEntry[], preset: DatePreset): st
     .map((event) => event.id);
 }
 
+/** Distance preset options in miles. */
+export type DistancePreset = 1 | 3 | 5 | 10 | null;
+
+/** Labels for distance presets. */
+export const DISTANCE_PRESET_LABELS: Record<number, string> = {
+  1: "1 mi",
+  3: "3 mi",
+  5: "5 mi",
+  10: "10 mi",
+};
+
+/**
+ * Haversine distance between two points in miles.
+ * @param lat1 - Latitude of point 1.
+ * @param lng1 - Longitude of point 1.
+ * @param lat2 - Latitude of point 2.
+ * @param lng2 - Longitude of point 2.
+ */
+export function haversineDistanceMiles(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const R = 3958.8; // Earth's radius in miles
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * Filters event IDs by distance from a center point.
+ * @param eventIds - Event IDs to filter.
+ * @param events - All events (for coordinate lookup).
+ * @param center - [lng, lat] center point.
+ * @param radiusMiles - Maximum distance in miles.
+ */
+export function filterEventsByDistance(
+  eventIds: string[],
+  events: EventEntry[],
+  center: [number, number],
+  radiusMiles: number,
+): string[] {
+  const eventMap = new Map(events.map((e) => [e.id, e]));
+  return eventIds.filter((id) => {
+    const event = eventMap.get(id);
+    if (!event?.coordinates) return false;
+    const [lng, lat] = event.coordinates as [number, number];
+    return haversineDistanceMiles(center[1], center[0], lat, lng) <= radiusMiles;
+  });
+}
+
+/**
+ * Generates a GeoJSON circle polygon for rendering a radius on the map.
+ * @param center - [lng, lat] center point.
+ * @param radiusMiles - Radius in miles.
+ * @param steps - Number of polygon vertices (default 64).
+ */
+export function createRadiusCircleGeoJSON(
+  center: [number, number],
+  radiusMiles: number,
+  steps = 64,
+): GeoJSON.Feature<GeoJSON.Polygon> {
+  const radiusKm = radiusMiles * 1.60934;
+  const coords: [number, number][] = [];
+
+  for (let i = 0; i <= steps; i++) {
+    const angle = (i / steps) * 2 * Math.PI;
+    const dx = radiusKm * Math.cos(angle);
+    const dy = radiusKm * Math.sin(angle);
+    const lat = center[1] + (dy / 111.32);
+    const lng = center[0] + (dx / (111.32 * Math.cos((center[1] * Math.PI) / 180)));
+    coords.push([lng, lat]);
+  }
+
+  return {
+    type: "Feature",
+    geometry: {
+      type: "Polygon",
+      coordinates: [coords],
+    },
+    properties: {},
+  };
+}
+
 /**
  * Returns event IDs filtered by category and/or custom date range.
  * @param events - All available events.

@@ -16,11 +16,6 @@ interface NarrateEventInput {
   description: string;
   category: string;
   startDate: string;
-  price?: {
-    min?: number;
-    max?: number;
-    isFree?: boolean;
-  };
 }
 
 /** Request body schema. */
@@ -52,8 +47,6 @@ async function generateNarrative(
   total: number
 ): Promise<string> {
   const dayName = new Date(event.startDate).toLocaleDateString("en-US", { weekday: "long" });
-  const isFree = event.price?.isFree;
-
   // Position indicator
   const position = index === 1 ? "First up" : index === total ? "And for our final stop" : "Next up";
 
@@ -70,7 +63,6 @@ EVENT DETAILS:
 - Day: ${dayName}
 - Category: ${event.category}
 - Description: ${shortDesc}
-${isFree ? "- This event is FREE!" : ""}
 ${theme ? `- Tour theme: ${theme}` : ""}
 
 RULES:

@@ -7,7 +7,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, ExternalLink, Check, AlertCircle, Sparkles, Database } from "lucide-react";
+import { X, ExternalLink, Check, AlertCircle, Sparkles, Database, AlignCenter, PanelRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { ModelSelector } from "./model-selector";
@@ -19,7 +19,10 @@ import {
   clearStoredApiKey,
   maskApiKey,
   getModelById,
+  getChatPosition,
+  setChatPosition,
   type ModelId,
+  type ChatPosition,
 } from "@/lib/settings";
 import { getEventSourceStats } from "@/lib/registries/events";
 
@@ -27,16 +30,18 @@ interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
   onStartPersonalization?: () => void;
+  onChatPositionChange?: (position: ChatPosition) => void;
 }
 
 /** Settings dialog with AI model selection and API configuration. */
-export function SettingsModal({ open, onClose, onStartPersonalization }: SettingsModalProps) {
+export function SettingsModal({ open, onClose, onStartPersonalization, onChatPositionChange }: SettingsModalProps) {
   return (
     <AnimatePresence>
       {open && (
         <SettingsModalContent
           onClose={onClose}
           onStartPersonalization={onStartPersonalization}
+          onChatPositionChange={onChatPositionChange}
         />
       )}
     </AnimatePresence>
@@ -46,21 +51,25 @@ export function SettingsModal({ open, onClose, onStartPersonalization }: Setting
 interface SettingsModalContentProps {
   onClose: () => void;
   onStartPersonalization?: () => void;
+  onChatPositionChange?: (position: ChatPosition) => void;
 }
 
 /**
  * Inner content of the settings modal.
  * Mounts/unmounts with the dialog so useState initializers run fresh each open.
  */
-function SettingsModalContent({ onClose, onStartPersonalization }: SettingsModalContentProps) {
+function SettingsModalContent({ onClose, onStartPersonalization, onChatPositionChange }: SettingsModalContentProps) {
   const [selectedModel, setSelectedModel] = useState<ModelId>(() => getStoredModel());
   const [apiKey, setApiKey] = useState("");
   const [storedKey, setStoredKey] = useState<string | undefined>(() => getStoredApiKey());
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [chatPos, setChatPos] = useState<ChatPosition>(() => getChatPosition());
 
   const handleSave = () => {
     setStoredModel(selectedModel);
+    setChatPosition(chatPos);
+    onChatPositionChange?.(chatPos);
     if (apiKey.trim()) {
       setStoredApiKey(apiKey.trim());
       setStoredKey(apiKey.trim());
@@ -161,7 +170,7 @@ function SettingsModalContent({ onClose, onStartPersonalization }: SettingsModal
                   className="mb-3 text-sm"
                   style={{ color: "var(--text-dim)" }}
                 >
-                  Tell Ditto about your preferences to get personalized event recommendations.
+                  Share your preferences to get personalized event recommendations.
                 </p>
                 <Button
                   variant="outline"
@@ -178,6 +187,42 @@ function SettingsModalContent({ onClose, onStartPersonalization }: SettingsModal
               </div>
             </section>
           )}
+
+          {/* Chat Position */}
+          <section>
+            <h3
+              className="mb-3 text-sm font-medium"
+              style={{ color: "var(--text)" }}
+            >
+              Chat Position
+            </h3>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setChatPos("center")}
+                className="flex flex-1 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
+                style={{
+                  background: chatPos === "center" ? "rgba(53, 96, 255, 0.15)" : "var(--surface-2)",
+                  border: chatPos === "center" ? "1px solid rgba(53, 96, 255, 0.4)" : "1px solid var(--border-color)",
+                  color: chatPos === "center" ? "#3560FF" : "var(--text-dim)",
+                }}
+              >
+                <AlignCenter className="h-4 w-4" />
+                Center
+              </button>
+              <button
+                onClick={() => setChatPos("right")}
+                className="flex flex-1 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
+                style={{
+                  background: chatPos === "right" ? "rgba(53, 96, 255, 0.15)" : "var(--surface-2)",
+                  border: chatPos === "right" ? "1px solid rgba(53, 96, 255, 0.4)" : "1px solid var(--border-color)",
+                  color: chatPos === "right" ? "#3560FF" : "var(--text-dim)",
+                }}
+              >
+                <PanelRight className="h-4 w-4" />
+                Right Side
+              </button>
+            </div>
+          </section>
 
           {/* API Key Configuration */}
           <section>

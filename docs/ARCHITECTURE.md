@@ -123,9 +123,12 @@ src/
 │   │   ├── map-directions.tsx     # Route line rendering layer
 │   │   ├── map-hotspots.tsx       # Heatmap layer from event coordinates
 │   │   ├── map-isochrone.tsx      # Travel time zone rendering layer
-│   │   ├── map-markers.tsx        # GeoJSON neon orb circle layer
+│   │   ├── map-markers.tsx        # GeoJSON neon orb circle layer + clustering
 │   │   ├── map-popups.tsx         # Canvas card hover/click + persistent selection
+│   │   ├── map-search-bar.tsx     # Geocoding search with autocomplete (MapTiler)
 │   │   ├── map-status-bar.tsx     # Filter chips, toolbar, coordinates
+│   │   ├── map-style-switcher.tsx # Style toggle (Streets/Satellite/Outdoor/Dark)
+│   │   ├── map-weather.tsx        # Weather radar overlay toggle (MapTiler)
 │   │   └── use-map.ts             # MapContext + useMap hook
 │   ├── settings/
 │   │   ├── model-selector.tsx     # AI model picker dropdown
@@ -170,14 +173,19 @@ src/
     │   ├── camera-animator.ts     # MapLibre camera animation curves
     │   ├── flyover-audio.ts       # Ambient audio during flyover
     │   └── flyover-engine.ts      # Flyover state machine (idle→preparing→flying→paused→complete)
+    ├── audio/
+    │   └── background-music.ts    # Ambient background music (flyover + showcase)
     ├── map/
-    │   ├── config.ts              # Styles, 3D terrain, colors, labels
+    │   ├── camera-utils.ts        # Unified camera navigation (flyToPoint, fitBoundsToPoints)
+    │   ├── config.ts              # Styles, 3D terrain, colors, labels, style variants
     │   ├── event-filters.ts       # Date preset filters (today, weekend, week, month)
+    │   ├── geocoding.ts           # MapTiler Geocoding API client
     │   ├── geojson.ts             # EventEntry → GeoJSON conversion
     │   ├── isochrone.ts           # Travel time isochrone API client
     │   ├── routing.ts             # Directions API (OpenRouteService)
     │   ├── three-layer.ts         # Three.js 3D marker layer
-    │   └── venue-highlight.ts     # Shared canvas card + golden pulse system
+    │   ├── venue-highlight.ts     # Shared canvas card + golden pulse system
+    │   └── weather.ts             # MapTiler Weather API client
     ├── profile.ts                 # User profile types and helpers
     ├── profile-storage.ts         # localStorage profile persistence
     ├── context/
@@ -295,11 +303,14 @@ The `AmbientContext` engine (`src/lib/context/ambient-context.ts`) gathers time,
 
 ### Map Layer
 - **MapContainer** → provides `MapContext` (the MapLibre instance), 3D terrain/buildings
-  - **MapMarkers** → GeoJSON source + neon orb circle layer with filter-based visibility
+  - **MapMarkers** → GeoJSON source + neon orb circle layer + Supercluster clustering
   - **MapPopups** → canvas card hover/click with persistent selection + golden pulse orbit
-  - **MapControls** → logo dropdown + slide-out sidebar with event list
+  - **MapControls** → logo dropdown + search bar + slide-out sidebar
+  - **MapSearchBar** → MapTiler Geocoding autocomplete with debounced input
   - **MapStatusBar** → filter chips (Today/Weekend/Week), toolbar, coordinates
-  - **MapDirections** → route line rendering from OpenRouteService
+  - **MapStyleSwitcher** → Streets/Satellite/Outdoor/Dark style toggle
+  - **MapWeather** → MapTiler precipitation radar overlay toggle
+  - **MapDirections** → animated route line rendering from OpenRouteService
   - **MapIsochrone** → travel time zone polygon rendering
   - **MapHotspots** → heatmap layer from event coordinates
 
@@ -361,7 +372,7 @@ See **[docs/FEATURES.md](docs/FEATURES.md)** for a complete registry of all 35 f
 
 - **Auth not wired**: Supabase schema and RLS are in place but auth flows are not yet connected to the UI
 - **Color duplication**: Category colors are duplicated in CSS variables (`globals.css`) and JavaScript (`config.ts`) — MapLibre requires hex literals
-- **No marker clustering**: Map markers overlap at low zoom levels without clustering
+- ~~No marker clustering~~ ✅ (Implemented — MapLibre native clustering via GeoJSON source)
 - **Story coverage**: 6/24 components have Storybook stories (run `pnpm check-stories` for details)
 
 ## Completed Milestones
@@ -389,6 +400,21 @@ See **[docs/FEATURES.md](docs/FEATURES.md)** for a complete registry of all 35 f
 21. ~~Date filter chips (Today / Weekend / This Week)~~ ✅
 22. ~~Events dropdown with detail view + sidebar~~ ✅
 23. ~~Chat event card redesign (blurred image backgrounds, "Learn More" → detail)~~ ✅
+24. ~~Unified camera navigation system (`camera-utils.ts`)~~ ✅
+25. ~~Chat + presentation coexistence (no more mutual exclusion)~~ ✅
+26. ~~Background audio for flyover + showcase~~ ✅
+27. ~~Smart marker clustering (MapLibre native)~~ ✅
+28. ~~Geocoding search bar with autocomplete (MapTiler)~~ ✅
+29. ~~Map style switcher (Streets/Satellite/Outdoor/Dark)~~ ✅
+30. ~~Live weather radar overlay (MapTiler)~~ ✅
+31. ~~Animated route drawing (progressive reveal)~~ ✅
+32. ~~Dynamic hillshading (time-of-day illumination)~~ ✅
+33. ~~Events dropdown outside-click prevention~~ ✅
+34. ~~Directions chat loading state + turn-by-turn steps~~ ✅
+35. ~~Google Maps / Apple Maps deep links from directions~~ ✅
+36. ~~Cinematic route orbit animation (60° over 20s)~~ ✅
+37. ~~MapTiler Streets v2 tile upgrade (rich POI labels)~~ ✅
+38. ~~fitBounds implementation for map-action tool~~ ✅
 
 ## Quality Infrastructure
 
@@ -482,57 +508,66 @@ The logo-anchored `Popover` (Radix UI) is configured to:
 
 The flyover engine and Orlando showcase both fly the camera to event/landmark coordinates. However, they currently use **separate navigation paths** instead of a unified system:
 
-### Navigation Paths (current — fragmented)
+### Navigation Paths (unified via camera-utils)
 
 | System | Coordinate Source | Navigation Call | File |
 |--------|------------------|----------------|------|
 | Flyover | `event.coordinates` → `FlyoverWaypoint.center` | `animateToWaypoint()` | `flyover-engine.ts` |
-| Presentation (Orlando Showcase) | Hardcoded `coordinates` in landmarks | `map.flyTo()` directly | `presentation-panel.tsx` |
-| Chat mapNavigate | LLM-provided coordinates | `map.flyTo()` in MapAction | `map-action.tsx` |
+| Presentation (Orlando Showcase) | Hardcoded `coordinates` in landmarks | `flyToPoint()` | `presentation-panel.tsx` |
+| Chat mapNavigate | LLM-provided coordinates | `flyToPoint()` / `fitBoundsToPoints()` | `map-action.tsx` |
 | Chat startFlyover | Event IDs → lookup → `event.coordinates` | `animateToWaypoint()` | `map-container.tsx` |
-| Show on map | `event.coordinates` | `map.flyTo()` | `map-container.tsx` |
+| Show on map | `event.coordinates` | `flyToPoint()` | `map-container.tsx` |
+| Highlighted events | AI-returned event IDs | `fitBoundsToPoints()` | `map-container.tsx` |
 
-### Known Bugs
+All navigation now flows through `src/lib/map/camera-utils.ts` which provides:
+- `flyToPoint()` — single entry point for all flyTo operations with timeout fallback
+- `fitBoundsToPoints()` — fits bounds to multiple coordinates, falls back to flyTo for single point
+- `isValidCoordinates()` — validates [lng, lat] pairs before navigation
+- `calculateCenter()` — centroid calculation for coordinate arrays
 
-1. **Events don't fly to correct coordinates** — Camera navigation and event coordinate resolution are duplicated across 5+ locations with subtly different parameters. Sometimes `flyTo` targets the wrong position or doesn't move at all.
-2. **Orlando showcase doesn't move to starting destination** — Presentation uses hardcoded landmark coordinates that aren't validated. The `cinematicIntro()` animation may complete before `flyTo` starts.
-3. **Chat disappears during showcase** — `AnimatePresence` in `map-with-chat.tsx` swaps `CenterChat` for `PresentationPanel`, so tapping "Astado" (which triggers presentation) removes the chat entirely. Chat should remain visible.
-4. **Silent failure on missing event IDs** — `events.find((e) => e.id === id)` returns undefined for stale IDs, silently skipping waypoints with no user feedback.
-5. **fitBounds unimplemented** — `map-action.tsx` line 41-44 has a skeleton `fitBounds` case with a "skip for now" comment.
+### Bug Fixes (completed)
 
-### Audio Plan
+1. ~~Events don't fly to correct coordinates~~ ✅ — Unified via `camera-utils.ts` with coordinate validation
+2. ~~Orlando showcase doesn't move to starting destination~~ ✅ — Now uses `flyToPoint()` with proper Promise resolution
+3. ~~Chat disappears during showcase~~ ✅ — `AnimatePresence mode="wait"` removed; chat always renders alongside presentation
+4. **Silent failure on missing event IDs** — Still open. `events.find((e) => e.id === id)` returns undefined for stale IDs.
+5. ~~fitBounds unimplemented~~ ✅ — Fully implemented in `camera-utils.ts` with bounds calculation
+
+### Background Audio (implemented)
 
 | Context | Audio File | Behavior |
 |---------|-----------|----------|
-| General flyover tours | `public/audio/liosound_Lofi_loop-01.mp3` | Play softly as background during flyover, fade out on stop |
-| Orlando showcase | `public/audio/Real Estate 03.mp3` | Play during showcase mode, fade out on exit |
+| General flyover tours | `public/audio/liosound_Lofi_loop-01.mp3` | Fade-in on flyover start, fade-out on stop/complete |
+| Orlando showcase | `public/audio/Real Estate 03.mp3` | Fade-in on showcase start, fade-out on exit |
 | Waypoint narration | Cartesia TTS (dynamic) | Per-waypoint narration overlaid on background audio |
 
-### Planned Fixes (next session)
-
-1. **Unify navigation system** — Extract a shared `flyToCoordinates()` in `src/lib/map/camera-utils.ts` that all systems use. Single source of truth for `flyTo` params (duration, pitch, bearing, padding).
-2. **Fix coordinate resolution** — Validate coordinates before `flyTo`. Log warnings for out-of-bounds or NaN values. Show error in chat for missing event IDs.
-3. **Chat visibility toggle** — During showcase, chat stays visible but minimized. Add a "Hide Chat" / "Show Chat" toggle button instead of auto-dismissing. Tapping Astado should not exit the showcase.
-4. **Background audio** — Add `liosound_Lofi_loop-01.mp3` for flyovers and `Real Estate 03.mp3` for showcase with volume control and fade transitions.
-5. **Implement fitBounds** — Complete the skeleton in `map-action.tsx` using `LngLatBounds` from maplibre-gl.
+Audio managed by `src/lib/audio/background-music.ts` — singleton controller with 1.5s fade transitions, loop support, and mode-specific default volumes (flyover: 15%, showcase: 20%).
 
 ## Additional MapLibre Capabilities
 
-Potential features that could be added to the map:
+### Implemented
+
+| Capability | Status | Description | File |
+|-----------|--------|-------------|------|
+| Marker clustering | ✅ | MapLibre native clustering via GeoJSON source (clusterMaxZoom: 13, radius: 50) | `map-markers.tsx` |
+| Geocoding search bar | ✅ | MapTiler Geocoding API with autocomplete, proximity bias, debounced input | `map-search-bar.tsx`, `geocoding.ts` |
+| Style switcher | ✅ | Streets / Satellite / Outdoor / Dark toggle with camera preservation | `map-style-switcher.tsx` |
+| Weather overlay | ✅ | MapTiler precipitation radar as semi-transparent raster tiles | `map-weather.tsx`, `weather.ts` |
+| Animated route drawing | ✅ | Progressive coordinate reveal over 2s with ease-out deceleration | `map-directions.tsx` |
+| Dynamic hillshading | ✅ | Time-of-day illumination direction (east→west, 6am–6pm) | `config.ts` |
+| Unified camera navigation | ✅ | Single `flyToPoint()` / `fitBoundsToPoints()` used by all systems | `camera-utils.ts` |
+| Background audio | ✅ | Lofi for flyovers, ambient for showcase with fade transitions | `background-music.ts` |
+
+### Planned
 
 | Capability | Difficulty | Description |
 |-----------|-----------|-------------|
-| Marker clustering | Medium | Supercluster at low zoom levels — prevents overlap |
-| Geocoding search bar | Medium | MapTiler Geocoding API — search addresses/places directly on map |
 | Street-level navigation | Hard | Mapillary integration for street imagery |
 | Indoor maps | Hard | Venue floor plans for convention centers, malls |
-| Satellite/aerial toggle | Easy | MapTiler Satellite style as optional layer |
-| Weather overlay | Medium | Open-Meteo radar tiles for rain/weather visualization |
 | Transit directions | Medium | ORS public-transport profile (bus/rail routes) |
 | Measure distance tool | Easy | Click two points to measure distance (Turf.js) |
 | Draw/annotate on map | Medium | MapLibre Draw plugin for user annotations |
 | Export/print map | Easy | `map.getCanvas().toDataURL()` for screenshots |
-| Accessibility: high-contrast mode | Easy | MapTiler high-contrast style option |
 | Route alternatives | Medium | ORS `alternative_routes` parameter — show 2-3 route options |
 | Waypoints/multi-stop routing | Medium | Allow adding intermediate stops to directions |
 | Live traffic layer | Hard | Requires traffic data provider (TomTom/HERE) |
@@ -542,11 +577,14 @@ Potential features that could be added to the map:
 | Elevation profile | Medium | Show elevation chart along a route (ORS elevation API) |
 | Offline map support | Hard | MapLibre offline tile caching (service worker) |
 | AR view | Hard | WebXR integration for placing events in camera view |
+| Globe zoom intro | Medium | MapTiler globe projection for cinematic entry zoom |
+| 3D venue models | Hard | GLTF/GLB models placed at venue coordinates via Three.js layer |
+| Timeline scrubber | Medium | Slider to filter events by date with animated marker visibility |
 
 ## Opportunities for Improvement
 
 ### Performance
-- **Marker clustering**: Use Supercluster or MapLibre's built-in clustering for better performance at low zoom
+- ~~Marker clustering~~ ✅ — Implemented via MapLibre native clustering
 - **Suspense boundaries**: Add React Suspense around map components for better loading states
 - **ISR for events**: Move from static JSON to database with ISR (Incremental Static Regeneration)
 

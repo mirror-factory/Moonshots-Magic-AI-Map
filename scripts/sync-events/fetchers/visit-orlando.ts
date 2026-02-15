@@ -86,7 +86,7 @@ export async function fetchVisitOrlandoEvents(): Promise<EventEntry[]> {
         if (!startDate) continue;
 
         events.push(
-          buildScrapedEvent(
+          await buildScrapedEvent(
             {
               title,
               description,

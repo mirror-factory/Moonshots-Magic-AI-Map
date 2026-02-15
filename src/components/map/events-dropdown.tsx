@@ -1,13 +1,13 @@
 /**
  * @module components/map/events-dropdown
- * Popover-based events dropdown triggered by the brand logo. Shows AI-highlighted
- * events when available, with search within results. Falls back to all events
- * when nothing is highlighted.
+ * Reusable events panel content and Popover-based dropdown trigger.
+ * {@link EventsPanelContent} is the standalone inner panel used by both
+ * the old Popover dropdown and the new slide-in panel from the toolbar.
  */
 
 "use client";
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import Image from "next/image";
 import {
   Search,
@@ -67,6 +67,38 @@ export interface EventsDropdownProps {
   onAskAbout?: (eventTitle: string) => void;
   /** Callback fired when the user requests to show an event on the map. */
   onShowOnMap?: (event: EventEntry) => void;
+  /** Callback fired when the user requests directions to an event. */
+  onGetDirections?: (event: EventEntry) => void;
+  /** Event ID to auto-open in the detail view (from map popup "More Detail"). */
+  detailEventId?: string | null;
+  /** Clears the externally-set detail event ID. */
+  onClearDetailEvent?: () => void;
+  /** Whether directions are currently active — auto-closes the dropdown. */
+  directionsActive?: boolean;
+}
+
+/**
+ * Props for {@link EventsPanelContent}.
+ */
+export interface EventsPanelContentProps {
+  /** Array of all events. */
+  events: EventEntry[];
+  /** Effective event IDs currently shown on the map (AI or date filter). */
+  effectiveEventIds?: string[];
+  /** Whether AI results are overriding the date filter. */
+  aiResultsActive?: boolean;
+  /** Active date preset when not overridden by AI. */
+  activePreset?: DatePreset;
+  /** Callback when user changes the date filter preset. */
+  onPresetChange?: (preset: DatePreset) => void;
+  /** Callback fired when the user asks the AI about a specific event. */
+  onAskAbout?: (eventTitle: string) => void;
+  /** Callback fired when the user requests to show an event on the map. */
+  onShowOnMap?: (event: EventEntry) => void;
+  /** Callback fired when the user requests directions to an event. */
+  onGetDirections?: (event: EventEntry) => void;
+  /** Called when the panel close button is clicked. */
+  onClose?: () => void;
   /** Event ID to auto-open in the detail view (from map popup "More Detail"). */
   detailEventId?: string | null;
   /** Clears the externally-set detail event ID. */
@@ -115,8 +147,8 @@ function formatEventTime(startDate: string): string {
 const ROW_HEIGHT = 76;
 /** Extra rows to render above/below the visible area. */
 const OVERSCAN = 5;
-/** Max visible height of the scrollable list. */
-const LIST_HEIGHT = 480;
+/** Default fallback height for virtual scroll calculations. */
+const DEFAULT_HEIGHT = 480;
 
 /** Props for {@link VirtualEventList}. */
 interface VirtualEventListProps {
@@ -136,6 +168,19 @@ interface VirtualEventListProps {
 function VirtualEventList({ events, searchQuery, onEventClick, onShowOnMap }: VirtualEventListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(DEFAULT_HEIGHT);
+
+  // Measure actual container height via ResizeObserver for accurate virtual scroll
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setContainerHeight(el.clientHeight || DEFAULT_HEIGHT);
+    const observer = new ResizeObserver(([entry]) => {
+      setContainerHeight(entry.contentRect.height || DEFAULT_HEIGHT);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [events.length]);
 
   // Key for remounting the scroll container when the list changes (resets scroll)
   const listKey = useMemo(
@@ -145,7 +190,7 @@ function VirtualEventList({ events, searchQuery, onEventClick, onShowOnMap }: Vi
 
   if (events.length === 0) {
     return (
-      <div className="max-h-[480px] overflow-y-auto px-6 py-16 text-center">
+      <div className="flex-1 overflow-y-auto px-6 py-16 text-center">
         {searchQuery ? (
           <>
             <Search className="mx-auto mb-3 h-8 w-8 text-muted-foreground/20" />
@@ -165,15 +210,14 @@ function VirtualEventList({ events, searchQuery, onEventClick, onShowOnMap }: Vi
 
   const totalHeight = events.length * ROW_HEIGHT;
   const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
-  const visibleCount = Math.ceil(LIST_HEIGHT / ROW_HEIGHT) + OVERSCAN * 2;
+  const visibleCount = Math.ceil(containerHeight / ROW_HEIGHT) + OVERSCAN * 2;
   const endIndex = Math.min(events.length, startIndex + visibleCount);
 
   return (
     <div
       key={listKey}
       ref={scrollRef}
-      className="overflow-y-auto"
-      style={{ maxHeight: LIST_HEIGHT }}
+      className="flex-1 min-h-0 overflow-y-auto"
       onScroll={(e) => setScrollTop((e.target as HTMLDivElement).scrollTop)}
     >
       <div className="relative px-3 py-2" style={{ height: totalHeight }}>
@@ -255,32 +299,29 @@ function VirtualEventList({ events, searchQuery, onEventClick, onShowOnMap }: Vi
 }
 
 // ---------------------------------------------------------------------------
-// Component
+// EventsPanelContent — standalone inner panel (no Popover wrapper)
 // ---------------------------------------------------------------------------
 
 /**
- * Events dropdown popover anchored to the brand logo.
- *
- * Shows AI-highlighted events when available (query-driven), with search
- * within results. Falls back to all events when nothing is highlighted.
+ * Standalone events panel content — header, search, filters, virtual list,
+ * and detail view. Used by both the Popover dropdown and slide-in panel.
  *
  * @param props - Component props.
- * @returns The rendered popover dropdown.
+ * @returns The rendered panel content.
  */
-export function EventsDropdown({
+export function EventsPanelContent({
   events,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  highlightedEventIds,
   effectiveEventIds,
   aiResultsActive,
   activePreset,
   onPresetChange,
   onAskAbout,
   onShowOnMap,
+  onGetDirections,
+  onClose,
   detailEventId,
   onClearDetailEvent,
-}: EventsDropdownProps) {
-  const [open, setOpen] = useState(false);
+}: EventsPanelContentProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<EventEntry | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<Set<EventCategory>>(new Set());
@@ -309,22 +350,15 @@ export function EventsDropdown({
   const filteredEvents = useMemo(() => {
     let filtered = baseEvents;
 
-    // Category filter (multi-select)
     if (selectedCategories.size > 0) {
       filtered = filtered.filter((e) => selectedCategories.has(e.category));
     }
-
-    // Source/provider filter (multi-select)
     if (selectedSources.size > 0) {
       filtered = filtered.filter((e) => selectedSources.has(e.source.type));
     }
-
-    // Venue filter (multi-select)
     if (selectedVenues.size > 0) {
       filtered = filtered.filter((e) => selectedVenues.has(e.venue));
     }
-
-    // Custom date range filter
     if (dateFrom) {
       const from = new Date(dateFrom);
       filtered = filtered.filter((e) => new Date(e.startDate) >= from);
@@ -335,7 +369,6 @@ export function EventsDropdown({
       filtered = filtered.filter((e) => new Date(e.startDate) <= to);
     }
 
-    // Text search filter
     const lowerQuery = searchQuery.toLowerCase();
     if (lowerQuery) {
       filtered = filtered.filter(
@@ -351,7 +384,6 @@ export function EventsDropdown({
   const activeFilterCount =
     selectedCategories.size + selectedSources.size + selectedVenues.size + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0);
 
-  /** Available categories derived from the base events. */
   const availableCategories = useMemo(() => {
     const counts = new Map<EventCategory, number>();
     for (const e of baseEvents) {
@@ -362,7 +394,6 @@ export function EventsDropdown({
       .map(([cat, count]) => ({ category: cat, count }));
   }, [baseEvents]);
 
-  /** Available source providers derived from the base events. */
   const availableSources = useMemo(() => {
     const counts = new Map<string, number>();
     for (const e of baseEvents) {
@@ -373,7 +404,6 @@ export function EventsDropdown({
       .map(([source, count]) => ({ source, count }));
   }, [baseEvents]);
 
-  /** Available venues derived from the base events. */
   const availableVenues = useMemo(() => {
     const counts = new Map<string, number>();
     for (const e of baseEvents) {
@@ -384,8 +414,6 @@ export function EventsDropdown({
       .map(([venue, count]) => ({ venue, count }));
   }, [baseEvents]);
 
-  // ---- Handlers ----
-
   const handleEventClick = useCallback((event: EventEntry) => {
     setSelectedEvent(event);
   }, []);
@@ -394,8 +422,7 @@ export function EventsDropdown({
     setSelectedEvent(null);
   }, []);
 
-  const handleClose = useCallback(() => {
-    setOpen(false);
+  const handlePanelClose = useCallback(() => {
     setSelectedEvent(null);
     setSearchQuery("");
     setSelectedCategories(new Set());
@@ -404,7 +431,8 @@ export function EventsDropdown({
     setDateFrom("");
     setDateTo("");
     setShowFilters(false);
-  }, []);
+    onClose?.();
+  }, [onClose]);
 
   const clearAllFilters = useCallback(() => {
     setSelectedCategories(new Set());
@@ -421,35 +449,480 @@ export function EventsDropdown({
   const handleAskAbout = useCallback(
     (eventTitle: string) => {
       onAskAbout?.(eventTitle);
-      handleClose();
+      handlePanelClose();
     },
-    [onAskAbout, handleClose],
+    [onAskAbout, handlePanelClose],
   );
 
   const handleShowOnMap = useCallback(
     (event: EventEntry) => {
       onShowOnMap?.(event);
-      handleClose();
+      // Don't close the panel — keep the list open so the user can see which
+      // event is selected and continue browsing.
     },
-    [onShowOnMap, handleClose],
+    [onShowOnMap],
   );
 
-  // Auto-open when detailEventId is set externally (e.g. from map popup "More Detail").
-  // Uses the React-approved "previous value state" pattern to adjust state when props change.
+  const handleGetDirections = useCallback(
+    (event: EventEntry) => {
+      onGetDirections?.(event);
+      handlePanelClose();
+    },
+    [onGetDirections, handlePanelClose],
+  );
+
+  // Auto-open detail when detailEventId is set externally
   const [prevDetailEventId, setPrevDetailEventId] = useState<string | null>(null);
   if (detailEventId !== prevDetailEventId) {
     setPrevDetailEventId(detailEventId ?? null);
     if (detailEventId) {
       const match = events.find((e) => e.id === detailEventId);
       if (match) {
-        setOpen(true);
         setSelectedEvent(match);
       }
-      onClearDetailEvent?.();
     }
   }
 
-  // ---- Render ----
+  // Clear the external detail event ID after processing — deferred to avoid
+  // calling setState on parent (MapContainer) during this component's render.
+  useEffect(() => {
+    if (detailEventId) {
+      onClearDetailEvent?.();
+    }
+  }, [detailEventId, onClearDetailEvent]);
+
+  // ---- Detail view (completely replaces list) ----
+  if (selectedEvent) {
+    return (
+      <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+        <EventDetailPanelDropdown
+          event={selectedEvent}
+          onBack={handleBack}
+          onClose={handlePanelClose}
+          onAskAI={handleAskAbout}
+          onShowMap={onShowOnMap ? handleShowOnMap : undefined}
+          onGetDirections={onGetDirections ? handleGetDirections : undefined}
+        />
+      </div>
+    );
+  }
+
+  // ---- List view ----
+  return (
+    <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+      {/* Header */}
+      <div className="border-b border-border/40 px-6 py-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="oswald-h3 mb-1 text-base text-foreground">
+              {aiResultsActive
+                ? "Search Results"
+                : activePreset === "today"
+                  ? "Today's Events"
+                  : activePreset === "weekend"
+                    ? "Weekend Events"
+                    : activePreset === "week"
+                      ? "This Week's Events"
+                      : activePreset === "month"
+                        ? "This Month's Events"
+                        : "All Events"}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {aiResultsActive
+                ? `${effectiveEventIds?.length ?? 0} events found`
+                : hasEffective
+                  ? `${effectiveEventIds?.length ?? 0} events`
+                  : "No events for this filter"}
+            </p>
+          </div>
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handlePanelClose}
+              className="-mt-1 h-8 w-8"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Date filter chips */}
+      {onPresetChange && !aiResultsActive && (
+        <div className="flex items-center gap-1.5 border-b border-border/40 px-6 py-3">
+          {(["all", "today", "weekend", "week", "month"] as DatePreset[]).map((preset) => (
+            <button
+              key={preset}
+              onClick={() => onPresetChange(preset)}
+              className="rounded-full px-3 py-1 text-xs font-medium transition-all hover:opacity-80"
+              style={{
+                background: activePreset === preset ? "hsl(var(--primary))" : "transparent",
+                color: activePreset === preset ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))",
+                border: activePreset === preset ? "1px solid transparent" : "1px solid hsl(var(--border) / 0.5)",
+              }}
+            >
+              {DATE_PRESET_LABELS[preset]}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Search + filter toggle */}
+      <div className="border-b border-border/40 px-6 py-3">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={aiResultsActive ? "Filter results..." : "Search events..."}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-9 border-border/50 bg-background/50 pl-9 pr-9 text-sm transition-all focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={clearSearch}
+                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+          <Button
+            variant={showFilters ? "secondary" : "ghost"}
+            size="icon"
+            className="relative h-9 w-9 shrink-0"
+            onClick={() => setShowFilters((v) => !v)}
+            aria-label="Toggle filters"
+          >
+            <Filter className="h-4 w-4" />
+            {activeFilterCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                {activeFilterCount}
+              </span>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {/* Expandable filter panel */}
+      {showFilters && (
+        <div className="space-y-3 border-b border-border/40 px-6 py-3">
+          {/* Category multi-select dropdown */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Category</span>
+              {activeFilterCount > 0 && (
+                <button
+                  onClick={clearAllFilters}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+            <Popover open={categoryFilterOpen} onOpenChange={setCategoryFilterOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-between gap-2 bg-background/50 text-xs"
+                >
+                  {selectedCategories.size > 0
+                    ? `${selectedCategories.size} selected`
+                    : "All categories"}
+                  <ChevronDown className={`h-3 w-3 transition-transform ${categoryFilterOpen ? "rotate-180" : ""}`} />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[280px] p-1" align="start" sideOffset={4}>
+                <div className="p-1.5 pb-1">
+                  <Input
+                    placeholder="Search categories..."
+                    value={categorySearchQuery}
+                    onChange={(e) => setCategorySearchQuery(e.target.value)}
+                    className="h-7 text-xs"
+                  />
+                </div>
+                <div className="max-h-56 overflow-y-auto">
+                  {availableCategories.filter(({ category }) =>
+                    CATEGORY_LABELS[category].toLowerCase().includes(categorySearchQuery.toLowerCase())
+                  ).map(({ category, count }) => {
+                    const isSelected = selectedCategories.has(category);
+                    return (
+                      <button
+                        key={category}
+                        onClick={() => {
+                          setSelectedCategories((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(category)) next.delete(category);
+                            else next.add(category);
+                            return next;
+                          });
+                        }}
+                        className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs transition-colors hover:bg-accent/50"
+                      >
+                        <span
+                          className="flex h-4 w-4 shrink-0 items-center justify-center rounded border"
+                          style={{
+                            background: isSelected ? "hsl(var(--primary))" : "transparent",
+                            borderColor: isSelected ? "hsl(var(--primary))" : "hsl(var(--border))",
+                          }}
+                        >
+                          {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                        </span>
+                        <span className="flex-1 font-medium" style={{ color: "hsl(var(--foreground))" }}>
+                          {CATEGORY_LABELS[category]}
+                        </span>
+                        <span className="text-muted-foreground">{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Source/provider multi-select dropdown */}
+          {availableSources.length > 1 && (
+            <div>
+              <span className="mb-2 block text-xs font-medium text-muted-foreground">Source</span>
+              <Popover open={sourceFilterOpen} onOpenChange={setSourceFilterOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-between gap-2 bg-background/50 text-xs"
+                  >
+                    {selectedSources.size > 0
+                      ? `${selectedSources.size} selected`
+                      : "All sources"}
+                    <ChevronDown className={`h-3 w-3 transition-transform ${sourceFilterOpen ? "rotate-180" : ""}`} />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[240px] p-1" align="start" sideOffset={4}>
+                  <div className="p-1.5 pb-1">
+                    <Input
+                      placeholder="Search sources..."
+                      value={sourceSearchQuery}
+                      onChange={(e) => setSourceSearchQuery(e.target.value)}
+                      className="h-7 text-xs"
+                    />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto">
+                    {availableSources.filter(({ source }) =>
+                      (SOURCE_LABELS[source] ?? source).toLowerCase().includes(sourceSearchQuery.toLowerCase())
+                    ).map(({ source, count }) => {
+                      const isSelected = selectedSources.has(source);
+                      return (
+                        <button
+                          key={source}
+                          onClick={() => {
+                            setSelectedSources((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(source)) next.delete(source);
+                              else next.add(source);
+                              return next;
+                            });
+                          }}
+                          className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs transition-colors hover:bg-accent/50"
+                        >
+                          <span
+                            className="flex h-4 w-4 shrink-0 items-center justify-center rounded border"
+                            style={{
+                              background: isSelected ? "hsl(var(--primary))" : "transparent",
+                              borderColor: isSelected ? "hsl(var(--primary))" : "hsl(var(--border))",
+                            }}
+                          >
+                            {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                          </span>
+                          <span className="flex-1 font-medium" style={{ color: "hsl(var(--foreground))" }}>
+                            {SOURCE_LABELS[source] ?? source}
+                          </span>
+                          <span className="text-muted-foreground">{count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+
+          {/* Venue multi-select dropdown */}
+          {availableVenues.length > 1 && (
+            <div>
+              <span className="mb-2 block text-xs font-medium text-muted-foreground">Venue</span>
+              <Popover open={venueFilterOpen} onOpenChange={setVenueFilterOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-between gap-2 bg-background/50 text-xs"
+                  >
+                    {selectedVenues.size > 0
+                      ? `${selectedVenues.size} selected`
+                      : "All venues"}
+                    <ChevronDown className={`h-3 w-3 transition-transform ${venueFilterOpen ? "rotate-180" : ""}`} />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[280px] p-1" align="start" sideOffset={4}>
+                  <div className="p-1.5 pb-1">
+                    <Input
+                      placeholder="Search venues..."
+                      value={venueSearchQuery}
+                      onChange={(e) => setVenueSearchQuery(e.target.value)}
+                      className="h-7 text-xs"
+                    />
+                  </div>
+                  <div className="max-h-56 overflow-y-auto">
+                    {availableVenues.filter(({ venue }) =>
+                      venue.toLowerCase().includes(venueSearchQuery.toLowerCase())
+                    ).map(({ venue, count }) => {
+                      const isSelected = selectedVenues.has(venue);
+                      return (
+                        <button
+                          key={venue}
+                          onClick={() => {
+                            setSelectedVenues((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(venue)) next.delete(venue);
+                              else next.add(venue);
+                              return next;
+                            });
+                          }}
+                          className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs transition-colors hover:bg-accent/50"
+                        >
+                          <span
+                            className="flex h-4 w-4 shrink-0 items-center justify-center rounded border"
+                            style={{
+                              background: isSelected ? "hsl(var(--primary))" : "transparent",
+                              borderColor: isSelected ? "hsl(var(--primary))" : "hsl(var(--border))",
+                            }}
+                          >
+                            {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                          </span>
+                          <span className="flex-1 truncate font-medium" style={{ color: "hsl(var(--foreground))" }}>
+                            {venue}
+                          </span>
+                          <span className="text-muted-foreground">{count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+
+          {/* Custom date range */}
+          <div>
+            <span className="mb-2 block text-xs font-medium text-muted-foreground">
+              Custom Date Range
+            </span>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="h-8 flex-1 rounded-md border border-border/50 bg-background/50 px-2 text-xs text-foreground"
+              />
+              <span className="text-xs text-muted-foreground">to</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="h-8 flex-1 rounded-md border border-border/50 bg-background/50 px-2 text-xs text-foreground"
+              />
+              {(dateFrom || dateTo) && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => { setDateFrom(""); setDateTo(""); }}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Events List (virtualized) */}
+      <VirtualEventList
+        events={filteredEvents}
+        searchQuery={searchQuery}
+        onEventClick={handleEventClick}
+        onShowOnMap={onShowOnMap ? handleShowOnMap : undefined}
+      />
+
+      {/* Footer */}
+      {filteredEvents.length > 0 && (
+        <div className="border-t border-border/40 bg-secondary/30 px-6 py-3 text-center">
+          <p className="text-xs text-muted-foreground">
+            {filteredEvents.length} of {baseEvents.length} events
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// EventsDropdown — Popover wrapper (used by map-controls)
+// ---------------------------------------------------------------------------
+
+/**
+ * Events dropdown popover anchored to the brand logo.
+ *
+ * Shows AI-highlighted events when available (query-driven), with search
+ * within results. Falls back to all events when nothing is highlighted.
+ *
+ * @param props - Component props.
+ * @returns The rendered popover dropdown.
+ */
+export function EventsDropdown({
+  events,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  highlightedEventIds,
+  effectiveEventIds,
+  aiResultsActive,
+  activePreset,
+  onPresetChange,
+  onAskAbout,
+  onShowOnMap,
+  onGetDirections,
+  detailEventId,
+  onClearDetailEvent,
+  directionsActive,
+}: EventsDropdownProps) {
+  const [open, setOpen] = useState(false);
+
+  const hasEffective = (effectiveEventIds?.length ?? 0) > 0;
+
+  const handleClose = useCallback(() => {
+    setOpen(false);
+  }, []);
+
+  // Auto-close dropdown when directions become active
+  const [prevDirectionsActive, setPrevDirectionsActive] = useState(false);
+  if (directionsActive && !prevDirectionsActive) {
+    setOpen(false);
+  }
+  if (directionsActive !== prevDirectionsActive) {
+    setPrevDirectionsActive(!!directionsActive);
+  }
+
+  // Auto-open when detailEventId arrives
+  const [prevDetailEventId, setPrevDetailEventId] = useState<string | null>(null);
+  if (detailEventId !== prevDetailEventId) {
+    setPrevDetailEventId(detailEventId ?? null);
+    if (detailEventId) {
+      setOpen(true);
+    }
+  }
 
   return (
     <>
@@ -460,7 +933,6 @@ export function EventsDropdown({
             className="h-auto rounded-lg p-0 pr-2 transition-all duration-200 hover:scale-105 hover:bg-transparent focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
           >
             <div className="relative">
-              {/* Dark-mode logo (M&M Logo - Dark) */}
               <Image
                 src="/mm-logo-dark.svg"
                 alt="Moonshots & Magic"
@@ -469,7 +941,6 @@ export function EventsDropdown({
                 className="hidden h-12 w-auto cursor-pointer transition-all duration-200 hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.5)] dark:block"
                 priority
               />
-              {/* Light-mode logo (M&M Logo - Black) */}
               <Image
                 src="/mm-logo-light.svg"
                 alt="Moonshots & Magic"
@@ -482,7 +953,8 @@ export function EventsDropdown({
             <div className="flex items-center gap-1.5">
               <Badge
                 variant="secondary"
-                className="border border-blue-500/30 bg-blue-600/80 px-2 py-0.5 text-xs font-medium text-white transition-colors hover:bg-blue-600/90 dark:bg-blue-500/70 dark:hover:bg-blue-500/80"
+                className="border-0 bg-transparent px-2 py-0.5 text-xs font-medium transition-colors"
+                style={{ color: "var(--text-dim)" }}
               >
                 {aiResultsActive
                   ? `${effectiveEventIds?.length ?? 0} results`
@@ -500,382 +972,32 @@ export function EventsDropdown({
         <PopoverContent
           onInteractOutside={(e) => e.preventDefault()}
           onPointerDownOutside={(e) => e.preventDefault()}
-          className="grain-texture w-[440px] border-border/40 bg-card/95 p-0 shadow-2xl backdrop-blur-xl"
+          className="grain-texture flex w-[440px] flex-col overflow-hidden p-0 shadow-2xl"
           align="start"
           sideOffset={12}
-          style={{ maxHeight: "calc(100vh - 120px)" }}
+          style={{
+            maxHeight: "calc(100vh - 120px)",
+            background: "rgba(10, 10, 15, 0.82)",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            backdropFilter: "blur(40px)",
+            WebkitBackdropFilter: "blur(40px)",
+          }}
         >
-          {selectedEvent ? (
-            <div className="flex flex-col" style={{ maxHeight: "calc(100vh - 120px)" }}>
-              <EventDetailPanelDropdown
-                event={selectedEvent}
-                onBack={handleBack}
-                onClose={handleClose}
-                onAskDitto={handleAskAbout}
-                onShowMap={onShowOnMap ? handleShowOnMap : undefined}
-              />
-            </div>
-          ) : (
-            <div className="relative z-10 flex flex-col">
-              {/* Header */}
-              <div className="border-b border-border/40 px-6 py-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h2 className="oswald-h3 mb-1 text-base text-foreground">
-                      {aiResultsActive
-                        ? "Search Results"
-                        : activePreset === "today"
-                          ? "Today's Events"
-                          : activePreset === "weekend"
-                            ? "Weekend Events"
-                            : activePreset === "week"
-                              ? "This Week's Events"
-                              : activePreset === "month"
-                                ? "This Month's Events"
-                                : "All Events"}
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      {aiResultsActive
-                        ? `${effectiveEventIds?.length ?? 0} events found`
-                        : hasEffective
-                          ? `${effectiveEventIds?.length ?? 0} events`
-                          : "No events for this filter"}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleClose}
-                    className="-mt-1 h-8 w-8"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Date filter chips */}
-              {onPresetChange && !aiResultsActive && (
-                <div className="flex items-center gap-1.5 border-b border-border/40 px-6 py-3">
-                  {(["all", "today", "weekend", "week", "month"] as DatePreset[]).map((preset) => (
-                    <button
-                      key={preset}
-                      onClick={() => onPresetChange(preset)}
-                      className="rounded-full px-3 py-1 text-xs font-medium transition-all hover:opacity-80"
-                      style={{
-                        background: activePreset === preset ? "hsl(var(--primary))" : "transparent",
-                        color: activePreset === preset ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))",
-                        border: activePreset === preset ? "1px solid transparent" : "1px solid hsl(var(--border) / 0.5)",
-                      }}
-                    >
-                      {DATE_PRESET_LABELS[preset]}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Search + filter toggle */}
-              <div className="border-b border-border/40 px-6 py-3">
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder={aiResultsActive ? "Filter results..." : "Search events..."}
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="h-9 border-border/50 bg-background/50 pl-9 pr-9 text-sm transition-all focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
-                    />
-                    {searchQuery && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={clearSearch}
-                        className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                  <Button
-                    variant={showFilters ? "secondary" : "ghost"}
-                    size="icon"
-                    className="relative h-9 w-9 shrink-0"
-                    onClick={() => setShowFilters((v) => !v)}
-                    aria-label="Toggle filters"
-                  >
-                    <Filter className="h-4 w-4" />
-                    {activeFilterCount > 0 && (
-                      <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                        {activeFilterCount}
-                      </span>
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Expandable filter panel */}
-              {showFilters && (
-                <div className="space-y-3 border-b border-border/40 px-6 py-3">
-                  {/* Category multi-select dropdown */}
-                  <div>
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="text-xs font-medium text-muted-foreground">Category</span>
-                      {activeFilterCount > 0 && (
-                        <button
-                          onClick={clearAllFilters}
-                          className="text-xs text-primary hover:underline"
-                        >
-                          Clear all
-                        </button>
-                      )}
-                    </div>
-                    <Popover open={categoryFilterOpen} onOpenChange={setCategoryFilterOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full justify-between gap-2 bg-background/50 text-xs"
-                        >
-                          {selectedCategories.size > 0
-                            ? `${selectedCategories.size} selected`
-                            : "All categories"}
-                          <ChevronDown className={`h-3 w-3 transition-transform ${categoryFilterOpen ? "rotate-180" : ""}`} />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[280px] p-1" align="start" sideOffset={4}>
-                        <div className="p-1.5 pb-1">
-                          <Input
-                            placeholder="Search categories..."
-                            value={categorySearchQuery}
-                            onChange={(e) => setCategorySearchQuery(e.target.value)}
-                            className="h-7 text-xs"
-                          />
-                        </div>
-                        <div className="max-h-56 overflow-y-auto">
-                          {availableCategories.filter(({ category }) =>
-                            CATEGORY_LABELS[category].toLowerCase().includes(categorySearchQuery.toLowerCase())
-                          ).map(({ category, count }) => {
-                            const isSelected = selectedCategories.has(category);
-                            return (
-                              <button
-                                key={category}
-                                onClick={() => {
-                                  setSelectedCategories((prev) => {
-                                    const next = new Set(prev);
-                                    if (next.has(category)) next.delete(category);
-                                    else next.add(category);
-                                    return next;
-                                  });
-                                }}
-                                className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs transition-colors hover:bg-accent/50"
-                              >
-                                <span
-                                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded border"
-                                  style={{
-                                    background: isSelected ? "hsl(var(--primary))" : "transparent",
-                                    borderColor: isSelected ? "hsl(var(--primary))" : "hsl(var(--border))",
-                                  }}
-                                >
-                                  {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
-                                </span>
-                                <span className="flex-1 font-medium" style={{ color: "hsl(var(--foreground))" }}>
-                                  {CATEGORY_LABELS[category]}
-                                </span>
-                                <span className="text-muted-foreground">{count}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  {/* Source/provider multi-select dropdown */}
-                  {availableSources.length > 1 && (
-                    <div>
-                      <span className="mb-2 block text-xs font-medium text-muted-foreground">Source</span>
-                      <Popover open={sourceFilterOpen} onOpenChange={setSourceFilterOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full justify-between gap-2 bg-background/50 text-xs"
-                          >
-                            {selectedSources.size > 0
-                              ? `${selectedSources.size} selected`
-                              : "All sources"}
-                            <ChevronDown className={`h-3 w-3 transition-transform ${sourceFilterOpen ? "rotate-180" : ""}`} />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[240px] p-1" align="start" sideOffset={4}>
-                          <div className="p-1.5 pb-1">
-                            <Input
-                              placeholder="Search sources..."
-                              value={sourceSearchQuery}
-                              onChange={(e) => setSourceSearchQuery(e.target.value)}
-                              className="h-7 text-xs"
-                            />
-                          </div>
-                          <div className="max-h-48 overflow-y-auto">
-                            {availableSources.filter(({ source }) =>
-                              (SOURCE_LABELS[source] ?? source).toLowerCase().includes(sourceSearchQuery.toLowerCase())
-                            ).map(({ source, count }) => {
-                              const isSelected = selectedSources.has(source);
-                              return (
-                                <button
-                                  key={source}
-                                  onClick={() => {
-                                    setSelectedSources((prev) => {
-                                      const next = new Set(prev);
-                                      if (next.has(source)) next.delete(source);
-                                      else next.add(source);
-                                      return next;
-                                    });
-                                  }}
-                                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs transition-colors hover:bg-accent/50"
-                                >
-                                  <span
-                                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded border"
-                                    style={{
-                                      background: isSelected ? "hsl(var(--primary))" : "transparent",
-                                      borderColor: isSelected ? "hsl(var(--primary))" : "hsl(var(--border))",
-                                    }}
-                                  >
-                                    {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
-                                  </span>
-                                  <span className="flex-1 font-medium" style={{ color: "hsl(var(--foreground))" }}>
-                                    {SOURCE_LABELS[source] ?? source}
-                                  </span>
-                                  <span className="text-muted-foreground">{count}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  )}
-
-                  {/* Venue multi-select dropdown */}
-                  {availableVenues.length > 1 && (
-                    <div>
-                      <span className="mb-2 block text-xs font-medium text-muted-foreground">Venue</span>
-                      <Popover open={venueFilterOpen} onOpenChange={setVenueFilterOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full justify-between gap-2 bg-background/50 text-xs"
-                          >
-                            {selectedVenues.size > 0
-                              ? `${selectedVenues.size} selected`
-                              : "All venues"}
-                            <ChevronDown className={`h-3 w-3 transition-transform ${venueFilterOpen ? "rotate-180" : ""}`} />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[280px] p-1" align="start" sideOffset={4}>
-                          <div className="p-1.5 pb-1">
-                            <Input
-                              placeholder="Search venues..."
-                              value={venueSearchQuery}
-                              onChange={(e) => setVenueSearchQuery(e.target.value)}
-                              className="h-7 text-xs"
-                            />
-                          </div>
-                          <div className="max-h-56 overflow-y-auto">
-                            {availableVenues.filter(({ venue }) =>
-                              venue.toLowerCase().includes(venueSearchQuery.toLowerCase())
-                            ).map(({ venue, count }) => {
-                              const isSelected = selectedVenues.has(venue);
-                              return (
-                                <button
-                                  key={venue}
-                                  onClick={() => {
-                                    setSelectedVenues((prev) => {
-                                      const next = new Set(prev);
-                                      if (next.has(venue)) next.delete(venue);
-                                      else next.add(venue);
-                                      return next;
-                                    });
-                                  }}
-                                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs transition-colors hover:bg-accent/50"
-                                >
-                                  <span
-                                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded border"
-                                    style={{
-                                      background: isSelected ? "hsl(var(--primary))" : "transparent",
-                                      borderColor: isSelected ? "hsl(var(--primary))" : "hsl(var(--border))",
-                                    }}
-                                  >
-                                    {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
-                                  </span>
-                                  <span className="flex-1 truncate font-medium" style={{ color: "hsl(var(--foreground))" }}>
-                                    {venue}
-                                  </span>
-                                  <span className="text-muted-foreground">{count}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  )}
-
-                  {/* Custom date range */}
-                  <div>
-                    <span className="mb-2 block text-xs font-medium text-muted-foreground">
-                      Custom Date Range
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="date"
-                        value={dateFrom}
-                        onChange={(e) => setDateFrom(e.target.value)}
-                        className="h-8 flex-1 rounded-md border border-border/50 bg-background/50 px-2 text-xs text-foreground"
-                      />
-                      <span className="text-xs text-muted-foreground">to</span>
-                      <input
-                        type="date"
-                        value={dateTo}
-                        onChange={(e) => setDateTo(e.target.value)}
-                        className="h-8 flex-1 rounded-md border border-border/50 bg-background/50 px-2 text-xs text-foreground"
-                      />
-                      {(dateFrom || dateTo) && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 shrink-0"
-                          onClick={() => { setDateFrom(""); setDateTo(""); }}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Events List (virtualized) */}
-              <VirtualEventList
-                events={filteredEvents}
-                searchQuery={searchQuery}
-                onEventClick={handleEventClick}
-                onShowOnMap={onShowOnMap ? handleShowOnMap : undefined}
-              />
-
-              {/* Footer */}
-              {filteredEvents.length > 0 && (
-                <div className="border-t border-border/40 bg-secondary/30 px-6 py-3 text-center">
-                  <p className="text-xs text-muted-foreground">
-                    {filteredEvents.length} of {baseEvents.length} events
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+          <EventsPanelContent
+            events={events}
+            effectiveEventIds={effectiveEventIds}
+            aiResultsActive={aiResultsActive}
+            activePreset={activePreset}
+            onPresetChange={onPresetChange}
+            onAskAbout={onAskAbout}
+            onShowOnMap={onShowOnMap}
+            onGetDirections={onGetDirections}
+            onClose={handleClose}
+            detailEventId={detailEventId}
+            onClearDetailEvent={onClearDetailEvent}
+          />
         </PopoverContent>
       </Popover>
-
     </>
   );
 }

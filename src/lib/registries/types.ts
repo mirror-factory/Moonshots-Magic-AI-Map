@@ -123,17 +123,6 @@ export interface EventEntry {
   };
   /** IANA timezone identifier. */
   timezone: string;
-  /** Pricing information. */
-  price?: {
-    /** Minimum ticket price. */
-    min: number;
-    /** Maximum ticket price. */
-    max: number;
-    /** ISO 4217 currency code. */
-    currency: string;
-    /** Whether the event is free to attend. */
-    isFree: boolean;
-  };
   /** External URL for tickets or more info. */
   url?: string;
   /** URL of the event's hero image. */
@@ -241,8 +230,6 @@ export interface EventFilters {
   tags?: string[];
   /** Filter by lifecycle status. */
   status?: EventEntry["status"];
-  /** If `true`, only free events; if `false`, only paid events. */
-  isFree?: boolean;
   /** If `true`, only featured events. */
   featured?: boolean;
   /** Maximum number of results to return. */

@@ -18,10 +18,13 @@ const MapContainer = dynamic(
 import { AnimatePresence } from "motion/react";
 import { CenterChat } from "@/components/chat/center-chat";
 import { PresentationPanel } from "@/components/presentation/presentation-panel";
+import { FeaturesShowcase } from "@/components/presentation/features-showcase";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
+import { StarfieldTransition } from "@/components/effects/starfield-transition";
 import { getAmbientContext, type AmbientContext } from "@/lib/context/ambient-context";
 import type { EventEntry, EventCategory } from "@/lib/registries/types";
 import type { DatePreset } from "@/lib/map/event-filters";
+import { getChatPosition, setChatPosition, type ChatPosition } from "@/lib/settings";
 
 const ONBOARDING_STORAGE_KEY = "moonshots_onboarding_complete";
 
@@ -62,14 +65,43 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
   });
   const [ambientContext, setAmbientContext] = useState<AmbientContext | null>(null);
   const [liveEvents, setLiveEvents] = useState<EventEntry[]>([]);
+  const [showTransition, setShowTransition] = useState(false);
   const flyoverHandlerRef = useRef<FlyoverHandler | null>(null);
   const directionsHandlerRef = useRef<DirectionsHandler | null>(null);
   const filterChangeHandlerRef = useRef<FilterChangeHandler | null>(null);
   const [highlightedEventIds, setHighlightedEventIds] = useState<string[]>([]);
   const [presentationActive, setPresentationActive] = useState(false);
+  const [showcaseActive, setShowcaseActive] = useState(false);
   const [locationEnabled, setLocationEnabled] = useState(true);
+  const [chatVisible, setChatVisible] = useState(true);
+  /** Stable ref for chatVisible — avoids recreating callbacks when visibility changes. */
+  const chatVisibleRef = useRef(chatVisible);
+  chatVisibleRef.current = chatVisible;
+
+  /** True only when data layer actively hid the chat (prevents false restores). */
+  const dataLayerHidChatRef = useRef(false);
   const openDetailHandlerRef = useRef<((eventId: string) => void) | null>(null);
+  const closeDetailHandlerRef = useRef<(() => void) | null>(null);
   const showOnMapHandlerRef = useRef<((eventId: string) => void) | null>(null);
+  const toggleDataLayerHandlerRef = useRef<((layerKey: string, action: "on" | "off" | "toggle") => void) | null>(null);
+  const [chatPosition, setChatPositionState] = useState<ChatPosition>("center");
+
+  // Load chat position on mount (deferred to avoid hydration mismatch)
+  useEffect(() => {
+    setChatPositionState(getChatPosition());
+  }, []);
+
+  const handleChatPositionChange = useCallback((position: ChatPosition) => {
+    setChatPositionState(position);
+    setChatPosition(position);
+  }, []);
+
+  // Show starfield transition on mount (deferred to avoid hydration mismatch)
+  useEffect(() => {
+    const onboardingActive = !localStorage.getItem(ONBOARDING_STORAGE_KEY);
+    sessionStorage.removeItem("show-transition");
+    if (!onboardingActive) setShowTransition(true);
+  }, []);
 
   // Fetch ambient context on mount
   useEffect(() => {
@@ -111,7 +143,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
   }, []);
 
   const handleStartPersonalization = useCallback(() => {
-    setChatInput("__PERSONALIZE__");
+    setOnboardingOpen(true);
   }, []);
 
   const handleClearInput = useCallback(() => {
@@ -133,6 +165,8 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
   }, []);
 
   const handleGetDirections = useCallback((coordinates: [number, number]) => {
+    // Clear AI-highlighted event listing so the map focuses on the route
+    setHighlightedEventIds([]);
     if (directionsHandlerRef.current) {
       directionsHandlerRef.current(coordinates);
     }
@@ -156,9 +190,48 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
     setPresentationActive(false);
   }, []);
 
+  const handleStartShowcase = useCallback(() => {
+    setShowcaseActive(true);
+  }, []);
+
+  const handleEndShowcase = useCallback(() => {
+    setShowcaseActive(false);
+  }, []);
+
   const handleClearHighlights = useCallback(() => {
     setHighlightedEventIds([]);
   }, []);
+
+  /** Snap chat down when a data layer activates; restore when deactivated. */
+  const handleDataLayerActiveChange = useCallback((active: boolean) => {
+    if (active) {
+      // Only mark as "we hid it" if chat was actually visible
+      if (chatVisibleRef.current) {
+        dataLayerHidChatRef.current = true;
+        setChatVisible(false);
+      }
+    } else if (dataLayerHidChatRef.current) {
+      // Only restore if this feature was the one that hid it
+      dataLayerHidChatRef.current = false;
+      setChatVisible(true);
+    }
+  }, []); // Stable — reads chatVisible from ref
+
+  /** True only when flyover actively hid the chat. */
+  const flyoverHidChatRef = useRef(false);
+
+  /** Hide chat when flyover starts; restore when it ends. */
+  const handleFlyoverActiveChange = useCallback((active: boolean) => {
+    if (active) {
+      if (chatVisibleRef.current) {
+        flyoverHidChatRef.current = true;
+        setChatVisible(false);
+      }
+    } else if (flyoverHidChatRef.current) {
+      flyoverHidChatRef.current = false;
+      setChatVisible(true);
+    }
+  }, []); // Stable — reads chatVisible from ref
 
   const handleLocationChange = useCallback((enabled: boolean) => {
     setLocationEnabled(enabled);
@@ -168,9 +241,28 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
     openDetailHandlerRef.current = handler;
   }, []);
 
+  const handleCloseDetailRequest = useCallback((handler: () => void) => {
+    closeDetailHandlerRef.current = handler;
+  }, []);
+
   const handleShowOnMapRequest = useCallback((handler: (eventId: string) => void) => {
     showOnMapHandlerRef.current = handler;
   }, []);
+
+  const handleToggleDataLayerRequest = useCallback(
+    (handler: (layerKey: string, action: "on" | "off" | "toggle") => void) => {
+      toggleDataLayerHandlerRef.current = handler;
+    },
+    [],
+  );
+
+  /** Toggle a data layer via AI chat. */
+  const handleToggleDataLayer = useCallback(
+    (layerKey: string, action: "on" | "off" | "toggle") => {
+      toggleDataLayerHandlerRef.current?.(layerKey, action);
+    },
+    [],
+  );
 
   /** Cinematic show on map — fly + card + rotation. */
   const handleShowEventOnMap = useCallback((eventId: string) => {
@@ -182,6 +274,11 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
     openDetailHandlerRef.current?.(eventId);
   }, []);
 
+  /** Close event detail panel. */
+  const handleCloseDetail = useCallback(() => {
+    closeDetailHandlerRef.current?.();
+  }, []);
+
   /** Gate location out of ambient context when user disables it. */
   const effectiveContext = useMemo<AmbientContext | null>(() => {
     if (!ambientContext) return null;
@@ -191,6 +288,12 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
 
   return (
     <IntroContext.Provider value={{ showIntro: handleShowIntro }}>
+      {/* Starfield transition for page navigation */}
+      <StarfieldTransition
+        show={showTransition}
+        onComplete={() => setShowTransition(false)}
+        duration={2000}
+      />
       <OnboardingFlow
         open={onboardingOpen}
         events={events}
@@ -206,34 +309,59 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
         onFilterChangeRequest={handleFilterChangeRequest}
         onStartPersonalization={handleStartPersonalization}
         onOpenDetailRequest={handleOpenDetailRequest}
+        onCloseDetailRequest={handleCloseDetailRequest}
         onShowOnMapRequest={handleShowOnMapRequest}
         highlightedEventIds={highlightedEventIds}
         onClearHighlights={handleClearHighlights}
         onLocationChange={handleLocationChange}
+        onToggleDataLayerRequest={handleToggleDataLayerRequest}
+        onStartPresentation={handleStartPresentation}
+        onStartShowcase={handleStartShowcase}
+        chatVisible={chatVisible}
+        onToggleChatVisible={() => setChatVisible((v) => !v)}
+        chatPosition={chatPosition}
+        onChatPositionChange={handleChatPositionChange}
+        onDataLayerActiveChange={handleDataLayerActiveChange}
+        onFlyoverActiveChange={handleFlyoverActiveChange}
       >
-        <AnimatePresence mode="wait">
-          {presentationActive ? (
+        {/* Chat is always mounted — display:none preserves useChat state */}
+        <CenterChat
+          initialInput={chatInput}
+          onClearInitialInput={handleClearInput}
+          onStartFlyover={startFlyover}
+          onGetDirections={handleGetDirections}
+          onHighlightEvents={setHighlightedEventIds}
+          onStartPresentation={handleStartPresentation}
+          onChangeFilter={handleChangeFilter}
+          onShowEventOnMap={handleShowEventOnMap}
+          onOpenDetail={handleOpenDetail}
+          onToggleDataLayer={handleToggleDataLayer}
+          ambientContext={effectiveContext}
+          visible={chatVisible}
+          chatPosition={chatPosition}
+        />
+        {/* Presentation panels overlay alongside chat */}
+        <AnimatePresence>
+          {presentationActive && (
             <PresentationPanel
               key="presentation"
               onExit={handleEndPresentation}
-              onAskDitto={(context) => {
-                handleEndPresentation();
+              onAskAI={(context) => {
                 setChatInput(context);
               }}
             />
-          ) : (
-            <CenterChat
-              key="chat"
-              initialInput={chatInput}
-              onClearInitialInput={handleClearInput}
-              onStartFlyover={startFlyover}
-              onGetDirections={handleGetDirections}
-              onHighlightEvents={setHighlightedEventIds}
-              onStartPresentation={handleStartPresentation}
-              onChangeFilter={handleChangeFilter}
+          )}
+          {showcaseActive && (
+            <FeaturesShowcase
+              key="showcase"
+              onExit={handleEndShowcase}
+              onToggleDataLayer={handleToggleDataLayer}
+              onAskAI={(context) => {
+                setChatInput(context);
+              }}
               onShowEventOnMap={handleShowEventOnMap}
               onOpenDetail={handleOpenDetail}
-              ambientContext={effectiveContext}
+              onCloseDetail={handleCloseDetail}
             />
           )}
         </AnimatePresence>

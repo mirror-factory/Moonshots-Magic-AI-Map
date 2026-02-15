@@ -35,11 +35,12 @@ describe("createEventAgent", () => {
       "getDirectionsTool",
       "startPresentation",
       "changeEventFilter",
+      "toggleDataLayer",
     ];
 
-    it("contains all 11 expected tools", () => {
+    it("contains all 12 expected tools", () => {
       const toolNames = Object.keys(agent.tools);
-      expect(toolNames).toHaveLength(11);
+      expect(toolNames).toHaveLength(12);
       expectedToolNames.forEach((name) => {
         expect(toolNames).toContain(name);
       });
@@ -92,8 +93,8 @@ describe("createEventAgent", () => {
       expect(agent.settings.instructions).toContain(todayISO);
     });
 
-    it('mentions "Ditto" as the AI name', () => {
-      expect(agent.settings.instructions).toContain("Ditto");
+    it('identifies as the AI guide', () => {
+      expect(agent.settings.instructions).toContain("AI guide for Moonshots & Magic");
     });
 
     it('mentions "Moonshots & Magic" brand', () => {

@@ -4,7 +4,8 @@
  * and parallel audio generation.
  */
 
-import { generateAudioBuffer, playAudioBuffer, stopSpeaking } from "@/lib/voice/cartesia-tts";
+import { generateAudioBuffer, cancelAllGenerations } from "@/lib/voice/cartesia-tts";
+import * as audioManager from "@/lib/audio/audio-manager";
 
 /** Path to pre-recorded flyover intro audio. */
 const INTRO_AUDIO_PATH = "/audio/flyover-intro.wav";
@@ -65,7 +66,8 @@ export async function playFlyoverIntro(): Promise<void> {
   const introBuffer = await loadIntroAudio();
 
   if (introBuffer) {
-    return playAudioBuffer(introBuffer);
+    const { promise } = audioManager.playBuffer(introBuffer);
+    return promise;
   }
 
   // If no audio available, just resolve after a short delay
@@ -73,10 +75,11 @@ export async function playFlyoverIntro(): Promise<void> {
 }
 
 /**
- * Stops any currently playing flyover audio.
+ * Stops any currently playing flyover audio and cancels in-flight generation requests.
  */
 export function stopFlyoverAudio(): void {
-  stopSpeaking();
+  cancelAllGenerations();
+  audioManager.stopForeground();
 }
 
 /**
