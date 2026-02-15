@@ -755,24 +755,6 @@ export default function HomePage() {
               your guide to a region built on ambition and wonder.
             </p>
           </div>
-
-          {/* CTA to Map */}
-          <div className="mt-12">
-            <Link
-              href="/map"
-              className="group inline-flex items-center gap-2 rounded-full px-8 py-4 font-medium transition-all hover:scale-105"
-              style={{
-                background: "var(--brand-primary)",
-                color: "#FFFFFF",
-                fontFamily: "var(--font-chakra-petch, sans-serif)",
-                boxShadow: "0 0 40px rgba(0, 99, 205, 0.6), 0 0 80px rgba(0, 99, 205, 0.3)",
-              }}
-            >
-              <MapPin className="h-5 w-5" />
-              Start Exploring
-              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </div>
         </section>
 
         {/* Newsletter Section */}
