@@ -49,15 +49,16 @@ export const metadata: Metadata = {
   },
   description:
     "The story of Central Florida — a region that sent humans to the Moon and built worlds of magic. Born from impossible ambitions, shaped by extraordinary talent, and home to the boldest ideas on Earth.",
-  metadataBase: new URL("https://moonshots-magic-ai-map.vercel.app"),
+  metadataBase: new URL("https://moonshotsandmagic.com"),
   openGraph: {
     title: "Moonshots & Magic — Where Ambition Meets Wonder",
     description:
       "The story of Central Florida. From the Saturn V to Spaceship Earth — a region built on moonshots and magic, and the people who made it all possible.",
-    url: "https://moonshots-magic-ai-map.vercel.app",
+    url: "https://moonshotsandmagic.com",
     siteName: "Moonshots & Magic",
     locale: "en_US",
     type: "website",
+    images: [{ url: "/og/homepage.png", width: 1200, height: 630, alt: "Moonshots & Magic — Where Ambition Meets Wonder" }],
   },
   twitter: {
     card: "summary_large_image",

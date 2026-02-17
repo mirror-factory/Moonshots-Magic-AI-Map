@@ -13,10 +13,11 @@ export const metadata: Metadata = {
     title: "Moonshots & Magic — Explore Central Florida on the Map",
     description:
       "Browse events across Central Florida — from aerospace conferences to theme park openings. Filter by category and date, search with AI, or take a cinematic flyover tour of the region.",
-    url: "https://moonshots-magic-ai-map.vercel.app/map",
+    url: "https://moonshotsandmagic.com/map",
     siteName: "Moonshots & Magic",
     locale: "en_US",
     type: "website",
+    images: [{ url: "/og/map.png", width: 1200, height: 630, alt: "Moonshots & Magic — Interactive Map of Central Florida" }],
   },
   twitter: {
     card: "summary_large_image",
