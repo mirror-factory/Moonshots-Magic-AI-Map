@@ -14,6 +14,7 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Stars } from "@/components/effects/stars";
 import { Sparkles } from "@/components/effects/sparkles";
+import { PoweredByBadge } from "@/components/powered-by-badge";
 import { Rocket, MapPin, ArrowRight } from "lucide-react";
 
 // Register GSAP plugins
@@ -878,6 +879,9 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
+
+      {/* Powered by badge */}
+      <PoweredByBadge />
     </div>
   );
 }

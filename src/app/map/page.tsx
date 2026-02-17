@@ -6,6 +6,7 @@
 
 import { getEventsByBounds } from "@/lib/registries/events";
 import { MapWithChat } from "../map-with-chat";
+import { PoweredByBadge } from "@/components/powered-by-badge";
 
 /**
  * Florida geographic bounds for filtering events.
@@ -21,6 +22,7 @@ export default function MapPage() {
   return (
     <div className="h-screen w-screen overflow-hidden">
       <MapWithChat events={events} />
+      <PoweredByBadge />
     </div>
   );
 }
