@@ -48,23 +48,23 @@ export const metadata: Metadata = {
     template: "%s — Moonshots & Magic",
   },
   description:
-    "The story of Central Florida — a region that sent humans to the Moon and built worlds of magic. Born from impossible ambitions, shaped by extraordinary talent, and home to the boldest ideas on Earth.",
+    "Discover the events, people, and places that make Central Florida extraordinary. Culture, tech, entertainment, and community — all in one place.",
   metadataBase: new URL("https://windsurf-project-3-ten.vercel.app"),
   openGraph: {
-    title: "Moonshots & Magic — The Story of Central Florida",
+    title: "Moonshots & Magic | Explore Central Florida's Story",
     description:
-      "The story of Central Florida. From the Saturn V to Spaceship Earth — a region built on moonshots and magic, and the people who made it all possible.",
+      "Discover the events, people, and places that make Central Florida extraordinary. Culture, tech, entertainment, and community — all in one place.",
     url: "https://moonshotsandmagic.com",
     siteName: "Moonshots & Magic",
     locale: "en_US",
     type: "website",
-    images: [{ url: "/og/homepage.png", width: 1200, height: 630, alt: "Moonshots & Magic — The Story of Central Florida" }],
+    images: [{ url: "/og/homepage.png", width: 1200, height: 630, alt: "Moonshots & Magic | Explore Central Florida's Story" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Moonshots & Magic — The Story of Central Florida",
+    title: "Moonshots & Magic | Explore Central Florida's Story",
     description:
-      "The story of Central Florida. A region built on moonshots and magic — explore the events, people, and places that define one of America's most extraordinary places.",
+      "Discover the events, people, and places that make Central Florida extraordinary. Culture, tech, entertainment, and community — all in one place.",
   },
   robots: {
     index: true,

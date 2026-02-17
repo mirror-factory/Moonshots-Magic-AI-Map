@@ -8,11 +8,11 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Brand Guide — Moonshots & Magic",
   description:
-    "The visual identity of Moonshots & Magic — colors, typography, animations, and design language inspired by Central Florida's legacy of moonshots and magic.",
+    "Explore the colors, typography, and visual identity behind Moonshots & Magic — a platform celebrating Central Florida's culture, events, and community.",
   openGraph: {
     title: "Moonshots & Magic — Visual Identity & Brand Guide",
     description:
-      "Colors, typography, animations, and visual identity for the Moonshots & Magic platform. Inspired by Central Florida's legacy of space exploration and theme park wonder.",
+      "Explore the colors, typography, and visual identity behind Moonshots & Magic — a platform celebrating Central Florida's culture, events, and community.",
     url: "https://moonshotsandmagic.com/brand-guide",
     siteName: "Moonshots & Magic",
     locale: "en_US",
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Moonshots & Magic — Visual Identity & Brand Guide",
     description:
-      "The visual identity of Moonshots & Magic. Colors, typography, and animations inspired by Central Florida's moonshots and magic.",
+      "Explore the colors, typography, and visual identity behind Moonshots & Magic — a platform celebrating Central Florida's culture and community.",
   },
 };
 

@@ -8,11 +8,11 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Interactive Map — Moonshots & Magic",
   description:
-    "An interactive map of Central Florida's events, landmarks, and cultural moments. Filter by category, date, and location. Chat with an AI to find what's happening near you. Take a cinematic flyover tour of the region.",
+    "Browse events across Central Florida on an interactive map. Filter by category and date, ask AI what's nearby, or take a cinematic flyover tour of the region.",
   openGraph: {
     title: "Moonshots & Magic — Interactive Map of Central Florida",
     description:
-      "Browse events across Central Florida — from aerospace conferences to theme park openings. Filter by category and date, search with AI, or take a cinematic flyover tour of the region.",
+      "Browse events across Central Florida. Filter by category and date, ask AI what's happening near you, or take a cinematic flyover tour of the region.",
     url: "https://moonshotsandmagic.com/map",
     siteName: "Moonshots & Magic",
     locale: "en_US",
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Moonshots & Magic — Interactive Map of Central Florida",
     description:
-      "Browse events, filter by category and date, chat with AI to find what's happening near you, or take a cinematic flyover tour of the region.",
+      "Browse events, filter by category and date, ask AI what's happening near you, or take a cinematic flyover tour of Central Florida.",
   },
 };
 
