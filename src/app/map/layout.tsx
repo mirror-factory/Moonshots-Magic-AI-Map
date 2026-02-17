@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   description:
     "An interactive map of Central Florida's events, landmarks, and cultural moments. Filter by category, date, and location. Chat with an AI to find what's happening near you. Take a cinematic flyover tour of the region.",
   openGraph: {
-    title: "Moonshots & Magic — Explore Central Florida on the Map",
+    title: "Moonshots & Magic — Interactive Map of Central Florida",
     description:
       "Browse events across Central Florida — from aerospace conferences to theme park openings. Filter by category and date, search with AI, or take a cinematic flyover tour of the region.",
     url: "https://moonshotsandmagic.com/map",
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Moonshots & Magic — Explore Central Florida on the Map",
+    title: "Moonshots & Magic — Interactive Map of Central Florida",
     description:
       "Browse events, filter by category and date, chat with AI to find what's happening near you, or take a cinematic flyover tour of the region.",
   },
