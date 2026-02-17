@@ -91,6 +91,8 @@ interface MapContainerProps {
   onOpenDetailRequest?: (handler: (eventId: string) => void) => void;
   /** Registers a handler that closes the event detail panel. */
   onCloseDetailRequest?: (handler: () => void) => void;
+  /** Registers a handler that closes the directions panel. */
+  onCloseDirectionsRequest?: (handler: () => void) => void;
   /** Registers a handler for cinematic "show on map" with rotation + card. */
   onShowOnMapRequest?: (handler: (eventId: string) => void) => void;
   onStartPersonalization?: () => void;
@@ -122,7 +124,7 @@ interface MapContainerProps {
 }
 
 /** Renders the root map with MapLibre GL and composes child layers. */
-export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirectionsRequest, onFilterChangeRequest, onOpenDetailRequest, onCloseDetailRequest, onShowOnMapRequest, onStartPersonalization, highlightedEventIds, onClearHighlights, onLocationChange, onToggleDataLayerRequest, onStartPresentation, onStartShowcase, chatVisible, onToggleChatVisible, chatPosition, onChatPositionChange, onDataLayerActiveChange, onFlyoverActiveChange, children }: MapContainerProps) {
+export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirectionsRequest, onFilterChangeRequest, onOpenDetailRequest, onCloseDetailRequest, onCloseDirectionsRequest, onShowOnMapRequest, onStartPersonalization, highlightedEventIds, onClearHighlights, onLocationChange, onToggleDataLayerRequest, onStartPresentation, onStartShowcase, chatVisible, onToggleChatVisible, chatPosition, onChatPositionChange, onDataLayerActiveChange, onFlyoverActiveChange, children }: MapContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<maplibregl.Map | null>(null);
   const [styleLoaded, setStyleLoaded] = useState(false);
@@ -908,6 +910,20 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
     }
   }, [detailEventId, directionsActive, flyoverActive]);
 
+  // Close directions when data layers activate or flyover starts
+  const dataLayersActive = dlState.active.size > 0;
+  useEffect(() => {
+    if (dataLayersActive || flyoverActive) {
+      setDirectionsRoute(null);
+      setDirectionsOrigin(null);
+      setDirectionsDestination(null);
+      setDirectionsError(null);
+      setDirectionsLoading(false);
+      setDirectionsStepCoord(null);
+      setDirectionsOriginIsGps(false);
+    }
+  }, [dataLayersActive, flyoverActive]);
+
   const handleCloseDirections = useCallback(() => {
     // Only clean up the highlight if directions were actually active
     const wasActive = !!directionsRoute || directionsLoading || !!directionsDestination;
@@ -981,6 +997,11 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
   useEffect(() => {
     onCloseDetailRequest?.(handleCloseDetail);
   }, [onCloseDetailRequest, handleCloseDetail]);
+
+  // Register close-directions handler with parent
+  useEffect(() => {
+    onCloseDirectionsRequest?.(handleCloseDirections);
+  }, [onCloseDirectionsRequest, handleCloseDirections]);
 
   // Cinematic "show on map" — fly to event with rotation + info card
   const showOnMapOrbitRef = useRef<number>(0);

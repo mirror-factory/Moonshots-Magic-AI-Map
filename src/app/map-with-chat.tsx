@@ -76,12 +76,14 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
   const [chatVisible, setChatVisible] = useState(true);
   /** Stable ref for chatVisible — avoids recreating callbacks when visibility changes. */
   const chatVisibleRef = useRef(chatVisible);
+  // eslint-disable-next-line react-hooks/refs
   chatVisibleRef.current = chatVisible;
 
   /** True only when data layer actively hid the chat (prevents false restores). */
   const dataLayerHidChatRef = useRef(false);
   const openDetailHandlerRef = useRef<((eventId: string) => void) | null>(null);
   const closeDetailHandlerRef = useRef<(() => void) | null>(null);
+  const closeDirectionsHandlerRef = useRef<(() => void) | null>(null);
   const showOnMapHandlerRef = useRef<((eventId: string) => void) | null>(null);
   const toggleDataLayerHandlerRef = useRef<((layerKey: string, action: "on" | "off" | "toggle") => void) | null>(null);
   const [chatPosition, setChatPositionState] = useState<ChatPosition>("center");
@@ -135,6 +137,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
   }, []);
 
   const handleShowIntro = useCallback(() => {
+    closeDirectionsHandlerRef.current?.();
     setOnboardingOpen(true);
   }, []);
 
@@ -143,6 +146,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
   }, []);
 
   const handleStartPersonalization = useCallback(() => {
+    closeDirectionsHandlerRef.current?.();
     setOnboardingOpen(true);
   }, []);
 
@@ -183,6 +187,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
   }, []);
 
   const handleStartPresentation = useCallback(() => {
+    closeDirectionsHandlerRef.current?.();
     setPresentationActive(true);
   }, []);
 
@@ -191,6 +196,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
   }, []);
 
   const handleStartShowcase = useCallback(() => {
+    closeDirectionsHandlerRef.current?.();
     setShowcaseActive(true);
   }, []);
 
@@ -243,6 +249,10 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
 
   const handleCloseDetailRequest = useCallback((handler: () => void) => {
     closeDetailHandlerRef.current = handler;
+  }, []);
+
+  const handleCloseDirectionsRequest = useCallback((handler: () => void) => {
+    closeDirectionsHandlerRef.current = handler;
   }, []);
 
   const handleShowOnMapRequest = useCallback((handler: (eventId: string) => void) => {
@@ -310,6 +320,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
         onStartPersonalization={handleStartPersonalization}
         onOpenDetailRequest={handleOpenDetailRequest}
         onCloseDetailRequest={handleCloseDetailRequest}
+        onCloseDirectionsRequest={handleCloseDirectionsRequest}
         onShowOnMapRequest={handleShowOnMapRequest}
         highlightedEventIds={highlightedEventIds}
         onClearHighlights={handleClearHighlights}

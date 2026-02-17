@@ -43,8 +43,32 @@ const oswald = Oswald({
 });
 
 export const metadata: Metadata = {
-  title: "Moonshots & Magic",
-  description: "Events discovery platform for Orlando & Central Florida",
+  title: {
+    default: "Moonshots & Magic",
+    template: "%s — Moonshots & Magic",
+  },
+  description:
+    "The story of Central Florida — a region that sent humans to the Moon and built worlds of magic. Born from impossible ambitions, shaped by extraordinary talent, and home to the boldest ideas on Earth.",
+  metadataBase: new URL("https://moonshots-magic-ai-map.vercel.app"),
+  openGraph: {
+    title: "Moonshots & Magic — Where Ambition Meets Wonder",
+    description:
+      "The story of Central Florida. From the Saturn V to Spaceship Earth — a region built on moonshots and magic, and the people who made it all possible.",
+    url: "https://moonshots-magic-ai-map.vercel.app",
+    siteName: "Moonshots & Magic",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Moonshots & Magic — Where Ambition Meets Wonder",
+    description:
+      "The story of Central Florida. A region built on moonshots and magic — explore the events, people, and places that define one of America's most extraordinary places.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 /** Root layout wrapping all pages with fonts, theme provider, and global styles. */
