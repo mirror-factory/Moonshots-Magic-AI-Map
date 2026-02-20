@@ -544,7 +544,7 @@ export function PresentationPanel({ onExit, onAskAI }: PresentationPanelProps) {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 40 }}
       transition={{ type: "spring", damping: 28, stiffness: 300 }}
-      className="grain-texture glow-border fixed right-0 top-0 z-40 flex h-screen w-[440px] max-w-[92vw] flex-col"
+      className="grain-texture glow-border fixed right-0 top-0 z-50 flex h-screen w-[440px] max-w-[92vw] flex-col"
       style={{
         background: "var(--glass-bg)",
         borderLeft: "1px solid var(--glass-border)",

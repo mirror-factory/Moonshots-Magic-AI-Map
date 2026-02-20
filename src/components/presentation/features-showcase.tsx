@@ -11,7 +11,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Play, Pause, SkipForward, X, Sparkles } from "lucide-react";
 import { useMap } from "@/components/map/use-map";
-import { SHOWCASE_STEPS, type ShowcaseStep } from "@/data/features-showcase-steps";
+import { SHOWCASE_STEPS } from "@/data/features-showcase-steps";
 import { flyToPoint } from "@/lib/map/camera-utils";
 import { deselectEventHighlight } from "@/lib/map/venue-highlight";
 import { startBackgroundMusic, stopBackgroundMusic } from "@/lib/audio/background-music";
@@ -199,6 +199,7 @@ export function FeaturesShowcase({ onExit, onToggleDataLayer, onAskAI, onShowEve
       abortRef.current?.abort();
       void stopBackgroundMusic();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -207,7 +208,7 @@ export function FeaturesShowcase({ onExit, onToggleDataLayer, onAskAI, onShowEve
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: "100%", opacity: 0 }}
       transition={{ type: "spring", damping: 30, stiffness: 300 }}
-      className="pointer-events-auto fixed right-0 top-0 z-40 flex h-full w-[420px] max-w-[90vw] flex-col"
+      className="pointer-events-auto fixed right-0 top-0 z-50 flex h-full w-[420px] max-w-[90vw] flex-col"
       style={{
         background: "linear-gradient(135deg, rgba(10, 10, 20, 0.92) 0%, rgba(15, 12, 30, 0.95) 100%)",
         backdropFilter: "blur(20px)",
