@@ -1144,7 +1144,8 @@ export function CenterChat({
                     <PinOff className="h-3.5 w-3.5" style={{ color: "var(--text-dim)" }} />
                   )}
                 </button>
-                {/* Quick Actions */}
+                {/* Quick Actions - Removed per user request */}
+                {false && (
                 <div className="relative">
                   <button
                     onClick={() => setQuickActionsOpen((prev) => !prev)}
@@ -1202,6 +1203,7 @@ export function CenterChat({
                     )}
                   </AnimatePresence>
                 </div>
+                )}
                 <VoiceInputButton
                   onTranscript={handleVoiceTranscript}
                   disabled={status === "submitted" || status === "streaming"}
