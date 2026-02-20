@@ -439,21 +439,38 @@ export function PresentationPanel({ onExit, onAskAI }: PresentationPanelProps) {
   useEffect(() => {
     if (!map) return;
 
-    const start = () => {
+    const start = async () => {
       startBackgroundMusic("showcase");
-      initStoryMarkers();
+      await initStoryMarkers();
       runFromIndex(0);
     };
 
     if (map.isStyleLoaded()) {
-      const timer = setTimeout(start, 300);
+      const timer = setTimeout(() => { void start(); }, 300);
       return () => { clearTimeout(timer); stopAll(); };
     }
 
-    map.once("load", start);
+    map.once("load", () => { void start(); });
     return () => { stopAll(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Fallback: if still at pre-start after 2s, auto-advance to first landmark
+  useEffect(() => {
+    if (!map || currentIndex !== -1) return;
+    const fallback = setTimeout(() => {
+      if (currentIndex === -1) {
+        console.log("[Presentation] Auto-start fallback triggered");
+        const fallbackStart = async () => {
+          startBackgroundMusic("showcase");
+          await initStoryMarkers();
+          runFromIndex(0);
+        };
+        void fallbackStart();
+      }
+    }, 2000);
+    return () => clearTimeout(fallback);
+  }, [map, currentIndex, runFromIndex, initStoryMarkers]);
 
   /** Toggle pause/resume. */
   const togglePause = useCallback(() => {

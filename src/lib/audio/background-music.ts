@@ -18,7 +18,7 @@ export type MusicMode = keyof typeof AUDIO_PATHS;
 /** Default volumes (kept low to not overpower narration). */
 const DEFAULT_VOLUME: Record<MusicMode, number> = {
   flyover: 0.15,
-  showcase: 0.2,
+  showcase: 0.3,
 };
 
 /** Track the current mode to avoid restarting same track. */

@@ -108,10 +108,6 @@ interface MapContainerProps {
   onStartPresentation?: () => void;
   /** Start the Features Showcase presentation. */
   onStartShowcase?: () => void;
-  /** Whether chat is visible. */
-  chatVisible?: boolean;
-  /** Toggle chat visibility. */
-  onToggleChatVisible?: () => void;
   /** Current chat position mode. */
   chatPosition?: "center" | "right";
   /** Callback when chat position changes. */
@@ -124,7 +120,7 @@ interface MapContainerProps {
 }
 
 /** Renders the root map with MapLibre GL and composes child layers. */
-export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirectionsRequest, onFilterChangeRequest, onOpenDetailRequest, onCloseDetailRequest, onCloseDirectionsRequest, onShowOnMapRequest, onStartPersonalization, highlightedEventIds, onClearHighlights, onLocationChange, onToggleDataLayerRequest, onStartPresentation, onStartShowcase, chatVisible, onToggleChatVisible, chatPosition, onChatPositionChange, onDataLayerActiveChange, onFlyoverActiveChange, children }: MapContainerProps) {
+export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirectionsRequest, onFilterChangeRequest, onOpenDetailRequest, onCloseDetailRequest, onCloseDirectionsRequest, onShowOnMapRequest, onStartPersonalization, highlightedEventIds, onClearHighlights, onLocationChange, onToggleDataLayerRequest, onStartPresentation, onStartShowcase, chatPosition, onChatPositionChange, onDataLayerActiveChange, onFlyoverActiveChange, children }: MapContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<maplibregl.Map | null>(null);
   const [styleLoaded, setStyleLoaded] = useState(false);
@@ -958,12 +954,6 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
     });
   }, [handleCloseDirections]);
 
-  /** Wraps chat toggle to also clear data layers when opening. */
-  const handleToggleChatVisible = useCallback(() => {
-    if (!chatVisible) dlDispatch({ type: "CLEAR" }); // opening → clear data layers
-    onToggleChatVisible?.();
-  }, [chatVisible, onToggleChatVisible]);
-
   // Handle AI-driven filter changes (preset and/or category)
   const handleFilterChange = useCallback(
     (preset?: DatePreset) => {
@@ -1304,8 +1294,6 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
           onToggleCoordinates={() => setShowCoordinates((p) => !p)}
           eventsPanelOpen={eventsPanelOpen}
           onToggleEventsPanel={handleToggleEventsPanel}
-          chatVisible={chatVisible}
-          onToggleChatVisible={handleToggleChatVisible}
           chatPosition={chatPosition}
           onChatPositionChange={onChatPositionChange}
           onToolbarTabOpen={() => dlDispatch({ type: "CLEAR" })}

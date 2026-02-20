@@ -73,14 +73,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
   const [presentationActive, setPresentationActive] = useState(false);
   const [showcaseActive, setShowcaseActive] = useState(false);
   const [locationEnabled, setLocationEnabled] = useState(true);
-  const [chatVisible, setChatVisible] = useState(true);
-  /** Stable ref for chatVisible — avoids recreating callbacks when visibility changes. */
-  const chatVisibleRef = useRef(chatVisible);
-  // eslint-disable-next-line react-hooks/refs
-  chatVisibleRef.current = chatVisible;
 
-  /** True only when data layer actively hid the chat (prevents false restores). */
-  const dataLayerHidChatRef = useRef(false);
   const openDetailHandlerRef = useRef<((eventId: string) => void) | null>(null);
   const closeDetailHandlerRef = useRef<(() => void) | null>(null);
   const closeDirectionsHandlerRef = useRef<(() => void) | null>(null);
@@ -90,6 +83,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
 
   // Load chat position on mount (deferred to avoid hydration mismatch)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setChatPositionState(getChatPosition());
   }, []);
 
@@ -102,6 +96,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
   useEffect(() => {
     const onboardingActive = !localStorage.getItem(ONBOARDING_STORAGE_KEY);
     sessionStorage.removeItem("show-transition");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!onboardingActive) setShowTransition(true);
   }, []);
 
@@ -208,36 +203,15 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
     setHighlightedEventIds([]);
   }, []);
 
-  /** Snap chat down when a data layer activates; restore when deactivated. */
-  const handleDataLayerActiveChange = useCallback((active: boolean) => {
-    if (active) {
-      // Only mark as "we hid it" if chat was actually visible
-      if (chatVisibleRef.current) {
-        dataLayerHidChatRef.current = true;
-        setChatVisible(false);
-      }
-    } else if (dataLayerHidChatRef.current) {
-      // Only restore if this feature was the one that hid it
-      dataLayerHidChatRef.current = false;
-      setChatVisible(true);
-    }
-  }, []); // Stable — reads chatVisible from ref
+  /** Data layer activation tracking (chat remains always visible). */
+  const handleDataLayerActiveChange = useCallback(() => {
+    // Chat no longer hides when data layers activate
+  }, []);
 
-  /** True only when flyover actively hid the chat. */
-  const flyoverHidChatRef = useRef(false);
-
-  /** Hide chat when flyover starts; restore when it ends. */
-  const handleFlyoverActiveChange = useCallback((active: boolean) => {
-    if (active) {
-      if (chatVisibleRef.current) {
-        flyoverHidChatRef.current = true;
-        setChatVisible(false);
-      }
-    } else if (flyoverHidChatRef.current) {
-      flyoverHidChatRef.current = false;
-      setChatVisible(true);
-    }
-  }, []); // Stable — reads chatVisible from ref
+  /** Flyover activation tracking (chat remains always visible). */
+  const handleFlyoverActiveChange = useCallback(() => {
+    // Chat no longer hides during flyovers
+  }, []);
 
   const handleLocationChange = useCallback((enabled: boolean) => {
     setLocationEnabled(enabled);
@@ -328,8 +302,6 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
         onToggleDataLayerRequest={handleToggleDataLayerRequest}
         onStartPresentation={handleStartPresentation}
         onStartShowcase={handleStartShowcase}
-        chatVisible={chatVisible}
-        onToggleChatVisible={() => setChatVisible((v) => !v)}
         chatPosition={chatPosition}
         onChatPositionChange={handleChatPositionChange}
         onDataLayerActiveChange={handleDataLayerActiveChange}
@@ -348,7 +320,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
           onOpenDetail={handleOpenDetail}
           onToggleDataLayer={handleToggleDataLayer}
           ambientContext={effectiveContext}
-          visible={chatVisible}
+          visible={true}
           chatPosition={chatPosition}
         />
         {/* Presentation panels overlay alongside chat */}

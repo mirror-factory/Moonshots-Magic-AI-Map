@@ -15,10 +15,18 @@ describe("events registry", () => {
   // getEvents
   // ------------------------------------------------------------------
   describe("getEvents", () => {
-    it("returns all events when called with no filters", () => {
+    it("returns only future events when called with no filters (filters out past events by default)", () => {
       const events = getEvents();
+      const all = getAllEvents();
       expect(events.length).toBeGreaterThan(0);
-      expect(events.length).toBe(getAllEvents().length);
+      // Should return fewer events than total (excludes past events)
+      expect(events.length).toBeLessThanOrEqual(all.length);
+      // All returned events should be in the future
+      const now = new Date().getTime();
+      events.forEach((e) => {
+        const eventDate = new Date(e.endDate || e.startDate).getTime();
+        expect(eventDate).toBeGreaterThanOrEqual(now);
+      });
     });
 
     it("filters by a single category", () => {
@@ -138,11 +146,12 @@ describe("events registry", () => {
   // getAllEvents
   // ------------------------------------------------------------------
   describe("getAllEvents", () => {
-    it("returns the same count as getEvents with no filters", () => {
+    it("returns all events including past events (unlike getEvents which filters by default)", () => {
       const all = getAllEvents();
-      const noFilter = getEvents();
-      expect(all).toHaveLength(noFilter.length);
+      const futureOnly = getEvents();
       expect(all.length).toBeGreaterThan(0);
+      // getAllEvents should return more events than getEvents (includes past events)
+      expect(all.length).toBeGreaterThanOrEqual(futureOnly.length);
     });
   });
 

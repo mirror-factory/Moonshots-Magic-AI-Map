@@ -33,7 +33,6 @@ import {
   Bus,
   Landmark,
   List,
-  MessageCircle,
   MessageSquare,
   Crosshair,
   TriangleAlert,
@@ -273,10 +272,6 @@ interface MapToolbarProps {
   eventsPanelOpen?: boolean;
   /** Toggle events panel visibility. */
   onToggleEventsPanel?: () => void;
-  /** Whether chat is visible. */
-  chatVisible?: boolean;
-  /** Toggle chat visibility. */
-  onToggleChatVisible?: () => void;
   /** Current chat position mode. */
   chatPosition?: "center" | "right";
   /** Callback when chat position changes. */
@@ -310,7 +305,6 @@ export function MapToolbar({
   activeDataLayers,
   loadingDataLayers,
   onToggleDataLayer,
-  dataLayerData,
   weatherSubType,
   onWeatherSubTypeChange,
   mode3D = false,
@@ -324,8 +318,6 @@ export function MapToolbar({
   onToggleCoordinates,
   eventsPanelOpen,
   onToggleEventsPanel,
-  chatVisible = true,
-  onToggleChatVisible,
   chatPosition = "center",
   onChatPositionChange,
   onToolbarTabOpen,
@@ -356,7 +348,11 @@ export function MapToolbar({
 
   // Ref tracking whether a data layer is active (for gating GPS marker updates)
   const dataLayerActiveRef = useRef(false);
-  dataLayerActiveRef.current = (activeDataLayers?.size ?? 0) > 0;
+
+  // Update data layer active ref when activeDataLayers changes
+  useEffect(() => {
+    dataLayerActiveRef.current = (activeDataLayers?.size ?? 0) > 0;
+  }, [activeDataLayers]);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -408,7 +404,7 @@ export function MapToolbar({
       }
       removeUserLocationMarker(map);
     };
-  }, [map]);
+  }, [map, onLocationUpdate]);
 
   /** Location button: enable → fly-to on first click, fly-to on subsequent clicks. */
   const handleLocationClick = useCallback(() => {
@@ -489,10 +485,11 @@ export function MapToolbar({
 
   // Stop auto-rotate when directions or flyover are active
   useEffect(() => {
-    if (disableAutoRotate && autoRotating) {
+    if (disableAutoRotate) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAutoRotating(false);
     }
-  }, [disableAutoRotate, autoRotating]);
+  }, [disableAutoRotate]);
 
   // GPS marker and data layers are mutually exclusive
   useEffect(() => {
@@ -605,16 +602,6 @@ export function MapToolbar({
               onClick={toggleLayers}
               label="Data layers"
               indicatorActive={layersActive}
-            />
-          )}
-
-          {/* Chat — standalone */}
-          {onToggleChatVisible && (
-            <StandaloneIcon
-              icon={MessageCircle}
-              active={chatVisible}
-              onClick={onToggleChatVisible}
-              label="Toggle chat"
             />
           )}
 

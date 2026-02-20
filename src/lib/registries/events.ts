@@ -28,6 +28,9 @@ function matchesQuery(event: EventEntry, query: string): boolean {
  * region, tags, featured. Results are sorted by start date ascending,
  * then paginated via `offset` and `limit`.
  *
+ * **IMPORTANT**: By default, only active future events are returned.
+ * Past events (events where endDate or startDate is before now) are excluded.
+ *
  * @param filters - Optional query constraints. Omit for all events.
  * @returns Filtered and sorted array of events.
  *
@@ -39,24 +42,33 @@ function matchesQuery(event: EventEntry, query: string): boolean {
 export function getEvents(filters?: EventFilters): EventEntry[] {
   let events = registry.events;
 
-  if (!filters) return events;
+  // Filter out past events by default (unless explicitly requesting past events)
+  const now = new Date().getTime();
+  if (!filters?.status || filters.status !== "past") {
+    events = events.filter((e) => {
+      // Use endDate if available, otherwise use startDate
+      const eventDate = new Date(e.endDate || e.startDate).getTime();
+      return eventDate >= now && e.status !== "past";
+    });
+  }
 
-  if (filters.status) {
+  // Apply additional filters if provided
+  if (filters?.status) {
     events = events.filter((e) => e.status === filters.status);
   }
 
-  if (filters.query) {
+  if (filters?.query) {
     events = events.filter((e) => matchesQuery(e, filters.query!));
   }
 
-  if (filters.category) {
+  if (filters?.category) {
     const cats = Array.isArray(filters.category)
       ? filters.category
       : [filters.category];
     events = events.filter((e) => cats.includes(e.category));
   }
 
-  if (filters.dateRange) {
+  if (filters?.dateRange) {
     const start = new Date(filters.dateRange.start).getTime();
     const end = new Date(filters.dateRange.end).getTime();
     events = events.filter((e) => {
@@ -65,24 +77,24 @@ export function getEvents(filters?: EventFilters): EventEntry[] {
     });
   }
 
-  if (filters.city) {
+  if (filters?.city) {
     const city = filters.city.toLowerCase();
     events = events.filter((e) => e.city.toLowerCase() === city);
   }
 
-  if (filters.region) {
+  if (filters?.region) {
     const region = filters.region.toLowerCase();
     events = events.filter((e) => e.region.toLowerCase() === region);
   }
 
-  if (filters.tags?.length) {
+  if (filters?.tags?.length) {
     const tags = filters.tags.map((t) => t.toLowerCase());
     events = events.filter((e) =>
       tags.some((t) => e.tags.some((et) => et.toLowerCase().includes(t))),
     );
   }
 
-  if (filters.featured) {
+  if (filters?.featured) {
     events = events.filter((e) => e.featured);
   }
 
@@ -100,11 +112,11 @@ export function getEvents(filters?: EventFilters): EventEntry[] {
     return true;
   });
 
-  if (filters.offset) {
+  if (filters?.offset) {
     events = events.slice(filters.offset);
   }
 
-  if (filters.limit) {
+  if (filters?.limit) {
     events = events.slice(0, filters.limit);
   }
 
@@ -123,29 +135,44 @@ export function getEventById(id: string): EventEntry | undefined {
 
 /**
  * Return all events whose coordinates fall within a geographic bounding box.
+ * Only returns active future events (excludes past events by default).
  *
  * @param sw - Southwest corner as `[longitude, latitude]`.
  * @param ne - Northeast corner as `[longitude, latitude]`.
- * @returns Events within the bounding box.
+ * @returns Future events within the bounding box.
  */
 export function getEventsByBounds(
   sw: [number, number],
   ne: [number, number],
 ): EventEntry[] {
+  const now = new Date().getTime();
   return registry.events.filter((e) => {
     const [lng, lat] = e.coordinates;
-    return lng >= sw[0] && lng <= ne[0] && lat >= sw[1] && lat <= ne[1];
+    const eventDate = new Date(e.endDate || e.startDate).getTime();
+    return (
+      lng >= sw[0] &&
+      lng <= ne[0] &&
+      lat >= sw[1] &&
+      lat <= ne[1] &&
+      eventDate >= now &&
+      e.status !== "past"
+    );
   });
 }
 
 /**
  * Return all events matching a specific category.
+ * Only returns active future events (excludes past events by default).
  *
  * @param category - The category to filter by.
- * @returns Matching events (unordered).
+ * @returns Matching future events (unordered).
  */
 export function getEventsByCategory(category: EventCategory): EventEntry[] {
-  return registry.events.filter((e) => e.category === category);
+  const now = new Date().getTime();
+  return registry.events.filter((e) => {
+    const eventDate = new Date(e.endDate || e.startDate).getTime();
+    return e.category === category && eventDate >= now && e.status !== "past";
+  });
 }
 
 /**
@@ -168,12 +195,18 @@ export function getUpcomingEvents(limit = 10): EventEntry[] {
 
 /**
  * Free-text search across event titles, descriptions, tags, venues, and cities.
+ * Only returns active future events (excludes past events by default).
  *
  * @param query - Search string (case-insensitive).
- * @returns All matching events.
+ * @returns All matching future events.
  */
 export function searchEvents(query: string): EventEntry[] {
-  return registry.events.filter((e) => matchesQuery(e, query));
+  const now = new Date().getTime();
+  return registry.events.filter((e) => {
+    // Filter out past events
+    const eventDate = new Date(e.endDate || e.startDate).getTime();
+    return eventDate >= now && e.status !== "past" && matchesQuery(e, query);
+  });
 }
 
 /**
