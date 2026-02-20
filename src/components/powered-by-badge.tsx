@@ -25,7 +25,7 @@ export function PoweredByBadge() {
     >
       Powered by{" "}
       <a
-        href="https://github.com/mirror-factory"
+        href="https://mirrorfactory.com"
         target="_blank"
         rel="noopener noreferrer"
         className="transition-colors hover:text-brand-primary"
