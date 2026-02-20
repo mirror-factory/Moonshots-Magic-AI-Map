@@ -62,7 +62,7 @@ import { MapAction } from "./map-action";
 import { Sparkle } from "@/components/effects/sparkle";
 import { VoiceInputButton } from "./voice-input-button";
 import { speak, stopSpeaking, isSpeaking } from "@/lib/voice/cartesia-tts";
-import { getChatPinned, setChatPinned, getChatPosition, type ChatPosition } from "@/lib/settings";
+import { getChatPinned, setChatPinned, type ChatPosition } from "@/lib/settings";
 import { getProfile, updateProfile } from "@/lib/profile-storage";
 import { SuggestionTiles } from "./suggestion-tiles";
 import { useMap } from "@/components/map/use-map";
@@ -98,6 +98,7 @@ function useTypewriter(active: boolean): string {
 
   useEffect(() => {
     if (!active) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setText("");
       return;
     }
@@ -505,7 +506,7 @@ export function CenterChat({
         const title = parts.slice(colonIdx + 1);
         sendMessage({ text: `Tell me about "${title}" (event ID: ${eventId}). Use getEventDetails to look it up.` });
       } else {
-        sendMessage({ text: `Tell me about "${initialInput}"` });
+        sendMessage({ text: initialInput });
       }
       onClearInitialInput?.();
     }, 150);

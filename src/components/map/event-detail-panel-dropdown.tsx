@@ -323,11 +323,11 @@ export function EventDetailPanelDropdown({
         style={{ borderColor: "var(--border-color)" }}
       >
         <Button
-          onClick={() => onAskAI(event.title)}
+          onClick={() => onAskAI(`__EVENT__:${event.id}:${event.title}`)}
           size="icon"
           className="h-9 w-9 shrink-0 text-white"
           style={{ background: "var(--brand-blue, #3B82F6)" }}
-          title="Ask Ditto"
+          title="Ask AI about this event"
         >
           <Sparkles className="h-4 w-4" />
         </Button>
