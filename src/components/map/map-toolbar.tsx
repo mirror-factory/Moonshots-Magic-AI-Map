@@ -567,7 +567,7 @@ export function MapToolbar({
           </button>
         </div>
       ) : (
-        /* Icon bar — [List] [Calendar] [Compass] [Search] [Layers] [Chat] [Location] [Settings] | [Play] */
+        /* Icon bar — [List] [Calendar] [Compass] [Search] [Layers] [Location] [Settings] | [Play] */
         <div className="flex items-center gap-0.5 rounded-full px-1.5 py-1" style={glassPill}>
           {/* List — standalone: toggle events panel (closes other dropdowns) */}
           {onToggleEventsPanel && (

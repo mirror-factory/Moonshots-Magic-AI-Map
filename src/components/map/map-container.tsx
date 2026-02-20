@@ -498,9 +498,14 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
               audioBuffer: r.audioBuffer!,
             }))
             .filter((u) => u.index >= 0 && !prev.waypoints[u.index].audioBuffer);
-          if (updates.length === 0) return prev;
-          console.log("[Flyover] Basic audio ready for", updates.length, "waypoints");
-          return updateWaypointAudio(prev, updates);
+
+          // IMPORTANT: Force audioReady after basic audio completes, even if some failed.
+          // Waypoints without buffers will fall back to live TTS during playback.
+          const updated = updates.length > 0 ? updateWaypointAudio(prev, updates) : prev;
+          if (updated.audioReady) return updated; // All ready, updateWaypointAudio handled it
+
+          console.log("[Flyover] Basic audio ready for", updates.length, "waypoints — enabling flyover");
+          return { ...updated, audioReady: true };
         });
       });
 

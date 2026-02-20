@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastSynced": "2026-02-20T05:08:31.338Z",
+  "lastSynced": "2026-02-20T05:29:42.057Z",
   "metadata": {
     "totalEvents": 1623,
     "activeEvents": 1623,
@@ -32,6 +32,80 @@
     ]
   },
   "events": [
+    {
+      "id": "manual-joybreak-immerse-2026",
+      "title": "Joybreak × IMMERSE: An Art Crawl Through Downtown Orlando",
+      "description": "Join us for a Joybreak Art Crawl through IMMERSE Festival, a city-wide celebration of interactive art, immersive experiences, and creative technology lighting up Downtown Orlando. We'll meet at the Dr. Phillips Center at 6PM, then make our way through the festival together, stopping to explore installations at OtherVRse before closing out the night at Assemblage's house party at 8PM. This is the after-party to the Orlando Tech Summit. Come curious, come social, and come ready to wander. In partnership with Innovate Orlando.",
+      "category": "arts",
+      "coordinates": [
+        -81.37681199999997,
+        28.537695
+      ],
+      "venue": "Dr. Phillips Center for the Performing Arts",
+      "address": "445 S Magnolia Ave",
+      "city": "Orlando",
+      "region": "Downtown Orlando",
+      "startDate": "2026-02-20T23:00:00Z",
+      "endDate": "2026-02-21T03:00:00Z",
+      "timezone": "America/New_York",
+      "url": "https://luma.com/iojvapmq",
+      "tags": [
+        "art",
+        "immersive",
+        "festival",
+        "crawl",
+        "networking",
+        "interactive art",
+        "creative technology",
+        "IMMERSE",
+        "downtown"
+      ],
+      "source": {
+        "type": "manual",
+        "addedBy": "admin"
+      },
+      "createdAt": "2026-02-20T05:29:42.054Z",
+      "updatedAt": "2026-02-20T05:29:42.055Z",
+      "status": "active",
+      "featured": true
+    },
+    {
+      "id": "manual-orlando-tech-summit-2026",
+      "title": "Orlando Tech Summit & Community Awards",
+      "description": "Join founders, investors, corporates, universities, and community partners for an afternoon celebrating Orlando's innovation ecosystem. Features keynote presentations, panel discussions on Orlando's tech economy, startup showcases, capital markets insights, and the inaugural Hall of Fame awards recognizing exceptional technologists and innovation leaders. Includes lunch, expo hall, innovation roundtables, and networking on the rooftop terrace. Presented by Innovate Orlando.",
+      "category": "tech",
+      "coordinates": [
+        -81.37681199999997,
+        28.537695
+      ],
+      "venue": "Dr. Phillips Center for the Performing Arts",
+      "address": "445 S. Magnolia Avenue",
+      "city": "Orlando",
+      "region": "Downtown Orlando",
+      "startDate": "2026-02-20T17:00:00Z",
+      "endDate": "2026-02-20T22:30:00Z",
+      "timezone": "America/New_York",
+      "url": "https://innovateorlando.org",
+      "tags": [
+        "tech",
+        "innovation",
+        "summit",
+        "awards",
+        "networking",
+        "startups",
+        "venture capital",
+        "ecosystem",
+        "hall of fame"
+      ],
+      "source": {
+        "type": "manual",
+        "addedBy": "admin"
+      },
+      "createdAt": "2026-02-20T05:29:42.016Z",
+      "updatedAt": "2026-02-20T05:29:42.017Z",
+      "status": "active",
+      "featured": true
+    },
     {
       "id": "tm-Za5ju3rKuqZB8ktHbgm4CjhHSR7CyolTe",
       "title": "February  19  Daytona Tours",
