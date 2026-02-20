@@ -112,6 +112,10 @@ interface MapContainerProps {
   chatPosition?: "center" | "right";
   /** Callback when chat position changes. */
   onChatPositionChange?: (position: "center" | "right") => void;
+  /** Whether chat is currently visible. */
+  chatVisible?: boolean;
+  /** Toggle chat visibility. */
+  onToggleChatVisible?: () => void;
   /** Fires when a data layer becomes active or all layers are deactivated. */
   onDataLayerActiveChange?: (active: boolean) => void;
   /** Fires when flyover becomes active or ends. */
@@ -120,7 +124,7 @@ interface MapContainerProps {
 }
 
 /** Renders the root map with MapLibre GL and composes child layers. */
-export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirectionsRequest, onFilterChangeRequest, onOpenDetailRequest, onCloseDetailRequest, onCloseDirectionsRequest, onShowOnMapRequest, onStartPersonalization, highlightedEventIds, onClearHighlights, onLocationChange, onToggleDataLayerRequest, onStartPresentation, onStartShowcase, chatPosition, onChatPositionChange, onDataLayerActiveChange, onFlyoverActiveChange, children }: MapContainerProps) {
+export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirectionsRequest, onFilterChangeRequest, onOpenDetailRequest, onCloseDetailRequest, onCloseDirectionsRequest, onShowOnMapRequest, onStartPersonalization, highlightedEventIds, onClearHighlights, onLocationChange, onToggleDataLayerRequest, onStartPresentation, onStartShowcase, chatPosition, onChatPositionChange, chatVisible, onToggleChatVisible, onDataLayerActiveChange, onFlyoverActiveChange, children }: MapContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<maplibregl.Map | null>(null);
   const [styleLoaded, setStyleLoaded] = useState(false);
@@ -1301,6 +1305,9 @@ export function MapContainer({ events, onAskAbout, onFlyoverRequest, onDirection
           onToggleEventsPanel={handleToggleEventsPanel}
           chatPosition={chatPosition}
           onChatPositionChange={onChatPositionChange}
+          chatVisible={chatVisible}
+          onToggleChatVisible={onToggleChatVisible}
+          flyoverActive={flyoverActive}
           onToolbarTabOpen={() => dlDispatch({ type: "CLEAR" })}
           onClearDataLayers={() => dlDispatch({ type: "CLEAR" })}
           localVenues={localVenues}

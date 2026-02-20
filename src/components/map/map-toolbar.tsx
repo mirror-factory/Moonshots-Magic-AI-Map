@@ -34,6 +34,7 @@ import {
   Landmark,
   List,
   MessageSquare,
+  MessageCircle,
   Crosshair,
   TriangleAlert,
   Wind,
@@ -276,6 +277,12 @@ interface MapToolbarProps {
   chatPosition?: "center" | "right";
   /** Callback when chat position changes. */
   onChatPositionChange?: (position: "center" | "right") => void;
+  /** Whether chat is currently visible. */
+  chatVisible?: boolean;
+  /** Toggle chat visibility. */
+  onToggleChatVisible?: () => void;
+  /** Whether flyover is currently active (hides chat toggle button). */
+  flyoverActive?: boolean;
   /** Called when a toolbar tab or layer panel is opened (for clearing data layers). */
   onToolbarTabOpen?: () => void;
   /** Clear all active data layers. */
@@ -320,6 +327,9 @@ export function MapToolbar({
   onToggleEventsPanel,
   chatPosition = "center",
   onChatPositionChange,
+  chatVisible = true,
+  onToggleChatVisible,
+  flyoverActive = false,
   onToolbarTabOpen,
   onClearDataLayers,
   localVenues,
@@ -625,6 +635,16 @@ export function MapToolbar({
               />
             )}
           </button>
+
+          {/* Chat — standalone: toggle chat visibility (hides during flyover) */}
+          {!flyoverActive && onToggleChatVisible && (
+            <StandaloneIcon
+              icon={MessageCircle}
+              active={chatVisible}
+              onClick={onToggleChatVisible}
+              label="Toggle chat"
+            />
+          )}
 
           {/* Settings — tab */}
           <TabIcon icon={Settings} tab="settings" activeTab={activeTab} hasIndicator={settingsActive} onClick={handleTabClick} label="Settings" />

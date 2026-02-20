@@ -81,6 +81,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
   const toggleDataLayerHandlerRef = useRef<((layerKey: string, action: "on" | "off" | "toggle") => void) | null>(null);
   const [chatPosition, setChatPositionState] = useState<ChatPosition>("center");
   const [flyoverActive, setFlyoverActive] = useState(false);
+  const [chatVisible, setChatVisible] = useState(true);
 
   // Load chat position on mount (deferred to avoid hydration mismatch)
   useEffect(() => {
@@ -214,6 +215,11 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
     setFlyoverActive(active);
   }, []);
 
+  /** Toggle chat visibility from toolbar button. */
+  const handleToggleChatVisible = useCallback(() => {
+    setChatVisible((prev) => !prev);
+  }, []);
+
   const handleLocationChange = useCallback((enabled: boolean) => {
     setLocationEnabled(enabled);
   }, []);
@@ -305,6 +311,8 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
         onStartShowcase={handleStartShowcase}
         chatPosition={chatPosition}
         onChatPositionChange={handleChatPositionChange}
+        chatVisible={chatVisible}
+        onToggleChatVisible={handleToggleChatVisible}
         onDataLayerActiveChange={handleDataLayerActiveChange}
         onFlyoverActiveChange={handleFlyoverActiveChange}
       >
@@ -321,7 +329,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
           onOpenDetail={handleOpenDetail}
           onToggleDataLayer={handleToggleDataLayer}
           ambientContext={effectiveContext}
-          visible={true}
+          visible={chatVisible}
           chatPosition={chatPosition}
           flyoverActive={flyoverActive}
         />
