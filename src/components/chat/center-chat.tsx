@@ -165,6 +165,8 @@ interface CenterChatProps {
   visible?: boolean;
   /** Chat position mode — center (bottom-center) or right (right side panel). */
   chatPosition?: ChatPosition;
+  /** Whether flyover is currently active — hides collapse button during flyover. */
+  flyoverActive?: boolean;
 }
 
 /** Quick action items for the dropdown menu. */
@@ -194,6 +196,7 @@ export function CenterChat({
   ambientContext = null,
   visible = true,
   chatPosition = "center",
+  flyoverActive = false,
 }: CenterChatProps) {
   const [expanded, setExpanded] = useState(false);
   const [pinned, setPinned] = useState(() => getChatPinned());
@@ -610,13 +613,15 @@ export function CenterChat({
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setExpanded(false)}
-                    className="rounded-lg p-1 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-                    aria-label="Collapse chat"
-                  >
-                    <ChevronDown className="h-4 w-4" style={{ color: "var(--text-dim)" }} />
-                  </button>
+                  {!flyoverActive && (
+                    <button
+                      onClick={() => setExpanded(false)}
+                      className="rounded-lg p-1 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                      aria-label="Collapse chat"
+                    >
+                      <ChevronDown className="h-4 w-4" style={{ color: "var(--text-dim)" }} />
+                    </button>
+                  )}
                 </div>
               </div>
 

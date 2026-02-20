@@ -80,6 +80,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
   const showOnMapHandlerRef = useRef<((eventId: string) => void) | null>(null);
   const toggleDataLayerHandlerRef = useRef<((layerKey: string, action: "on" | "off" | "toggle") => void) | null>(null);
   const [chatPosition, setChatPositionState] = useState<ChatPosition>("center");
+  const [flyoverActive, setFlyoverActive] = useState(false);
 
   // Load chat position on mount (deferred to avoid hydration mismatch)
   useEffect(() => {
@@ -208,9 +209,9 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
     // Chat no longer hides when data layers activate
   }, []);
 
-  /** Flyover activation tracking (chat remains always visible). */
-  const handleFlyoverActiveChange = useCallback(() => {
-    // Chat no longer hides during flyovers
+  /** Flyover activation tracking - hide collapse button during flyover. */
+  const handleFlyoverActiveChange = useCallback((active: boolean) => {
+    setFlyoverActive(active);
   }, []);
 
   const handleLocationChange = useCallback((enabled: boolean) => {
@@ -322,6 +323,7 @@ export function MapWithChat({ events: staticEvents }: MapWithChatProps) {
           ambientContext={effectiveContext}
           visible={true}
           chatPosition={chatPosition}
+          flyoverActive={flyoverActive}
         />
         {/* Presentation panels overlay alongside chat */}
         <AnimatePresence>
